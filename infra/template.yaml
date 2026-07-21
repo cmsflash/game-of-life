@@ -1,0 +1,724 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Transform: AWS::Serverless-2016-10-31
+Description: >-
+  Production AWS stack for The Game of Life: container Lambda API, HTTP API,
+  DynamoDB, Cognito, operational logging, and alarms.
+
+Parameters:
+  EnvironmentName:
+    Type: String
+    Default: production
+    AllowedPattern: "^[a-z][a-z0-9-]{1,20}$"
+    Description: Environment label used in tags and resource names.
+  StageName:
+    Type: String
+    Default: prod
+    AllowedPattern: "^[A-Za-z0-9_-]+$"
+    Description: API Gateway stage name.
+  CognitoDomainPrefix:
+    Type: String
+    AllowedPattern: "^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$"
+    Description: >-
+      Globally unique Cognito Hosted UI prefix. The resulting hostname is
+      PREFIX.auth.REGION.amazoncognito.com.
+  GoogleClientId:
+    Type: String
+    Default: ""
+    Description: Google OAuth client ID. Leave both Google parameters empty to disable Google login.
+  GoogleClientSecretArn:
+    Type: String
+    Default: ""
+    AllowedPattern: '^$|^arn:aws[a-zA-Z-]*:secretsmanager:[a-z0-9-]+:\d{12}:secret:.+$'
+    Description: >-
+      ARN of a Secrets Manager secret whose entire SecretString is the Google
+      OAuth client secret. Leave both Google parameters empty to disable Google login.
+  CognitoSesSourceArn:
+    Type: String
+    Default: ""
+    AllowedPattern: '^$|^arn:aws[a-zA-Z-]*:ses:[a-z0-9-]+:\d{12}:identity/.+$'
+    Description: Optional verified SES identity ARN for production account email.
+  CognitoFromEmail:
+    Type: String
+    Default: ""
+    AllowedPattern: '^$|^.+<[^@\s]+@[^@\s]+\.[^@\s]+>$|^[^@\s]+@[^@\s]+\.[^@\s]+$'
+    Description: Optional From address, for example The Game of Life <noreply@example.com>.
+  CorsAllowedOrigins:
+    Type: CommaDelimitedList
+    Default: "http://localhost:3000,http://localhost:5000,http://localhost:8081"
+    Description: Exact browser origins allowed by API CORS; production should not use wildcards.
+  AllowedReturnUrls:
+    Type: CommaDelimitedList
+    Default: "http://localhost:3000/auth/callback,http://localhost:5000/auth/callback,com.cmsflash.gameoflife://auth"
+    Description: Exact post-login return URLs accepted by the application.
+  ApiCustomDomainName:
+    Type: String
+    Default: ""
+    AllowedPattern: '^$|^(?=.{1,253}$)(?:[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]{2,63}$'
+    Description: Optional API hostname, for example api.life.example.com.
+  ApiCertificateArn:
+    Type: String
+    Default: ""
+    AllowedPattern: '^$|^arn:aws[a-zA-Z-]*:acm:[a-z0-9-]+:\d{12}:certificate/.+$'
+    Description: Optional same-region ACM certificate ARN for ApiCustomDomainName.
+  CreateRoute53Records:
+    Type: String
+    Default: "false"
+    AllowedValues: ["true", "false"]
+    Description: Create A and AAAA alias records for the custom API hostname.
+  Route53HostedZoneId:
+    Type: String
+    Default: ""
+    Description: Route 53 public hosted zone ID; required when CreateRoute53Records is true.
+  LambdaArchitecture:
+    Type: String
+    Default: arm64
+    AllowedValues: [arm64, x86_64]
+  LambdaMemorySize:
+    Type: Number
+    Default: 1024
+    MinValue: 512
+    MaxValue: 10240
+  LambdaReservedConcurrency:
+    Type: Number
+    Default: 20
+    MinValue: 1
+  LogRetentionDays:
+    Type: Number
+    Default: 30
+    AllowedValues: [1, 3, 5, 7, 14, 30, 60, 90, 120, 150, 180, 365, 400, 545, 731, 1096, 1827, 2192, 2557, 2922, 3288, 3653]
+  EnableDeletionProtection:
+    Type: String
+    Default: "true"
+    AllowedValues: ["true", "false"]
+    Description: Protect the Cognito user pool and DynamoDB table from deletion.
+  AlarmNotificationEmail:
+    Type: String
+    Default: ""
+    AllowedPattern: '^$|^[^@\s]+@[^@\s]+\.[^@\s]+$'
+    Description: Optional email subscription for alarm notifications; confirmation is required.
+
+Rules:
+  GoogleCredentialsArePaired:
+    Assertions:
+      - Assert:
+          Fn::Or:
+            - Fn::And:
+                - Fn::Equals: [{Ref: GoogleClientId}, ""]
+                - Fn::Equals: [{Ref: GoogleClientSecretArn}, ""]
+            - Fn::And:
+                - Fn::Not: [{Fn::Equals: [{Ref: GoogleClientId}, ""]}]
+                - Fn::Not: [{Fn::Equals: [{Ref: GoogleClientSecretArn}, ""]}]
+        AssertDescription: GoogleClientId and GoogleClientSecretArn must both be set or both be empty.
+  CognitoSesParametersArePaired:
+    Assertions:
+      - Assert:
+          Fn::Or:
+            - Fn::And:
+                - Fn::Equals: [{Ref: CognitoSesSourceArn}, ""]
+                - Fn::Equals: [{Ref: CognitoFromEmail}, ""]
+            - Fn::And:
+                - Fn::Not: [{Fn::Equals: [{Ref: CognitoSesSourceArn}, ""]}]
+                - Fn::Not: [{Fn::Equals: [{Ref: CognitoFromEmail}, ""]}]
+        AssertDescription: CognitoSesSourceArn and CognitoFromEmail must both be set or both be empty.
+  CustomDomainParametersArePaired:
+    Assertions:
+      - Assert:
+          Fn::Or:
+            - Fn::And:
+                - Fn::Equals: [{Ref: ApiCustomDomainName}, ""]
+                - Fn::Equals: [{Ref: ApiCertificateArn}, ""]
+            - Fn::And:
+                - Fn::Not: [{Fn::Equals: [{Ref: ApiCustomDomainName}, ""]}]
+                - Fn::Not: [{Fn::Equals: [{Ref: ApiCertificateArn}, ""]}]
+        AssertDescription: ApiCustomDomainName and ApiCertificateArn must both be set or both be empty.
+  Route53RequiresCustomDomain:
+    RuleCondition:
+      Fn::Equals: [{Ref: CreateRoute53Records}, "true"]
+    Assertions:
+      - Assert:
+          Fn::And:
+            - Fn::Not: [{Fn::Equals: [{Ref: ApiCustomDomainName}, ""]}]
+            - Fn::Not: [{Fn::Equals: [{Ref: ApiCertificateArn}, ""]}]
+            - Fn::Not: [{Fn::Equals: [{Ref: Route53HostedZoneId}, ""]}]
+        AssertDescription: DNS records require the custom domain, certificate, and hosted zone parameters.
+
+Conditions:
+  HasGoogleIdentityProvider: !Not [!Equals [!Ref GoogleClientId, ""]]
+  DoesNotHaveGoogleIdentityProvider: !Equals [!Ref GoogleClientId, ""]
+  HasCognitoSesConfiguration: !Not [!Equals [!Ref CognitoSesSourceArn, ""]]
+  HasApiCustomDomain: !Not [!Equals [!Ref ApiCustomDomainName, ""]]
+  ShouldCreateRoute53Records: !And
+    - !Condition HasApiCustomDomain
+    - !Equals [!Ref CreateRoute53Records, "true"]
+  ShouldCreateAlarmEmailSubscription: !Not [!Equals [!Ref AlarmNotificationEmail, ""]]
+  UseDeletionProtection: !Equals [!Ref EnableDeletionProtection, "true"]
+
+Globals:
+  Function:
+    Timeout: 29
+    MemorySize: !Ref LambdaMemorySize
+    Architectures:
+      - !Ref LambdaArchitecture
+    Tracing: Active
+    Tags:
+      Application: the-game-of-life
+      Environment: !Ref EnvironmentName
+
+Resources:
+  GameTable:
+    Type: AWS::DynamoDB::Table
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: PK
+          AttributeType: S
+        - AttributeName: SK
+          AttributeType: S
+      KeySchema:
+        - AttributeName: PK
+          KeyType: HASH
+        - AttributeName: SK
+          KeyType: RANGE
+      DeletionProtectionEnabled: !If [UseDeletionProtection, true, false]
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: true
+      SSESpecification:
+        SSEEnabled: true
+        SSEType: KMS
+      TimeToLiveSpecification:
+        AttributeName: expiresAt
+        Enabled: true
+      Tags:
+        - Key: Application
+          Value: the-game-of-life
+        - Key: Environment
+          Value: !Ref EnvironmentName
+
+  UserPool:
+    Type: AWS::Cognito::UserPool
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      UserPoolName: !Sub "life-${EnvironmentName}-users"
+      AliasAttributes:
+        - email
+      AutoVerifiedAttributes:
+        - email
+      UsernameConfiguration:
+        CaseSensitive: false
+      DeletionProtection: !If [UseDeletionProtection, ACTIVE, INACTIVE]
+      MfaConfiguration: "OFF"
+      EmailConfiguration: !If
+        - HasCognitoSesConfiguration
+        - EmailSendingAccount: DEVELOPER
+          SourceArn: !Ref CognitoSesSourceArn
+          From: !Ref CognitoFromEmail
+        - EmailSendingAccount: COGNITO_DEFAULT
+      AccountRecoverySetting:
+        RecoveryMechanisms:
+          - Name: verified_email
+            Priority: 1
+      AdminCreateUserConfig:
+        AllowAdminCreateUserOnly: false
+      Policies:
+        PasswordPolicy:
+          MinimumLength: 10
+          RequireLowercase: false
+          RequireNumbers: true
+          RequireSymbols: false
+          RequireUppercase: false
+          TemporaryPasswordValidityDays: 7
+      Schema:
+        - Name: email
+          AttributeDataType: String
+          Mutable: true
+          Required: true
+        - Name: name
+          AttributeDataType: String
+          Mutable: true
+          Required: false
+      UserAttributeUpdateSettings:
+        AttributesRequireVerificationBeforeUpdate:
+          - email
+      UserPoolTags:
+        Application: the-game-of-life
+        Environment: !Ref EnvironmentName
+
+  GoogleIdentityProvider:
+    Type: AWS::Cognito::UserPoolIdentityProvider
+    Condition: HasGoogleIdentityProvider
+    Properties:
+      UserPoolId: !Ref UserPool
+      ProviderName: Google
+      ProviderType: Google
+      ProviderDetails:
+        client_id: !Ref GoogleClientId
+        client_secret: !Sub "{{resolve:secretsmanager:${GoogleClientSecretArn}}}"
+        authorize_scopes: "openid email profile"
+      AttributeMapping:
+        email: email
+        email_verified: email_verified
+        name: name
+        username: sub
+
+  UserPoolClientWithGoogle:
+    Type: AWS::Cognito::UserPoolClient
+    Condition: HasGoogleIdentityProvider
+    DependsOn: GoogleIdentityProvider
+    Properties: &UserPoolClientProperties
+      UserPoolId: !Ref UserPool
+      ClientName: !Sub "life-${EnvironmentName}-public-client"
+      GenerateSecret: false
+      PreventUserExistenceErrors: ENABLED
+      EnableTokenRevocation: true
+      ExplicitAuthFlows:
+        - ALLOW_USER_PASSWORD_AUTH
+        - ALLOW_USER_SRP_AUTH
+        - ALLOW_REFRESH_TOKEN_AUTH
+      AllowedOAuthFlowsUserPoolClient: true
+      AllowedOAuthFlows:
+        - code
+      AllowedOAuthScopes:
+        - openid
+        - email
+        - profile
+        - aws.cognito.signin.user.admin
+      SupportedIdentityProviders:
+        - COGNITO
+        - Google
+      CallbackURLs:
+        - !If
+          - HasApiCustomDomain
+          - !Sub "https://${ApiCustomDomainName}/v1/auth/google/callback"
+          - !Sub "https://${HttpApi}.execute-api.${AWS::Region}.${AWS::URLSuffix}/${StageName}/v1/auth/google/callback"
+      AccessTokenValidity: 60
+      IdTokenValidity: 60
+      RefreshTokenValidity: 30
+      TokenValidityUnits:
+        AccessToken: minutes
+        IdToken: minutes
+        RefreshToken: days
+      AuthSessionValidity: 3
+
+  UserPoolClientWithoutGoogle:
+    Type: AWS::Cognito::UserPoolClient
+    Condition: DoesNotHaveGoogleIdentityProvider
+    Properties:
+      <<: *UserPoolClientProperties
+      SupportedIdentityProviders:
+        - COGNITO
+
+  UserPoolDomain:
+    Type: AWS::Cognito::UserPoolDomain
+    Properties:
+      Domain: !Ref CognitoDomainPrefix
+      UserPoolId: !Ref UserPool
+
+  LocalTokenSecret:
+    Type: AWS::SecretsManager::Secret
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      Description: !Sub "Generated local-token validation secret for ${AWS::StackName}"
+      GenerateSecretString:
+        ExcludePunctuation: true
+        PasswordLength: 48
+      Tags:
+        - Key: Application
+          Value: the-game-of-life
+        - Key: Environment
+          Value: !Ref EnvironmentName
+
+  OAuthStateSecret:
+    Type: AWS::SecretsManager::Secret
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      Description: !Sub "Generated OAuth state-signing secret for ${AWS::StackName}"
+      GenerateSecretString:
+        ExcludePunctuation: true
+        PasswordLength: 48
+      Tags:
+        - Key: Application
+          Value: the-game-of-life
+        - Key: Environment
+          Value: !Ref EnvironmentName
+
+  ApiFunction:
+    Type: AWS::Serverless::Function
+    Metadata:
+      DockerContext: ..
+      Dockerfile: backend/Dockerfile
+      DockerTag: production-v1
+    Properties:
+      PackageType: Image
+      Description: FastAPI/Mangum game API with the compiled canonical Dart game engine.
+      ReservedConcurrentExecutions: !Ref LambdaReservedConcurrency
+      Environment:
+        Variables:
+          APP_ENV: production
+          TABLE_NAME: !Ref GameTable
+          CORS_ORIGINS: !Join [",", !Ref CorsAllowedOrigins]
+          ALLOWED_RETURN_URLS: !Join [",", !Ref AllowedReturnUrls]
+          COGNITO_USER_POOL_ID: !Ref UserPool
+          COGNITO_CLIENT_ID: !If
+            - HasGoogleIdentityProvider
+            - !Ref UserPoolClientWithGoogle
+            - !Ref UserPoolClientWithoutGoogle
+          COGNITO_CLIENT_SECRET: ""
+          COGNITO_HOSTED_UI_BASE: !Sub "https://${CognitoDomainPrefix}.auth.${AWS::Region}.amazoncognito.com"
+          COGNITO_OAUTH_CALLBACK_URL: !If
+            - HasApiCustomDomain
+            - !Sub "https://${ApiCustomDomainName}/v1/auth/google/callback"
+            - !Sub "https://${HttpApi}.execute-api.${AWS::Region}.${AWS::URLSuffix}/${StageName}/v1/auth/google/callback"
+          LOCAL_TOKEN_SECRET: !Sub "{{resolve:secretsmanager:${LocalTokenSecret}}}"
+          OAUTH_STATE_SECRET: !Sub "{{resolve:secretsmanager:${OAuthStateSecret}}}"
+          GOOGLE_LOGIN_ENABLED: !If [HasGoogleIdentityProvider, "true", "false"]
+          LOG_LEVEL: INFO
+      Policies:
+        - Version: "2012-10-17"
+          Statement:
+            - Sid: GameTableReadWrite
+              Effect: Allow
+              Action:
+                - dynamodb:DeleteItem
+                - dynamodb:GetItem
+                - dynamodb:PutItem
+                - dynamodb:Query
+                - dynamodb:TransactWriteItems
+              Resource:
+                - !GetAtt GameTable.Arn
+
+  ApiFunctionLogGroup:
+    Type: AWS::Logs::LogGroup
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      LogGroupName: !Sub "/aws/lambda/${ApiFunction}"
+      RetentionInDays: !Ref LogRetentionDays
+      Tags:
+        - Key: Application
+          Value: the-game-of-life
+        - Key: Environment
+          Value: !Ref EnvironmentName
+
+  HttpApiAccessLogGroup:
+    Type: AWS::Logs::LogGroup
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      LogGroupName: !Sub "/aws/apigateway/${AWS::StackName}"
+      RetentionInDays: !Ref LogRetentionDays
+      Tags:
+        - Key: Application
+          Value: the-game-of-life
+        - Key: Environment
+          Value: !Ref EnvironmentName
+
+  HttpApi:
+    Type: AWS::ApiGatewayV2::Api
+    Properties:
+      Name: !Sub "life-${EnvironmentName}-http-api"
+      Description: Public HTTPS API for The Game of Life.
+      ProtocolType: HTTP
+      CorsConfiguration:
+        AllowCredentials: false
+        AllowHeaders:
+          - authorization
+          - content-type
+          - idempotency-key
+          - if-none-match
+          - x-request-id
+        AllowMethods:
+          - GET
+          - POST
+          - PATCH
+          - DELETE
+          - OPTIONS
+        AllowOrigins: !Ref CorsAllowedOrigins
+        ExposeHeaders:
+          - etag
+          - x-request-id
+        MaxAge: 600
+      Tags:
+        Application: the-game-of-life
+        Environment: !Ref EnvironmentName
+
+  HttpApiIntegration:
+    Type: AWS::ApiGatewayV2::Integration
+    Properties:
+      ApiId: !Ref HttpApi
+      Description: Lambda proxy integration for FastAPI.
+      IntegrationType: AWS_PROXY
+      IntegrationUri: !GetAtt ApiFunction.Arn
+      PayloadFormatVersion: "2.0"
+      TimeoutInMillis: 29000
+
+  HttpApiRootRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref HttpApi
+      AuthorizationType: NONE
+      RouteKey: "ANY /"
+      Target: !Sub "integrations/${HttpApiIntegration}"
+
+  HttpApiProxyRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref HttpApi
+      AuthorizationType: NONE
+      RouteKey: "ANY /{proxy+}"
+      Target: !Sub "integrations/${HttpApiIntegration}"
+
+  HttpApiStage:
+    Type: AWS::ApiGatewayV2::Stage
+    DependsOn:
+      - HttpApiRootRoute
+      - HttpApiProxyRoute
+    Properties:
+      ApiId: !Ref HttpApi
+      StageName: !Ref StageName
+      AutoDeploy: true
+      AccessLogSettings:
+        DestinationArn: !GetAtt HttpApiAccessLogGroup.Arn
+        Format: >-
+          {"requestId":"$context.requestId","ip":"$context.identity.sourceIp","requestTime":"$context.requestTime","httpMethod":"$context.httpMethod","routeKey":"$context.routeKey","status":"$context.status","protocol":"$context.protocol","responseLength":"$context.responseLength","integrationError":"$context.integrationErrorMessage"}
+      DefaultRouteSettings:
+        DetailedMetricsEnabled: true
+        ThrottlingBurstLimit: 100
+        ThrottlingRateLimit: 50
+      Tags:
+        Application: the-game-of-life
+        Environment: !Ref EnvironmentName
+
+  ApiInvokePermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref ApiFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub "arn:${AWS::Partition}:execute-api:${AWS::Region}:${AWS::AccountId}:${HttpApi}/*"
+
+  ApiDomainName:
+    Type: AWS::ApiGatewayV2::DomainName
+    Condition: HasApiCustomDomain
+    Metadata:
+      cfn-lint:
+        config:
+          ignore_checks:
+            - W1030
+    Properties:
+      DomainName: !Ref ApiCustomDomainName
+      DomainNameConfigurations:
+        - CertificateArn: !Ref ApiCertificateArn
+          EndpointType: REGIONAL
+          SecurityPolicy: TLS_1_2
+      Tags:
+        Application: the-game-of-life
+        Environment: !Ref EnvironmentName
+
+  ApiMapping:
+    Type: AWS::ApiGatewayV2::ApiMapping
+    Condition: HasApiCustomDomain
+    Properties:
+      ApiId: !Ref HttpApi
+      DomainName: !Ref ApiDomainName
+      Stage: !Ref HttpApiStage
+
+  ApiAliasRecord:
+    Type: AWS::Route53::RecordSet
+    Condition: ShouldCreateRoute53Records
+    Properties:
+      HostedZoneId: !Ref Route53HostedZoneId
+      Name: !Ref ApiCustomDomainName
+      Type: A
+      AliasTarget:
+        DNSName: !GetAtt ApiDomainName.RegionalDomainName
+        HostedZoneId: !GetAtt ApiDomainName.RegionalHostedZoneId
+        EvaluateTargetHealth: false
+
+  ApiAliasIpv6Record:
+    Type: AWS::Route53::RecordSet
+    Condition: ShouldCreateRoute53Records
+    Properties:
+      HostedZoneId: !Ref Route53HostedZoneId
+      Name: !Ref ApiCustomDomainName
+      Type: AAAA
+      AliasTarget:
+        DNSName: !GetAtt ApiDomainName.RegionalDomainName
+        HostedZoneId: !GetAtt ApiDomainName.RegionalHostedZoneId
+        EvaluateTargetHealth: false
+
+  AlarmTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      DisplayName: !Sub "Life ${EnvironmentName} alarms"
+      KmsMasterKeyId: alias/aws/sns
+      Tags:
+        - Key: Application
+          Value: the-game-of-life
+        - Key: Environment
+          Value: !Ref EnvironmentName
+
+  AlarmEmailSubscription:
+    Type: AWS::SNS::Subscription
+    Condition: ShouldCreateAlarmEmailSubscription
+    Properties:
+      Protocol: email
+      Endpoint: !Ref AlarmNotificationEmail
+      TopicArn: !Ref AlarmTopic
+
+  ApiFunctionErrorAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmDescription: Lambda returned at least five errors in five minutes.
+      Namespace: AWS/Lambda
+      MetricName: Errors
+      Dimensions:
+        - Name: FunctionName
+          Value: !Ref ApiFunction
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      DatapointsToAlarm: 1
+      Threshold: 5
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref AlarmTopic
+      OKActions:
+        - !Ref AlarmTopic
+      Tags:
+        - Key: Application
+          Value: the-game-of-life
+        - Key: Environment
+          Value: !Ref EnvironmentName
+
+  ApiFunctionThrottleAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmDescription: Lambda invocation throttling was observed.
+      Namespace: AWS/Lambda
+      MetricName: Throttles
+      Dimensions:
+        - Name: FunctionName
+          Value: !Ref ApiFunction
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      DatapointsToAlarm: 1
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref AlarmTopic
+      OKActions:
+        - !Ref AlarmTopic
+      Tags:
+        - Key: Application
+          Value: the-game-of-life
+        - Key: Environment
+          Value: !Ref EnvironmentName
+
+  HttpApiServerErrorAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmDescription: HTTP API returned at least five server errors in five minutes.
+      Namespace: AWS/ApiGateway
+      MetricName: 5xx
+      Dimensions:
+        - Name: ApiId
+          Value: !Ref HttpApi
+        - Name: Stage
+          Value: !Ref StageName
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      DatapointsToAlarm: 1
+      Threshold: 5
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref AlarmTopic
+      OKActions:
+        - !Ref AlarmTopic
+      Tags:
+        - Key: Application
+          Value: the-game-of-life
+        - Key: Environment
+          Value: !Ref EnvironmentName
+
+  HttpApiLatencyAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmDescription: HTTP API p99 latency exceeded five seconds for three periods.
+      Namespace: AWS/ApiGateway
+      MetricName: Latency
+      Dimensions:
+        - Name: ApiId
+          Value: !Ref HttpApi
+        - Name: Stage
+          Value: !Ref StageName
+      ExtendedStatistic: p99
+      Period: 300
+      EvaluationPeriods: 3
+      DatapointsToAlarm: 3
+      Threshold: 5000
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref AlarmTopic
+      OKActions:
+        - !Ref AlarmTopic
+      Tags:
+        - Key: Application
+          Value: the-game-of-life
+        - Key: Environment
+          Value: !Ref EnvironmentName
+
+Outputs:
+  ApiBaseUrl:
+    Description: Base URL consumed by the Flutter application.
+    Value: !If
+      - HasApiCustomDomain
+      - !Sub "https://${ApiCustomDomainName}"
+      - !Sub "https://${HttpApi}.execute-api.${AWS::Region}.${AWS::URLSuffix}/${StageName}"
+  ApiExecuteUrl:
+    Description: Regional execute-api URL, retained as an operational fallback.
+    Value: !Sub "https://${HttpApi}.execute-api.${AWS::Region}.${AWS::URLSuffix}/${StageName}"
+  ApiId:
+    Value: !Ref HttpApi
+  ApiCustomDomainTarget:
+    Condition: HasApiCustomDomain
+    Description: Regional API Gateway hostname for external DNS providers.
+    Value: !GetAtt ApiDomainName.RegionalDomainName
+  ApiCustomDomainHostedZoneId:
+    Condition: HasApiCustomDomain
+    Description: API Gateway hosted zone ID used by Route 53 aliases.
+    Value: !GetAtt ApiDomainName.RegionalHostedZoneId
+  ApiFunctionName:
+    Value: !Ref ApiFunction
+  DynamoTableName:
+    Value: !Ref GameTable
+  DynamoTableArn:
+    Value: !GetAtt GameTable.Arn
+  CognitoUserPoolId:
+    Value: !Ref UserPool
+  CognitoClientId:
+    Value: !If
+      - HasGoogleIdentityProvider
+      - !Ref UserPoolClientWithGoogle
+      - !Ref UserPoolClientWithoutGoogle
+  CognitoHostedUiBase:
+    Value: !Sub "https://${CognitoDomainPrefix}.auth.${AWS::Region}.amazoncognito.com"
+  GoogleIdentityProviderEnabled:
+    Value: !If [HasGoogleIdentityProvider, "true", "false"]
+  CognitoOAuthCallbackUrl:
+    Value: !If
+      - HasApiCustomDomain
+      - !Sub "https://${ApiCustomDomainName}/v1/auth/google/callback"
+      - !Sub "https://${HttpApi}.execute-api.${AWS::Region}.${AWS::URLSuffix}/${StageName}/v1/auth/google/callback"
+  AlarmTopicArn:
+    Value: !Ref AlarmTopic

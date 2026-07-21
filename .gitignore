@@ -1,0 +1,33 @@
+.DS_Store
+.idea/
+.vscode/
+.env
+.env.*
+!.env.example
+
+# Dart and Flutter
+**/.dart_tool/
+**/.flutter-plugins
+**/.flutter-plugins-dependencies
+**/build/
+**/coverage/
+
+# Python
+**/__pycache__/
+**/*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.venv/
+
+# Infrastructure and deployment
+.aws-sam/
+cdk.out/
+infra/.terraform/
+infra/*.tfstate*
+
+# Generated secrets and local databases
+*.db
+*.sqlite
+*.sqlite3
+local-data/

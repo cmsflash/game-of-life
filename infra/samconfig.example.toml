@@ -1,0 +1,20 @@
+version = 0.1
+
+[production.build.parameters]
+template_file = "infra/template.yaml"
+cached = true
+parallel = true
+
+[production.validate.parameters]
+template_file = "infra/template.yaml"
+lint = true
+
+[production.deploy.parameters]
+stack_name = "the-game-of-life-production"
+region = "ap-east-1"
+capabilities = "CAPABILITY_IAM"
+confirm_changeset = true
+resolve_s3 = true
+resolve_image_repos = true
+fail_on_empty_changeset = false
+parameter_overrides = "EnvironmentName=production StageName=prod CognitoDomainPrefix=REPLACE-WITH-A-GLOBALLY-UNIQUE-PREFIX EnableDeletionProtection=true"

@@ -1,0 +1,16 @@
+name: game_cli
+description: JSON Lines command-line interface for the Life Duel game engine.
+version: 1.0.0
+publish_to: none
+
+environment:
+  sdk: ^3.12.2
+
+# Add regular dependencies here.
+dependencies:
+  game_engine:
+    path: ../../packages/game_engine
+
+dev_dependencies:
+  lints: ^6.0.0
+  test: ^1.25.6
