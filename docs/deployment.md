@@ -108,9 +108,28 @@ The web host must rewrite application paths such as `/auth/callback` to
 Cognito's default sender is useful for initial testing but has restrictive
 delivery limits. For production verification and password-reset mail:
 
-1. Verify a domain or email identity in Amazon SES in the stack's region.
-2. Request SES production access for that region.
+1. Verify a domain or email identity in the SES region supported by the user
+   pool region, and request SES production access in that SES region.
+2. Authorize the Cognito regional service principal to send from the identity,
+   restricted to the AWS account and user-pool ARN.
 3. Deploy with both `CognitoSesSourceArn` and `CognitoFromEmail`.
+
+SES is not available in Hong Kong (`ap-east-1`). A Hong Kong user pool using
+`EmailSendingAccount: DEVELOPER` must therefore use its first supported
+alternate SES region, Singapore (`ap-southeast-1`). The source ARN passed to
+the Hong Kong stack has this form:
+
+```text
+arn:aws:ses:ap-southeast-1:ACCOUNT-ID:identity/EMAIL-OR-DOMAIN
+```
+
+The SES identity must be in the same AWS account. Attach its sending
+authorization policy in Singapore after the initial user-pool deployment; the
+policy principal is `cognito-idp.ap-east-1.amazonaws.com`, and its conditions
+must restrict `AWS:SourceAccount` to the account and `AWS:SourceArn` to that
+specific Hong Kong user-pool ARN. Cross-region CloudFormation exports are not
+available, so pass the SES ARN to this stack as a parameter. The initial stack
+can use `COGNITO_DEFAULT` email until the SES identity is verified and approved.
 
 The template switches Cognito to its `DEVELOPER` email mode only when both
 values are present. A typical From value is
