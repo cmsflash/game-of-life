@@ -87,8 +87,9 @@ aws logs tail /aws/apigateway/STACK-NAME \
 
 ### Throttling or high latency
 
-1. Check whether API stage throttling (50 requests/second, burst 100) or Lambda
-   reserved concurrency (20 by default) is the limiting layer.
+1. Check whether API stage throttling (50 requests/second, burst 100), the
+   regional Lambda account quota, or another function using the shared pool is
+   the limiting layer.
 2. Inspect DynamoDB consumed capacity and throttling before raising concurrency.
 3. Reject abusive clients at the edge or application layer; do not remove all
    limits during an incident.
@@ -157,7 +158,11 @@ any teardown and use a deliberate import or migration plan.
 ## Capacity changes
 
 The initial limits are conservative: API stage rate 50/second with burst 100,
-Lambda reserved concurrency 20, and DynamoDB on-demand. Load-test complete
-match turns—not only health checks—before increasing them. A move invokes the
-compiled engine and performs a transactional write, so request cost and
-duration differ substantially from read polling.
+Lambda using the regional shared concurrency pool, and DynamoDB on-demand.
+Load-test complete match turns—not only health checks—before increasing them. A
+move invokes the compiled engine and performs a transactional write, so request
+cost and duration differ substantially from read polling.
+
+`LambdaReservedConcurrency=0` omits the reservation. Before setting it to a
+positive number, raise or verify the regional account quota so the reservation
+still leaves at least 10 unreserved executions for the account.

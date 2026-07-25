@@ -494,7 +494,10 @@ class DynamoRepository:
         self._table = boto3.resource("dynamodb", region_name=settings.aws_region).Table(
             settings.table_name
         )
-        self._client = self._table.meta.client
+        # Transaction payloads below use explicit DynamoDB AttributeValue maps.
+        # A resource-backed Table client installs an additional serializer and
+        # would encode those maps a second time (for example, S keys as M).
+        self._client = boto3.client("dynamodb", region_name=settings.aws_region)
         self._table_name = settings.table_name
 
     @staticmethod
@@ -1071,9 +1074,7 @@ class DynamoRepository:
             try:
                 self._table.delete_item(
                     Key={"PK": f"USER#{user_id}", "SK": f"TICKET#{ticket_id}"},
-                    ConditionExpression=(
-                        "ticketId = :ticketId AND expiresAt <= :now"
-                    ),
+                    ConditionExpression=("ticketId = :ticketId AND expiresAt <= :now"),
                     ExpressionAttributeValues={
                         ":ticketId": ticket_id,
                         ":now": now,

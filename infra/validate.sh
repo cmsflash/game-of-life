@@ -5,6 +5,12 @@ repo_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$repo_dir"
 
 SAM_CLI_TELEMETRY=0 sam validate --template-file infra/template.yaml --lint
+SAM_CLI_TELEMETRY=0 sam validate \
+  --template-file infra/web-template.yaml \
+  --region us-east-1 \
+  --lint
+bash -n infra/deploy-web.sh infra/test-deploy-web.sh
+infra/test-deploy-web.sh
 
 if [[ "${1:-}" == "--build" ]]; then
   docker_endpoint="${DOCKER_HOST:-}"

@@ -14,7 +14,8 @@ This repository contains the complete cross-platform product:
 - `tools/game_cli` — JSON/JSONL command-line interface for automation and AI.
 - `backend` — server-authoritative HTTP API, authentication bridge,
   matchmaking, persistence, and replay service.
-- `infra` — AWS deployment template for one global HTTPS API boundary.
+- `infra` — AWS deployment templates for one global HTTPS API boundary and a
+  private-S3/CloudFront Flutter web application.
 - `docs` — rules, API, architecture, operations, and deployment documentation.
 
 ## Development

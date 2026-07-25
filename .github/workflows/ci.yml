@@ -54,7 +54,11 @@ jobs:
         working-directory: apps/game_app
       - run: flutter test --coverage
         working-directory: apps/game_app
-      - run: flutter build web --release
+      - name: Build self-hosted Flutter web release
+        run: |
+          flutter build web --release --no-web-resources-cdn
+          grep -Eq '"useLocalCanvasKit"[[:space:]]*:[[:space:]]*true' build/web/flutter_bootstrap.js
+          grep -Eq '"?fontFallbackBaseUrl"?[[:space:]]*:[[:space:]]*"/font-fallback/"' build/web/flutter_bootstrap.js
         working-directory: apps/game_app
 
   backend:
@@ -78,7 +82,11 @@ jobs:
       - uses: actions/checkout@v4
       - uses: aws-actions/setup-sam@v3
       - name: Validate SAM and CloudFormation
-        run: sam validate --lint --template-file infra/template.yaml
+        run: |
+          sam validate --lint --template-file infra/template.yaml
+          sam validate --lint --region us-east-1 --template-file infra/web-template.yaml
+          bash -n infra/deploy-web.sh infra/test-deploy-web.sh
+          infra/test-deploy-web.sh
 
   container:
     runs-on: ubuntu-latest

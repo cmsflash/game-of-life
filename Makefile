@@ -41,7 +41,7 @@ run-backend:
 	cd backend && ../.venv/bin/uvicorn life_api.main:app --reload --port 8080
 
 build-web:
-	cd apps/game_app && flutter build web --release
+	cd apps/game_app && flutter build web --release --no-web-resources-cdn
 
 docker-backend:
 	docker build -f backend/Dockerfile -t life-api:local .

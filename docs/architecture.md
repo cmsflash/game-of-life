@@ -2,13 +2,18 @@
 
 ## System boundary
 
-The Flutter client has one online dependency: the versioned HTTPS API at
-`api.<domain>`. It never connects directly to DynamoDB, the Cognito user-pool
-API, or a realtime database. This keeps the mainland-China network path small
-and gives the service an interchangeable backend boundary.
+After installation or web-app loading, the Flutter client has one runtime
+online dependency: the versioned HTTPS API at `api.<domain>`. It never connects
+directly to DynamoDB, the Cognito user-pool API, or a realtime database. This
+keeps the mainland-China gameplay path small and gives the service an
+interchangeable backend boundary.
 
 ```text
-Flutter clients
+Browser ---- CloudFront ---- private S3 Flutter build
+   |             |
+   |             +---- route-rewrite function + security headers
+   |
+Native and web Flutter clients
       |
       | HTTPS /v1
       v
@@ -27,6 +32,14 @@ Python Lambda container ---- Cognito User Pool
 The Lambda container compiles the same Dart engine package used by Flutter into
 a Linux executable during the container build. Python owns HTTP, AWS SDK, and
 OAuth concerns; Dart alone owns game transitions.
+
+CloudFront signs every S3 origin request with origin access control. The origin
+bucket is not public. The web release packages CanvasKit locally and CloudFront
+rewrites extensionless application URLs, including `/auth/callback`, to the
+Flutter shell while leaving static-asset paths unchanged. Flutter fallback-font
+requests use a same-origin `/font-fallback/` path; CloudFront fetches and caches
+the corresponding versioned font files server-side, so browsers do not connect
+to Google's font hostname.
 
 ## Match consistency
 

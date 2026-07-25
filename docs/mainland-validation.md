@@ -15,6 +15,10 @@ Deploy the same immutable backend image and infrastructure revision to:
 Use the intended custom domain for each candidate. Do not substitute the AWS
 console, an S3 root, or a provider marketing page.
 
+Deploy the production CloudFront web stack and test its exact `WebBaseUrl` as
+well. The web distribution is global and can point the same immutable Flutter
+build at each candidate API in separate tests.
+
 ## Probe matrix
 
 Test China Mobile, China Telecom, and China Unicom on both fixed broadband and
@@ -25,8 +29,11 @@ same time.
 Every five minutes for at least fourteen days, execute:
 
 ```text
-resolve DNS
+resolve web and API DNS
 → establish TCP and TLS
+→ load / and a direct application route such as /auth/callback
+→ fetch the locally hosted CanvasKit and application bundles
+→ render Latin and Chinese test names through the same-origin font proxy
 → register/login with username and password
 → refresh the token
 → create or join a match
@@ -42,6 +49,7 @@ Google login is measured separately and is not a mainland release dependency.
 
 - UTC timestamp, city, carrier/ASN, access type, OS, app version, and region;
 - DNS, TCP, TLS, first-byte, and total request durations;
+- web-shell, JavaScript, CanvasKit, font, and service-worker fetch results;
 - HTTP status and stable application error code;
 - login, refresh, command, polling, and reconnect success;
 - p50, p95, and p99 latency by operation, carrier, city, hour, and region;

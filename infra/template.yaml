@@ -80,8 +80,12 @@ Parameters:
     MaxValue: 10240
   LambdaReservedConcurrency:
     Type: Number
-    Default: 20
-    MinValue: 1
+    Default: 0
+    MinValue: 0
+    Description: >-
+      Optional reserved concurrency for the API Lambda. Set to 0 to use the
+      account's shared concurrency pool, which is required for new or
+      quota-constrained regions.
   LogRetentionDays:
     Type: Number
     Default: 30
@@ -152,6 +156,7 @@ Conditions:
     - !Equals [!Ref CreateRoute53Records, "true"]
   ShouldCreateAlarmEmailSubscription: !Not [!Equals [!Ref AlarmNotificationEmail, ""]]
   UseDeletionProtection: !Equals [!Ref EnableDeletionProtection, "true"]
+  HasLambdaReservedConcurrency: !Not [!Equals [!Ref LambdaReservedConcurrency, "0"]]
 
 Globals:
   Function:
@@ -355,11 +360,15 @@ Resources:
     Properties:
       PackageType: Image
       Description: FastAPI/Mangum game API with the compiled canonical Dart game engine.
-      ReservedConcurrentExecutions: !Ref LambdaReservedConcurrency
+      ReservedConcurrentExecutions: !If
+        - HasLambdaReservedConcurrency
+        - !Ref LambdaReservedConcurrency
+        - !Ref AWS::NoValue
       Environment:
         Variables:
           APP_ENV: production
           TABLE_NAME: !Ref GameTable
+          API_GATEWAY_BASE_PATH: !Sub "/${StageName}"
           CORS_ORIGINS: !Join [",", !Ref CorsAllowedOrigins]
           ALLOWED_RETURN_URLS: !Join [",", !Ref AllowedReturnUrls]
           COGNITO_USER_POOL_ID: !Ref UserPool
