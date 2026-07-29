@@ -40,15 +40,26 @@ class ApiClient {
   factory ApiClient({
     required SessionStore sessionStore,
     http.Client? httpClient,
-    String baseUrl = AppConfig.apiBaseUrl,
-  }) => ApiClient._(sessionStore, httpClient, baseUrl);
+    String? baseUrl,
+    Duration requestTimeout = const Duration(seconds: 20),
+  }) => ApiClient._(
+    sessionStore,
+    httpClient,
+    baseUrl ?? AppConfig.apiBaseUrl,
+    requestTimeout,
+  );
 
-  ApiClient._(this._sessionStore, http.Client? httpClient, String baseUrl)
-    : _http = httpClient ?? http.Client(),
+  ApiClient._(
+    this._sessionStore,
+    http.Client? httpClient,
+    String baseUrl,
+    this._requestTimeout,
+  ) : _http = httpClient ?? http.Client(),
       baseUrl = baseUrl.replaceFirst(RegExp(r'/$'), '');
 
   final SessionStore _sessionStore;
   final http.Client _http;
+  final Duration _requestTimeout;
   final _sessionExpired = StreamController<void>.broadcast();
   final String baseUrl;
 
@@ -151,15 +162,29 @@ class ApiClient {
     Uri uri,
     Map<String, String> headers,
     Object? body,
-  ) {
+  ) async {
     final encoded = body == null ? null : jsonEncode(body);
-    return switch (method) {
-      'GET' => _http.get(uri, headers: headers),
-      'POST' => _http.post(uri, headers: headers, body: encoded),
-      'PATCH' => _http.patch(uri, headers: headers, body: encoded),
-      'DELETE' => _http.delete(uri, headers: headers, body: encoded),
-      _ => throw ArgumentError.value(method, 'method'),
-    };
+    try {
+      return await switch (method) {
+        'GET' => _http.get(uri, headers: headers),
+        'POST' => _http.post(uri, headers: headers, body: encoded),
+        'PATCH' => _http.patch(uri, headers: headers, body: encoded),
+        'DELETE' => _http.delete(uri, headers: headers, body: encoded),
+        _ => throw ArgumentError.value(method, 'method'),
+      }.timeout(_requestTimeout);
+    } on TimeoutException {
+      throw const ApiException(
+        statusCode: 0,
+        code: 'requestTimeout',
+        message: 'The server took too long to respond. Please try again.',
+      );
+    } on http.ClientException {
+      throw const ApiException(
+        statusCode: 0,
+        code: 'networkUnavailable',
+        message: 'The server could not be reached. Check your connection.',
+      );
+    }
   }
 
   ApiResponse _decode(http.Response response) {
@@ -191,15 +216,17 @@ class ApiClient {
     final current = await _sessionStore.readSession();
     if (current?.refreshToken == null) return false;
     try {
-      final response = await _http.post(
-        _uri('/v1/auth/refresh', const {}),
-        headers: {
-          'Accept': 'application/json',
-          'Content-Type': 'application/json',
-          'Idempotency-Key': newRequestId(),
-        },
-        body: jsonEncode({'refreshToken': current!.refreshToken}),
-      );
+      final response = await _http
+          .post(
+            _uri('/v1/auth/refresh', const {}),
+            headers: {
+              'Accept': 'application/json',
+              'Content-Type': 'application/json',
+              'Idempotency-Key': newRequestId(),
+            },
+            body: jsonEncode({'refreshToken': current!.refreshToken}),
+          )
+          .timeout(_requestTimeout);
       if (response.statusCode < 200 || response.statusCode >= 300) {
         await _sessionStore.clearSession();
         return false;
@@ -212,7 +239,7 @@ class ApiClient {
           refreshToken:
               sessionJson['refreshToken'] as String? ?? current.refreshToken,
           expiresAt: sessionJson['expiresIn'] is num
-              ? DateTime.now().add(
+              ? DateTime.now().toUtc().add(
                   Duration(seconds: (sessionJson['expiresIn'] as num).round()),
                 )
               : DateTime.tryParse(sessionJson['expiresAt'] as String? ?? ''),

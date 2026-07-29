@@ -1,5 +1,3 @@
-import 'dart:math' as math;
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:game_engine/game_engine.dart' as engine;
@@ -62,32 +60,33 @@ class LocalGameScreen extends ConsumerWidget {
             final board = Padding(
               padding: EdgeInsets.all(wide ? 24 : 12),
               child: Center(
-                child: SizedBox.square(
-                  dimension: math
-                      .min(
-                        constraints.maxWidth - (wide ? 360 : 24),
-                        constraints.maxHeight - (wide ? 48 : 210),
-                      )
-                      .clamp(280, 760),
-                  child: LifeBoard(
-                    key: const Key('local-life-board'),
-                    board: game.board,
-                    enabled: game.isActive,
-                    lastMove: session.lastMove,
-                    births: session.lastBirths,
-                    onCellTap: (row, column) {
-                      final success = ref
-                          .read(localGameProvider.notifier)
-                          .place(row, column);
-                      if (!success) {
-                        final message = ref.read(localGameProvider)?.error;
-                        if (message != null) {
-                          ScaffoldMessenger.of(context)
-                            ..clearSnackBars()
-                            ..showSnackBar(SnackBar(content: Text(message)));
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(
+                    maxWidth: 760,
+                    maxHeight: 760,
+                  ),
+                  child: AspectRatio(
+                    aspectRatio: 1,
+                    child: LifeBoard(
+                      key: const Key('local-life-board'),
+                      board: game.board,
+                      enabled: game.isActive,
+                      lastMove: session.lastMove,
+                      births: session.lastBirths,
+                      onCellTap: (row, column) {
+                        final success = ref
+                            .read(localGameProvider.notifier)
+                            .place(row, column);
+                        if (!success) {
+                          final message = ref.read(localGameProvider)?.error;
+                          if (message != null) {
+                            ScaffoldMessenger.of(context)
+                              ..clearSnackBars()
+                              ..showSnackBar(SnackBar(content: Text(message)));
+                          }
                         }
-                      }
-                    },
+                      },
+                    ),
                   ),
                 ),
               ),
@@ -109,12 +108,11 @@ class LocalGameScreen extends ConsumerWidget {
             }
             return Column(
               children: [
-                Expanded(child: board),
-                SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
-                  child: SizedBox(
-                    width: math.max(520, constraints.maxWidth - 24),
+                Expanded(flex: 3, child: board),
+                Flexible(
+                  flex: 2,
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
                     child: panel,
                   ),
                 ),

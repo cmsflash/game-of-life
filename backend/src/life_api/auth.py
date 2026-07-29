@@ -39,6 +39,8 @@ class IdentityProvider(Protocol):
 
     def authenticate(self, access_token: str) -> User: ...
 
+    def delete_account(self, access_token: str) -> None: ...
+
     def development_google_login(self) -> TokenSet: ...
 
 
@@ -158,6 +160,15 @@ class LocalIdentityProvider:
         if account is None:
             raise ApiError("invalidToken", "The access token is invalid.", status_code=401)
         return account.user
+
+    def delete_account(self, access_token: str) -> None:
+        payload = self._decode(access_token, expected_kind="access")
+        user_id = str(payload["sub"])
+        with self._lock:
+            account = self._accounts_by_id.pop(user_id, None)
+            if account is None:
+                raise ApiError("invalidToken", "The access token is invalid.", status_code=401)
+            self._accounts.pop(account.user.username.casefold(), None)
 
     def development_google_login(self) -> TokenSet:
         username = "google.dev"
@@ -378,6 +389,9 @@ class CognitoIdentityProvider:
             display_name=attributes.get("name") or response["Username"],
             email_verified=attributes.get("email_verified") == "true",
         )
+
+    def delete_account(self, access_token: str) -> None:
+        self._call("delete_user", AccessToken=access_token)
 
     def development_google_login(self) -> TokenSet:
         raise ApiError("notAvailable", "Development Google login is disabled.", status_code=404)

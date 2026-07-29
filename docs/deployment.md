@@ -148,12 +148,14 @@ infra/deploy-web.sh \
   --api-base-url https://api.example.com
 ```
 
-Add `--profile PROFILE` when using a named AWS CLI profile. The script:
+Add `--profile PROFILE` when using a named AWS CLI profile. Google sign-in is
+hidden in release builds unless the API stack is configured for Google and the
+web release is built with `--google-sign-in-enabled true`. The script:
 
 1. resolves the private bucket and distribution from CloudFormation outputs;
-2. runs a release Flutter build with `API_BASE_URL` and packages CanvasKit
-   locally instead of loading it from Google's CDN, while verifying the
-   same-origin fallback-font configuration;
+2. runs a release Flutter build with `API_BASE_URL`, the explicit Google
+   sign-in flag, and CanvasKit packaged locally instead of loaded from Google's
+   CDN, while verifying the same-origin fallback-font configuration;
 3. uploads ordinary assets and removes obsolete assets while retaining the
    prior startup shell, then replaces the startup files and stable JavaScript
    bundles only after their dependencies are present;

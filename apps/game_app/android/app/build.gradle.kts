@@ -1,5 +1,6 @@
 import java.io.FileInputStream
 import java.util.Properties
+import org.gradle.api.GradleException
 
 plugins {
     id("com.android.application")
@@ -13,8 +14,44 @@ if (keystorePropertiesFile.exists()) {
     FileInputStream(keystorePropertiesFile).use { keystoreProperties.load(it) }
 }
 
+val releaseSigningCredentials =
+    mapOf(
+        "keyAlias" to
+            (keystoreProperties.getProperty("keyAlias")
+                ?: System.getenv("ANDROID_KEY_ALIAS")).orEmpty(),
+        "keyPassword" to
+            (keystoreProperties.getProperty("keyPassword")
+                ?: System.getenv("ANDROID_KEY_PASSWORD")).orEmpty(),
+        "storeFile" to
+            (keystoreProperties.getProperty("storeFile")
+                ?: System.getenv("ANDROID_KEYSTORE_PATH")).orEmpty(),
+        "storePassword" to
+            (keystoreProperties.getProperty("storePassword")
+                ?: System.getenv("ANDROID_KEYSTORE_PASSWORD")).orEmpty(),
+    )
+val releaseBuildRequested =
+    gradle.startParameter.taskNames.any { taskName ->
+        taskName.contains("release", ignoreCase = true)
+    }
+val missingReleaseSigningCredentials =
+    releaseSigningCredentials.filterValues { it.isBlank() }.keys
+
+if (releaseBuildRequested) {
+    if (missingReleaseSigningCredentials.isNotEmpty()) {
+        throw GradleException(
+            "Release signing credentials are required. Missing: " +
+                missingReleaseSigningCredentials.sorted().joinToString() +
+                ". Provide android/key.properties or the ANDROID_KEY_* environment variables.",
+        )
+    }
+    val releaseKeystore = rootProject.file(releaseSigningCredentials.getValue("storeFile"))
+    if (!releaseKeystore.isFile) {
+        throw GradleException("Release keystore does not exist: ${releaseKeystore.absolutePath}")
+    }
+}
+
 android {
-    namespace = "com.cmsflash.game_of_life"
+    namespace = "com.cmsflash.gameoflife"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
 
@@ -24,7 +61,7 @@ android {
     }
 
     defaultConfig {
-        applicationId = "com.cmsflash.game_of_life"
+        applicationId = "com.cmsflash.gameoflife"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = flutter.minSdkVersion
@@ -35,23 +72,19 @@ android {
 
     signingConfigs {
         create("release") {
-            if (keystorePropertiesFile.exists()) {
-                keyAlias = keystoreProperties.getProperty("keyAlias")
-                keyPassword = keystoreProperties.getProperty("keyPassword")
-                storeFile = file(keystoreProperties.getProperty("storeFile"))
-                storePassword = keystoreProperties.getProperty("storePassword")
+            if (missingReleaseSigningCredentials.isEmpty()) {
+                keyAlias = releaseSigningCredentials.getValue("keyAlias")
+                keyPassword = releaseSigningCredentials.getValue("keyPassword")
+                storeFile = rootProject.file(releaseSigningCredentials.getValue("storeFile"))
+                storePassword = releaseSigningCredentials.getValue("storePassword")
             }
         }
     }
 
     buildTypes {
         release {
-            // Local release runs can use the debug key. Store uploads must provide
-            // android/key.properties and use the private release keystore.
-            signingConfig = if (keystorePropertiesFile.exists()) {
-                signingConfigs.getByName("release")
-            } else {
-                signingConfigs.getByName("debug")
+            if (missingReleaseSigningCredentials.isEmpty()) {
+                signingConfig = signingConfigs.getByName("release")
             }
         }
     }

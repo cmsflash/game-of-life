@@ -3,7 +3,7 @@ from __future__ import annotations
 import pytest
 from conftest import StubEngine
 
-from life_api.models import QuickMatchRequest, User
+from life_api.models import MatchStatus, PlayerSummary, QuickMatchRequest, StoredMatch, User
 from life_api.repository import InMemoryRepository
 from life_api.service import MatchService
 
@@ -60,7 +60,7 @@ def test_claimed_ticket_remains_active_until_released() -> None:
         email_verified=True,
     )
     ticket = "ticket-alice-000001"
-    repository.enqueue("rules-hash", alice, {"rules": 1}, ticket)
+    repository.enqueue("rules-hash", alice.id, {"rules": 1}, ticket)
 
     opponent = repository.pop_opponent("rules-hash", "bob-id")
 
@@ -72,3 +72,40 @@ def test_claimed_ticket_remains_active_until_released() -> None:
     released = repository.active_matchmaking(alice.id)
     assert released is not None
     assert released.status == "waiting"
+
+
+def test_match_documents_sanitize_legacy_stored_display_names() -> None:
+    repository = InMemoryRepository()
+    engine = StubEngine()
+    alice = User(
+        id="alice-id",
+        username="alice",
+        email="alice@example.com",
+        display_name="Alice's custom name",
+        email_verified=True,
+    )
+    match = StoredMatch(
+        id="00000000-0000-0000-0000-000000000001",
+        join_code="ABC123",
+        rules={},
+        state=engine.initial({}),
+        creator_id=alice.id,
+        creator_name="Alice's custom name",
+        black_player=PlayerSummary(
+            id=alice.id,
+            display_name="Alice's custom name",
+        ),
+        white_player=PlayerSummary(
+            id="bob-id",
+            display_name="Bob's custom name",
+        ),
+        status=MatchStatus.active,
+    )
+    repository.create_match(match)
+
+    document = MatchService(repository, engine).get(alice, match.id)
+
+    assert document.black_player is not None
+    assert document.black_player.display_name == "Black player"
+    assert document.white_player is not None
+    assert document.white_player.display_name == "White player"

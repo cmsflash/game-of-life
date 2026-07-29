@@ -2,9 +2,26 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 from enum import StrEnum
-from typing import Any, Literal
+from typing import Annotated, Any, Literal
 
-from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator, model_validator
+from pydantic import (
+    AfterValidator,
+    BaseModel,
+    ConfigDict,
+    EmailStr,
+    Field,
+    field_validator,
+    model_validator,
+)
+
+
+def _normalize_utc(value: datetime) -> datetime:
+    if value.tzinfo is None or value.utcoffset() is None:
+        raise ValueError("datetime must include a timezone")
+    return value.astimezone(UTC)
+
+
+UtcDateTime = Annotated[datetime, AfterValidator(_normalize_utc)]
 
 
 class StrictModel(BaseModel):
@@ -216,8 +233,8 @@ class MatchDocument(StrictModel):
     status: MatchStatus
     version: int = Field(ge=0)
     result: dict[str, Any] | None = None
-    created_at: datetime = Field(alias="createdAt")
-    updated_at: datetime = Field(alias="updatedAt")
+    created_at: UtcDateTime = Field(alias="createdAt")
+    updated_at: UtcDateTime = Field(alias="updatedAt")
 
 
 class MatchListResponse(StrictModel):
@@ -239,7 +256,7 @@ class MoveEvent(StrictModel):
     column: int
     delta: dict[str, Any]
     state_hash: str = Field(alias="stateHash")
-    created_at: datetime = Field(alias="createdAt")
+    created_at: UtcDateTime = Field(alias="createdAt")
 
 
 class MoveHistoryResponse(StrictModel):
@@ -267,8 +284,14 @@ class StoredMatch(StrictModel):
     status: MatchStatus
     version: int = Field(default=0, ge=0)
     result: dict[str, Any] | None = None
-    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC), alias="createdAt")
-    updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC), alias="updatedAt")
+    created_at: UtcDateTime = Field(
+        default_factory=lambda: datetime.now(UTC),
+        alias="createdAt",
+    )
+    updated_at: UtcDateTime = Field(
+        default_factory=lambda: datetime.now(UTC),
+        alias="updatedAt",
+    )
 
     @property
     def revision(self) -> int:
@@ -285,11 +308,11 @@ class StoredMatch(StrictModel):
 class StoredExchange(StrictModel):
     code: str
     tokens: TokenSet
-    expires_at: datetime = Field(alias="expiresAt")
+    expires_at: UtcDateTime = Field(alias="expiresAt")
 
 
 class StoredOAuthTransaction(StrictModel):
     id: str
     verifier: str
     return_to: str = Field(alias="returnTo")
-    expires_at: datetime = Field(alias="expiresAt")
+    expires_at: UtcDateTime = Field(alias="expiresAt")

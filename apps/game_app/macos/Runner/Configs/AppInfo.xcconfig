@@ -5,10 +5,10 @@
 // 'flutter create' template.
 
 // The application's name. By default this is also the title of the Flutter window.
-PRODUCT_NAME = game_of_life
+PRODUCT_NAME = GameOfLife
 
 // The application's bundle identifier
-PRODUCT_BUNDLE_IDENTIFIER = com.cmsflash.gameOfLife
+PRODUCT_BUNDLE_IDENTIFIER = com.cmsflash.gameoflife
 
 // The copyright displayed in application information
-PRODUCT_COPYRIGHT = Copyright © 2026 com.cmsflash. All rights reserved.
+PRODUCT_COPYRIGHT = Copyright © 2026 cmsflash. All rights reserved.

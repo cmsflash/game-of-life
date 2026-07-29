@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -167,33 +166,34 @@ class _OnlineMatchScreenState extends ConsumerState<OnlineMatchScreen> {
             final board = Padding(
               padding: EdgeInsets.all(wide ? 24 : 12),
               child: Center(
-                child: SizedBox.square(
-                  dimension: math
-                      .min(
-                        constraints.maxWidth - (wide ? 380 : 24),
-                        constraints.maxHeight - (wide ? 48 : 220),
-                      )
-                      .clamp(280, 760),
-                  child: Stack(
-                    children: [
-                      Positioned.fill(
-                        child: LifeBoard(
-                          key: const Key('online-life-board'),
-                          board: match.board,
-                          enabled: match.isYourTurn && !_submitting,
-                          onCellTap: _place,
-                        ),
-                      ),
-                      if (_submitting)
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(
+                    maxWidth: 760,
+                    maxHeight: 760,
+                  ),
+                  child: AspectRatio(
+                    aspectRatio: 1,
+                    child: Stack(
+                      children: [
                         Positioned.fill(
-                          child: ColoredBox(
-                            color: Colors.black.withValues(alpha: .2),
-                            child: const Center(
-                              child: CircularProgressIndicator(),
-                            ),
+                          child: LifeBoard(
+                            key: const Key('online-life-board'),
+                            board: match.board,
+                            enabled: match.isYourTurn && !_submitting,
+                            onCellTap: _place,
                           ),
                         ),
-                    ],
+                        if (_submitting)
+                          Positioned.fill(
+                            child: ColoredBox(
+                              color: Colors.black.withValues(alpha: .2),
+                              child: const Center(
+                                child: CircularProgressIndicator(),
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
                   ),
                 ),
               ),
@@ -215,12 +215,11 @@ class _OnlineMatchScreenState extends ConsumerState<OnlineMatchScreen> {
             }
             return Column(
               children: [
-                Expanded(child: board),
-                SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
-                  child: SizedBox(
-                    width: math.max(540, constraints.maxWidth - 24),
+                Expanded(flex: 3, child: board),
+                Flexible(
+                  flex: 2,
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
                     child: panel,
                   ),
                 ),

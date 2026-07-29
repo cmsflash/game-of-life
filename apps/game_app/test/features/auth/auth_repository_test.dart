@@ -75,6 +75,75 @@ void main() {
       expect(browser.opened?.queryParameters['returnTo'], isNotEmpty);
     },
   );
+
+  test(
+    'account deletion clears the local session after the API confirms',
+    () async {
+      final store = MemorySessionStore()
+        ..session = const StoredSession(
+          accessToken: 'access-token',
+          refreshToken: 'refresh-token',
+        );
+      final repository = ApiAuthRepository(
+        api: ApiClient(
+          sessionStore: store,
+          httpClient: MockClient((request) async {
+            expect(request.method, 'DELETE');
+            expect(request.url.path, '/v1/me');
+            expect(request.headers['authorization'], 'Bearer access-token');
+            return http.Response(
+              jsonEncode({'message': 'Account deleted.'}),
+              200,
+            );
+          }),
+          baseUrl: 'https://api.example.test',
+        ),
+        sessionStore: store,
+        browserLauncher: _FakeBrowser(),
+      );
+
+      await repository.deleteAccount();
+
+      expect(await store.readSession(), isNull);
+    },
+  );
+
+  test(
+    'failed account deletion keeps the session so the player can retry',
+    () async {
+      final store = MemorySessionStore()
+        ..session = const StoredSession(
+          accessToken: 'access-token',
+          refreshToken: 'refresh-token',
+        );
+      final repository = ApiAuthRepository(
+        api: ApiClient(
+          sessionStore: store,
+          httpClient: MockClient(
+            (_) async => http.Response(
+              jsonEncode({
+                'error': {
+                  'code': 'temporarilyUnavailable',
+                  'message': 'Try again shortly.',
+                },
+              }),
+              503,
+            ),
+          ),
+          baseUrl: 'https://api.example.test',
+        ),
+        sessionStore: store,
+        browserLauncher: _FakeBrowser(),
+      );
+
+      await expectLater(
+        repository.deleteAccount(),
+        throwsA(isA<ApiException>()),
+      );
+
+      expect(await store.readSession(), isNotNull);
+    },
+  );
 }
 
 class _FakeBrowser implements BrowserLauncher {

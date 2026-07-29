@@ -45,7 +45,7 @@ class MatchService:
             rules=rules,
             state=state,
             creator_id=user.id,
-            creator_name=user.display_name,
+            creator_name="Player",
             status=MatchStatus.waiting,
         )
         self.repository.create_match(match)
@@ -61,9 +61,7 @@ class MatchService:
             )
         if match.status != MatchStatus.waiting:
             raise ApiError("matchUnavailable", "The match is no longer waiting.", status_code=409)
-        creator = PlayerSummary(id=match.creator_id, display_name=match.creator_name)
-        joining = PlayerSummary(id=user.id, display_name=user.display_name)
-        black, white = (creator, joining) if secrets.randbelow(2) == 0 else (joining, creator)
+        black, white = self._assign_colors(match.creator_id, user.id)
         updated = match.model_copy(
             update={
                 "black_player": black,
@@ -114,21 +112,19 @@ class MatchService:
         rules_hash = _stable_hash(rules)
         opponent_entry = self.repository.pop_opponent(rules_hash, user.id)
         if opponent_entry is None:
-            self.repository.enqueue(rules_hash, user, rules, request.ticket_id)
+            self.repository.enqueue(rules_hash, user.id, rules, request.ticket_id)
             return QuickMatchResponse(ticket_id=request.ticket_id, status="waiting")
-        opponent, opponent_rules, opponent_ticket_id = opponent_entry
+        opponent_id, opponent_rules, opponent_ticket_id = opponent_entry
         try:
             state = self.engine.initial(opponent_rules)
-            creator = PlayerSummary(id=opponent.id, display_name=opponent.display_name)
-            joining = PlayerSummary(id=user.id, display_name=user.display_name)
-            black, white = (creator, joining) if secrets.randbelow(2) == 0 else (joining, creator)
+            black, white = self._assign_colors(opponent_id, user.id)
             active_match = StoredMatch(
                 id=str(uuid4()),
                 join_code=self._new_join_code(),
                 rules=opponent_rules,
                 state=state,
-                creator_id=opponent.id,
-                creator_name=opponent.display_name,
+                creator_id=opponent_id,
+                creator_name="Player",
                 black_player=black,
                 white_player=white,
                 status=MatchStatus.active,
@@ -141,7 +137,7 @@ class MatchService:
                 opponent_ticket_id,
             )
         except Exception:
-            self.repository.release_matchmaking_claim(opponent.id, opponent_ticket_id)
+            self.repository.release_matchmaking_claim(opponent_id, opponent_ticket_id)
             raise
         return QuickMatchResponse(
             ticket_id=request.ticket_id,
@@ -170,6 +166,36 @@ class MatchService:
                 status_code=409,
                 details={"matchId": record.match_id},
             )
+
+    def delete_account_data(self, user: User) -> None:
+        lock_token = self.repository.acquire_matchmaking_lock(user.id)
+        if lock_token is None:
+            raise ApiError(
+                "accountDeletionBusy",
+                "Another request is still updating this account. Try again.",
+                status_code=409,
+            )
+        try:
+            active_request = self.repository.active_matchmaking(user.id)
+            if active_request is not None:
+                self.repository.remove_from_queue(user.id, active_request.ticket_id)
+
+            for match in self.repository.list_matches(user.id):
+                if match.status == MatchStatus.waiting:
+                    self.cancel_waiting(user, match.id)
+                elif match.status == MatchStatus.active:
+                    self.resign(
+                        user,
+                        match.id,
+                        ResignRequest(
+                            expected_revision=match.revision,
+                            idempotency_key=f"account-delete-{uuid4()}",
+                        ),
+                    )
+
+            self.repository.delete_user_data(user.id)
+        finally:
+            self.repository.release_matchmaking_lock(user.id, lock_token)
 
     @staticmethod
     def _quick_response(
@@ -369,8 +395,8 @@ class MatchService:
             join_code=match.join_code,
             rules=match.rules,
             state=match.state,
-            black_player=match.black_player,
-            white_player=match.white_player,
+            black_player=self._public_player(match.black_player, "Black player"),
+            white_player=self._public_player(match.white_player, "White player"),
             your_color=match.color_for(user_id),
             status=match.status,
             version=match.version,
@@ -401,6 +427,35 @@ class MatchService:
             if self.repository.find_by_join_code(code) is None:
                 return code
         raise ApiError("capacityError", "A join code could not be allocated.", status_code=503)
+
+    @staticmethod
+    def _assign_colors(
+        first_user_id: str, second_user_id: str
+    ) -> tuple[PlayerSummary, PlayerSummary]:
+        black_id, white_id = (
+            (first_user_id, second_user_id)
+            if secrets.randbelow(2) == 0
+            else (second_user_id, first_user_id)
+        )
+        return (
+            PlayerSummary(id=black_id, display_name="Black player"),
+            PlayerSummary(id=white_id, display_name="White player"),
+        )
+
+    @staticmethod
+    def _public_player(
+        player: PlayerSummary | None,
+        color_label: str,
+    ) -> PlayerSummary | None:
+        if player is None:
+            return None
+        return player.model_copy(
+            update={
+                "display_name": (
+                    "Deleted player" if player.id.startswith("deleted-") else color_label
+                )
+            }
+        )
 
 
 def _stable_hash(value: dict[str, Any]) -> str:

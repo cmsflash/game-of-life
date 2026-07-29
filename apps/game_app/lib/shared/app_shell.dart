@@ -16,6 +16,7 @@ class AppShell extends ConsumerWidget {
     ('/local/setup', 'Local', Icons.grid_4x4_outlined, Icons.grid_4x4),
     ('/online', 'Online', Icons.public_outlined, Icons.public),
     ('/profile', 'Profile', Icons.person_outline, Icons.person),
+    ('/about', 'About', Icons.info_outline, Icons.info),
   ];
 
   @override
@@ -115,6 +116,12 @@ class AppShell extends ConsumerWidget {
     if (location.startsWith('/local')) return 1;
     if (location.startsWith('/online')) return 2;
     if (location.startsWith('/profile')) return 3;
+    if (location.startsWith('/about') ||
+        location.startsWith('/privacy') ||
+        location.startsWith('/terms') ||
+        location.startsWith('/account-deletion')) {
+      return 4;
+    }
     return 0;
   }
 }

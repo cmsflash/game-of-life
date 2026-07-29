@@ -7,6 +7,7 @@ Usage:
   infra/deploy-web.sh \
     --stack-name STACK_NAME \
     --api-base-url HTTPS_API_BASE_URL \
+    [--google-sign-in-enabled true|false] \
     [--profile AWS_PROFILE] \
     [--region us-east-1]
 
@@ -18,6 +19,7 @@ USAGE
 
 stack_name=""
 api_base_url=""
+google_sign_in_enabled="false"
 aws_profile=""
 aws_region="us-east-1"
 
@@ -31,6 +33,14 @@ while (($# > 0)); do
     --api-base-url)
       [[ $# -ge 2 ]] || { echo "Missing value for --api-base-url" >&2; exit 2; }
       api_base_url="$2"
+      shift 2
+      ;;
+    --google-sign-in-enabled)
+      [[ $# -ge 2 ]] || {
+        echo "Missing value for --google-sign-in-enabled" >&2
+        exit 2
+      }
+      google_sign_in_enabled="$2"
       shift 2
       ;;
     --profile)
@@ -73,6 +83,11 @@ fi
 
 if [[ "$api_base_url" == */ ]]; then
   echo "--api-base-url must not have a trailing slash." >&2
+  exit 2
+fi
+
+if [[ "$google_sign_in_enabled" != "true" && "$google_sign_in_enabled" != "false" ]]; then
+  echo "--google-sign-in-enabled must be true or false." >&2
   exit 2
 fi
 
@@ -155,7 +170,8 @@ echo "Building Flutter web application for API $api_base_url"
     --release \
     --no-web-resources-cdn \
     --output "$build_dir" \
-    --dart-define="API_BASE_URL=$api_base_url"
+    --dart-define="API_BASE_URL=$api_base_url" \
+    --dart-define="GOOGLE_SIGN_IN_ENABLED=$google_sign_in_enabled"
 )
 
 required_build_files=(

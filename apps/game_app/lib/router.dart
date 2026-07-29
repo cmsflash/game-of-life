@@ -8,6 +8,7 @@ import 'features/auth/presentation/profile_screen.dart';
 import 'features/game/presentation/local_game_screen.dart';
 import 'features/game/presentation/local_setup_screen.dart';
 import 'features/home/home_screen.dart';
+import 'features/legal/legal_screens.dart';
 import 'features/online/presentation/lobby_screen.dart';
 import 'features/online/presentation/online_match_screen.dart';
 import 'providers.dart';
@@ -62,6 +63,26 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: '/profile',
             builder: (context, state) => const ProfileScreen(),
+          ),
+          GoRoute(
+            path: '/about',
+            builder: (context, state) =>
+                const LegalScreen(document: LegalDocument.about),
+          ),
+          GoRoute(
+            path: '/privacy',
+            builder: (context, state) =>
+                const LegalScreen(document: LegalDocument.privacy),
+          ),
+          GoRoute(
+            path: '/terms',
+            builder: (context, state) =>
+                const LegalScreen(document: LegalDocument.terms),
+          ),
+          GoRoute(
+            path: '/account-deletion',
+            builder: (context, state) =>
+                const LegalScreen(document: LegalDocument.accountDeletion),
           ),
         ],
       ),

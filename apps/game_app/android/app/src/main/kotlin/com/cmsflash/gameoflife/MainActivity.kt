@@ -1,4 +1,4 @@
-package com.cmsflash.game_of_life
+package com.cmsflash.gameoflife
 
 import io.flutter.embedding.android.FlutterActivity
 

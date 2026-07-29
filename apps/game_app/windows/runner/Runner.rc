@@ -89,12 +89,12 @@ BEGIN
     BEGIN
         BLOCK "040904e4"
         BEGIN
-            VALUE "CompanyName", "com.cmsflash" "\0"
+            VALUE "CompanyName", "cmsflash" "\0"
             VALUE "FileDescription", "The Game of Life" "\0"
             VALUE "FileVersion", VERSION_AS_STRING "\0"
-            VALUE "InternalName", "game_of_life" "\0"
-            VALUE "LegalCopyright", "Copyright (C) 2026 com.cmsflash. All rights reserved." "\0"
-            VALUE "OriginalFilename", "game_of_life.exe" "\0"
+            VALUE "InternalName", "GameOfLife" "\0"
+            VALUE "LegalCopyright", "Copyright © 2026 cmsflash. All rights reserved." "\0"
+            VALUE "OriginalFilename", "GameOfLife.exe" "\0"
             VALUE "ProductName", "The Game of Life" "\0"
             VALUE "ProductVersion", VERSION_AS_STRING "\0"
         END

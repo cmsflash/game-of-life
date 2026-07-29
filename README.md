@@ -46,6 +46,25 @@ flutter run \
   --dart-define=API_BASE_URL=https://api.example.com
 ```
 
+Release builds intentionally reject a missing, local, or plaintext API origin.
+Use the exact production HTTPS origin for every candidate artifact. Optional
+Google sign-in is hidden from release builds unless it is explicitly enabled;
+it remains hidden on Apple platforms until an equivalent compliant login
+provider is implemented.
+
+## Publication
+
+The client includes in-app privacy, Terms, open-source license, and account
+deletion surfaces. The API deletes the identity account, resolves outstanding
+matches, and anonymizes retained history. Opponent-authored names are not
+exposed in the release protocol.
+
+Before submitting a binary, complete the operator-specific values, store
+assets, reviewer package, signing, and clean-device checks in
+[`docs/store-publication.md`](docs/store-publication.md). The canonical policy
+texts are [`docs/privacy-policy.md`](docs/privacy-policy.md) and
+[`docs/terms-of-use.md`](docs/terms-of-use.md).
+
 Cloud credentials, OAuth client secrets, signing secrets, and DNS ownership are
 deployment inputs and are never committed to this repository. See
 `docs/deployment.md` for the complete setup.

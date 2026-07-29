@@ -10,6 +10,7 @@ void main() {
   Future<void> pumpApp(
     WidgetTester tester, {
     Size size = const Size(1200, 900),
+    FakeAuthRepository? authRepository,
   }) async {
     tester.view.physicalSize = size;
     tester.view.devicePixelRatio = 1;
@@ -18,7 +19,9 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
-          authRepositoryProvider.overrideWithValue(FakeAuthRepository()),
+          authRepositoryProvider.overrideWithValue(
+            authRepository ?? FakeAuthRepository(),
+          ),
         ],
         child: const GameOfLifeApp(),
       ),
@@ -38,7 +41,7 @@ void main() {
     expect(find.byKey(const Key('start-local-game')), findsOneWidget);
   });
 
-  testWidgets('sign-in page keeps password login independent of Google', (
+  testWidgets('sign-in page keeps password and local play always available', (
     tester,
   ) async {
     await pumpApp(tester);
@@ -46,10 +49,22 @@ void main() {
     await tester.tap(find.byTooltip('Sign in'));
     await tester.pumpAndSettle();
 
-    expect(find.byKey(const Key('google-sign-in')), findsOneWidget);
     expect(find.byKey(const Key('login-username')), findsOneWidget);
     expect(find.byKey(const Key('login-submit')), findsOneWidget);
     expect(find.text('Play locally without an account'), findsOneWidget);
+  });
+
+  testWidgets('about page exposes privacy, terms, and deletion guidance', (
+    tester,
+  ) async {
+    await pumpApp(tester);
+
+    await tester.tap(find.text('About'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Privacy Policy'), findsOneWidget);
+    expect(find.text('Terms of Use'), findsOneWidget);
+    expect(find.text('Account deletion'), findsOneWidget);
   });
 
   testWidgets('mobile layout reaches and starts a local match', (tester) async {
@@ -66,5 +81,26 @@ void main() {
 
     expect(find.byKey(const Key('local-life-board')), findsOneWidget);
     expect(find.textContaining('to move'), findsOneWidget);
+  });
+
+  testWidgets('signed-in player can confirm permanent account deletion', (
+    tester,
+  ) async {
+    final repository = FakeAuthRepository();
+    await repository.login(username: 'alice', password: 'password');
+    await pumpApp(tester, authRepository: repository);
+
+    await tester.tap(find.text('Profile'));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.byKey(const Key('delete-account')));
+    await tester.tap(find.byKey(const Key('delete-account')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Delete this account permanently?'), findsOneWidget);
+    await tester.tap(find.byKey(const Key('confirm-delete-account')));
+    await tester.pumpAndSettle();
+
+    expect(repository.current, isNull);
+    expect(find.text('Give life\na side.'), findsOneWidget);
   });
 }

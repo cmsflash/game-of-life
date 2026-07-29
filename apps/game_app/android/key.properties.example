@@ -1,3 +1,6 @@
+# Copy this file to key.properties for local release builds. As an alternative,
+# CI may provide ANDROID_KEYSTORE_PATH, ANDROID_KEYSTORE_PASSWORD,
+# ANDROID_KEY_ALIAS, and ANDROID_KEY_PASSWORD.
 storePassword=replace-with-keystore-password
 keyPassword=replace-with-key-password
 keyAlias=upload

@@ -38,6 +38,7 @@ abstract interface class AuthRepository {
   Future<void> beginGoogleSignIn();
   Future<AppUser> exchangeGoogleCode(String code);
   Future<void> logout();
+  Future<void> deleteAccount();
 }
 
 class ApiAuthRepository implements AuthRepository {
@@ -215,6 +216,12 @@ class ApiAuthRepository implements AuthRepository {
     }
   }
 
+  @override
+  Future<void> deleteAccount() async {
+    await _api.delete('/v1/me');
+    await _sessionStore.clearSession();
+  }
+
   Future<AppUser> _saveTokens(Map<String, dynamic> json) async {
     final userJson = json['user'] as Map<String, dynamic>?;
     if (userJson == null || json['accessToken'] is! String) {
@@ -232,7 +239,7 @@ class ApiAuthRepository implements AuthRepository {
         refreshToken: json['refreshToken'] as String?,
         expiresAt: expiresIn == null
             ? null
-            : DateTime.now().add(Duration(seconds: expiresIn)),
+            : DateTime.now().toUtc().add(Duration(seconds: expiresIn)),
         userJson: user.toJson(),
       ),
     );

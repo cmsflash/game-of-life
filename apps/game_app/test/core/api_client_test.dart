@@ -84,4 +84,51 @@ void main() {
     await expired;
     expect(await store.readSession(), isNull);
   });
+
+  test('maps request timeouts to a stable user-facing API error', () async {
+    final api = ApiClient(
+      sessionStore: MemorySessionStore(),
+      httpClient: MockClient(
+        (_) => Future<http.Response>.delayed(
+          const Duration(milliseconds: 20),
+          () => http.Response('{}', 200),
+        ),
+      ),
+      baseUrl: 'https://api.example.test',
+      requestTimeout: Duration.zero,
+    );
+
+    await expectLater(
+      api.get('/v1/health', authenticated: false),
+      throwsA(
+        isA<ApiException>()
+            .having((error) => error.code, 'code', 'requestTimeout')
+            .having((error) => error.statusCode, 'statusCode', 0),
+      ),
+    );
+  });
+
+  test(
+    'maps client transport failures to a stable user-facing API error',
+    () async {
+      final api = ApiClient(
+        sessionStore: MemorySessionStore(),
+        httpClient: MockClient(
+          (_) async => throw http.ClientException('connection failed'),
+        ),
+        baseUrl: 'https://api.example.test',
+      );
+
+      await expectLater(
+        api.get('/v1/health', authenticated: false),
+        throwsA(
+          isA<ApiException>().having(
+            (error) => error.code,
+            'code',
+            'networkUnavailable',
+          ),
+        ),
+      );
+    },
+  );
 }

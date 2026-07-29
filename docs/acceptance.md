@@ -21,6 +21,11 @@
 - Google is optional throughout the UI and backend.
 - Tokens are stored using the platform secure-storage implementation and are
   removed on logout.
+- A signed-in user can permanently delete the account in the app. Waiting
+  matches are cancelled, active matches are resigned, identity data is
+  deleted, and retained history is anonymized.
+- Privacy Policy, Terms of Use, open-source licenses, and account-deletion
+  guidance are reachable in the app without an online match.
 
 ## Online play
 
@@ -34,6 +39,8 @@
 - Both players can load the same replay and independently reproduce its final
   state hash.
 - Resignation produces a terminal outcome and prevents future moves.
+- Opponents receive color labels rather than user-authored usernames or display
+  names.
 
 ## Operational quality
 
@@ -44,5 +51,9 @@
   permissions, logs, alarms, and documented outputs in a parameterized AWS
   Global region.
 - Production secrets are deployment inputs, not source-controlled values.
+- Release clients reject missing, plaintext, or local API origins and Android
+  release tasks reject debug signing.
+- The board is operable by touch, keyboard, and assistive technologies, and
+  narrow screens do not require horizontal scrolling for match status.
 - The exact deployed authentication and move flow is measured from mainland
   China before public launch.

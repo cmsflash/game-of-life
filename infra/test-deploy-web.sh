@@ -81,9 +81,10 @@ PATH="$mock_bin:$PATH" \
   "$repo_dir/infra/deploy-web.sh" \
     --stack-name life-web-test \
     --api-base-url https://api.example.com \
+    --google-sign-in-enabled true \
     --profile test-profile
 
-grep -F -- "flutter build web --release --no-web-resources-cdn --output $mock_build --dart-define=API_BASE_URL=https://api.example.com" "$mock_log" >/dev/null
+grep -F -- "flutter build web --release --no-web-resources-cdn --output $mock_build --dart-define=API_BASE_URL=https://api.example.com --dart-define=GOOGLE_SIGN_IN_ENABLED=true" "$mock_log" >/dev/null
 grep -F -- "s3 sync $mock_build/ s3://life-production-web-123456789012/ --delete" "$mock_log" >/dev/null
 grep -F -- "--exclude index.html" "$mock_log" >/dev/null
 grep -F -- "--exclude main.dart.js" "$mock_log" >/dev/null
@@ -104,6 +105,14 @@ if "$repo_dir/infra/deploy-web.sh" \
   --api-base-url https://api.example.com \
   --region ap-east-1 >/dev/null 2>&1; then
   echo "Expected a non-us-east-1 web stack region to be rejected." >&2
+  exit 1
+fi
+
+if "$repo_dir/infra/deploy-web.sh" \
+  --stack-name life-web-test \
+  --api-base-url https://api.example.com \
+  --google-sign-in-enabled maybe >/dev/null 2>&1; then
+  echo "Expected an invalid Google sign-in flag to be rejected." >&2
   exit 1
 fi
 

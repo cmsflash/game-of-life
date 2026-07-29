@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:game_of_life/core/api_client.dart';
+import 'package:game_of_life/features/auth/data/auth_models.dart';
 import 'package:game_of_life/features/auth/presentation/auth_controller.dart';
 
 import '../../fakes.dart';
@@ -33,5 +34,23 @@ void main() {
     expect(success, isFalse);
     expect(controller.state.status, AuthStatus.signedOut);
     expect(controller.state.error, 'Username or password is incorrect.');
+  });
+
+  test('deletes the account and returns to signed-out state', () async {
+    final repository = FakeAuthRepository()
+      ..current = const AppUser(
+        id: 'user-1',
+        username: 'alice',
+        displayName: 'Alice',
+      );
+    final controller = AuthController(repository);
+    await controller.restore();
+
+    final success = await controller.deleteAccount();
+
+    expect(success, isTrue);
+    expect(controller.state.status, AuthStatus.signedOut);
+    expect(controller.state.notice, 'Your account was deleted.');
+    expect(repository.current, isNull);
   });
 }

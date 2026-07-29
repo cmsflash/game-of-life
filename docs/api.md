@@ -37,11 +37,20 @@ periods, underscores, or hyphens.
 | `GET` | `/auth/google/callback` | Cognito callback; redirects to the app. |
 | `POST` | `/auth/exchange` | Redeem a one-time `{code}` for a token set. |
 | `GET` | `/me` | Return the authenticated player profile. |
+| `DELETE` | `/me` | Permanently delete the authenticated account; returns `204`. |
 
 The Google flow uses authorization code plus S256 PKCE, signed state, an exact
 return-URL allowlist, and two atomic one-time records. Google is optional;
 password authentication never contacts it. Local mode uses the same app
 callback and exchange shape with an explicitly marked development account.
+
+Account deletion first cancels waiting games and matchmaking requests and
+resigns every active game. Completed game records remain available to the
+opponent, but the deleted player's identifier and generic color label are replaced
+with an unlinkable `Deleted player` identity in both match state and move
+history. The deleted player's memberships, matchmaking records, idempotency
+records, and identity-provider account are then removed. Existing access and
+refresh tokens no longer authenticate.
 
 ## Matches
 
@@ -56,6 +65,12 @@ callback and exchange shape with an explicitly marked development account.
 | `POST` | `/matches/{id}/resign` | Resign an active match. |
 | `GET` | `/matches/{id}/moves` | Read its append-only move events. |
 | `GET` | `/matches/{id}/replay` | Reproduce and return the canonical replay. |
+
+Match path IDs use canonical 36-character UUID syntax. Other values are
+rejected before a repository lookup.
+Player summaries deliberately use only the generic labels `Black player` and
+`White player`; profile display names are never copied into a match or shown to
+an opponent.
 
 Move body:
 
@@ -86,6 +101,9 @@ Queue entries, pointers, and candidate claims use conditional DynamoDB
 transactions. A short per-player lock prevents concurrent requests from
 matching the same player twice. Tickets are scoped to one request and expire;
 status never falls back to an unrelated match from the player's history.
+Queue rows store only the player's opaque ID, never a display name, serialized
+profile, username, or email. No secondary matchmaking profile record is
+created.
 If a match wins the race with cancellation, the API returns
 `409 matchAlreadyFound` with that ticket's `matchId`; the client opens the
 already-committed match.
@@ -104,3 +122,7 @@ The default is `{ "mode": "elimination" }`. Alternatives are:
 
 `maxPlies` must be positive and even. `target` is 3–400. The API resolves these
 options into the complete, versioned rules document stored with the match.
+
+All API timestamps are serialized as ISO 8601 UTC values with a `Z` suffix.
+DynamoDB TTL attributes are integer Unix seconds derived from the same
+UTC-aware instants.

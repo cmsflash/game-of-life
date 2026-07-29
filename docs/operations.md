@@ -26,7 +26,11 @@ Run these checks after every stack update from at least two networks:
 4. Create and join a match with two accounts, submit one legal move, retry it
    with the same idempotency key, and verify only one move exists.
 5. Poll with the returned `ETag` and verify an unchanged match returns `304`.
-6. Repeat the health, password-login, and move checks using the mainland
+6. Delete one disposable account while it is waiting and another while it is
+   in an active match. Verify the queue entry is removed, the active match is
+   resigned, retained match history no longer contains the account identifier,
+   the old token is rejected, and a new account can reuse the username.
+7. Repeat the health, password-login, and move checks using the mainland
    carriers and times listed in [`mainland-validation.md`](mainland-validation.md).
 
 Do not treat a successful test from an overseas VPN or one mainland ISP as a
@@ -120,6 +124,12 @@ The table uses on-demand capacity, AWS KMS encryption, TTL on `expiresAt`,
 point-in-time recovery, deletion protection, and retain-on-delete/update. TTL is
 asynchronous and must not be used as an authorization check; the application
 must reject an expired exchange or queue entry even before DynamoDB removes it.
+
+Account deletion removes the identity and matchmaking state, resigns active
+matches, and replaces the account identifier in retained match history with an
+anonymous participant identifier. Operational backups may retain the prior
+value until their documented recovery window expires; see
+[`privacy-policy.md`](privacy-policy.md).
 
 Before a schema or repository change:
 

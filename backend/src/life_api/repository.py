@@ -6,13 +6,21 @@ import threading
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from typing import Any, Literal, Protocol
+from uuid import uuid4
 
 import boto3
 from boto3.dynamodb.conditions import Key
 from botocore.exceptions import ClientError
 
 from .errors import ApiError
-from .models import MoveEvent, StoredExchange, StoredMatch, StoredOAuthTransaction, User
+from .models import (
+    MatchStatus,
+    MoveEvent,
+    PlayerSummary,
+    StoredExchange,
+    StoredMatch,
+    StoredOAuthTransaction,
+)
 from .settings import Settings
 
 _MATCHMAKING_WAIT_TTL = timedelta(minutes=10)
@@ -72,14 +80,14 @@ class Repository(Protocol):
     def enqueue(
         self,
         rules_hash: str,
-        user: User,
+        user_id: str,
         rules: dict[str, Any],
         ticket_id: str,
     ) -> None: ...
 
     def pop_opponent(
         self, rules_hash: str, user_id: str
-    ) -> tuple[User, dict[str, Any], str] | None: ...
+    ) -> tuple[str, dict[str, Any], str] | None: ...
 
     def active_matchmaking(self, user_id: str) -> MatchmakingRecord | None: ...
 
@@ -109,6 +117,8 @@ class Repository(Protocol):
 
     def consume_oauth_transaction(self, transaction_id: str) -> StoredOAuthTransaction | None: ...
 
+    def delete_user_data(self, user_id: str) -> None: ...
+
 
 class InMemoryRepository:
     def __init__(self) -> None:
@@ -117,7 +127,7 @@ class InMemoryRepository:
         self._memberships: dict[str, set[str]] = {}
         self._moves: dict[str, list[MoveEvent]] = {}
         self._idempotency: dict[tuple[str, str], tuple[str, StoredMatch]] = {}
-        self._queues: dict[str, list[tuple[User, dict[str, Any], str, datetime]]] = {}
+        self._queues: dict[str, list[tuple[str, dict[str, Any], str, datetime]]] = {}
         self._active_ticket_by_user: dict[str, str] = {}
         self._matchmaking_records: dict[tuple[str, str], MatchmakingRecord] = {}
         self._exchanges: dict[str, StoredExchange] = {}
@@ -276,12 +286,12 @@ class InMemoryRepository:
     def enqueue(
         self,
         rules_hash: str,
-        user: User,
+        user_id: str,
         rules: dict[str, Any],
         ticket_id: str,
     ) -> None:
         with self._lock:
-            active = self.active_matchmaking(user.id)
+            active = self.active_matchmaking(user_id)
             if active is not None:
                 if active.ticket_id == ticket_id:
                     return
@@ -292,9 +302,9 @@ class InMemoryRepository:
                     details={"ticketId": active.ticket_id},
                 )
             expires_at = datetime.now(UTC) + _MATCHMAKING_WAIT_TTL
-            self._queues.setdefault(rules_hash, []).append((user, rules, ticket_id, expires_at))
-            self._active_ticket_by_user[user.id] = ticket_id
-            self._matchmaking_records[(user.id, ticket_id)] = MatchmakingRecord(
+            self._queues.setdefault(rules_hash, []).append((user_id, rules, ticket_id, expires_at))
+            self._active_ticket_by_user[user_id] = ticket_id
+            self._matchmaking_records[(user_id, ticket_id)] = MatchmakingRecord(
                 ticket_id=ticket_id,
                 status="waiting",
                 rules_hash=rules_hash,
@@ -303,9 +313,7 @@ class InMemoryRepository:
                 expires_at=expires_at,
             )
 
-    def pop_opponent(
-        self, rules_hash: str, user_id: str
-    ) -> tuple[User, dict[str, Any], str] | None:
+    def pop_opponent(self, rules_hash: str, user_id: str) -> tuple[str, dict[str, Any], str] | None:
         with self._lock:
             queue = self._queues.setdefault(rules_hash, [])
             now = datetime.now(UTC)
@@ -313,14 +321,10 @@ class InMemoryRepository:
                 candidate for candidate in queue if self._keep_live_candidate(candidate, now)
             ]
             for candidate in queue:
-                opponent_user, opponent_rules, ticket_id, _ = candidate
-                record = self._matchmaking_records.get((opponent_user.id, ticket_id))
-                if (
-                    opponent_user.id != user_id
-                    and record is not None
-                    and record.status == "waiting"
-                ):
-                    self._matchmaking_records[(opponent_user.id, ticket_id)] = MatchmakingRecord(
+                opponent_id, opponent_rules, ticket_id, _ = candidate
+                record = self._matchmaking_records.get((opponent_id, ticket_id))
+                if opponent_id != user_id and record is not None and record.status == "waiting":
+                    self._matchmaking_records[(opponent_id, ticket_id)] = MatchmakingRecord(
                         ticket_id=ticket_id,
                         status="claimed",
                         rules_hash=rules_hash,
@@ -328,20 +332,20 @@ class InMemoryRepository:
                         match_id=None,
                         expires_at=now + _MATCHMAKING_WAIT_TTL,
                     )
-                    return opponent_user, opponent_rules, ticket_id
+                    return opponent_id, opponent_rules, ticket_id
             return None
 
     def _keep_live_candidate(
         self,
-        candidate: tuple[User, dict[str, Any], str, datetime],
+        candidate: tuple[str, dict[str, Any], str, datetime],
         now: datetime,
     ) -> bool:
-        user, _, ticket_id, expires_at = candidate
+        user_id, _, ticket_id, expires_at = candidate
         if expires_at > now:
             return True
-        if self._active_ticket_by_user.get(user.id) == ticket_id:
-            self._active_ticket_by_user.pop(user.id, None)
-        self._matchmaking_records.pop((user.id, ticket_id), None)
+        if self._active_ticket_by_user.get(user_id) == ticket_id:
+            self._active_ticket_by_user.pop(user_id, None)
+        self._matchmaking_records.pop((user_id, ticket_id), None)
         return False
 
     def active_matchmaking(self, user_id: str) -> MatchmakingRecord | None:
@@ -390,7 +394,7 @@ class InMemoryRepository:
                 self._queues[claimed.rules_hash] = [
                     entry
                     for entry in self._queues.get(claimed.rules_hash, [])
-                    if not (entry[0].id == opponent_id and entry[2] == opponent_ticket_id)
+                    if not (entry[0] == opponent_id and entry[2] == opponent_ticket_id)
                 ]
             if self._active_ticket_by_user.get(opponent_id) == opponent_ticket_id:
                 self._active_ticket_by_user.pop(opponent_id, None)
@@ -429,7 +433,7 @@ class InMemoryRepository:
             if current.rules_hash is not None:
                 queue = self._queues.get(current.rules_hash, [])
                 for index, entry in enumerate(queue):
-                    if entry[0].id == user_id and entry[2] == ticket_id:
+                    if entry[0] == user_id and entry[2] == ticket_id:
                         queue[index] = (entry[0], entry[1], entry[2], expires_at)
                         break
 
@@ -446,7 +450,7 @@ class InMemoryRepository:
                 self._queues[rules_hash] = [
                     entry
                     for entry in self._queues.get(rules_hash, [])
-                    if not (entry[0].id == user_id and entry[2] == ticket_id)
+                    if not (entry[0] == user_id and entry[2] == ticket_id)
                 ]
             self._matchmaking_records.pop((user_id, ticket_id), None)
             return True
@@ -485,6 +489,41 @@ class InMemoryRepository:
             if transaction is None or transaction.expires_at <= datetime.now(UTC):
                 return None
             return transaction
+
+    def delete_user_data(self, user_id: str) -> None:
+        with self._lock:
+            matches = [
+                self._matches[match_id]
+                for match_id in self._memberships.get(user_id, set())
+                if match_id in self._matches
+            ]
+            if any(match.status != MatchStatus.completed for match in matches):
+                raise ApiError(
+                    "accountDeletionConflict",
+                    "All active matches must end before account data can be deleted.",
+                    status_code=409,
+                )
+
+            for match in matches:
+                anonymous_id = f"deleted-{uuid4()}"
+                anonymized = _anonymize_match(match, user_id, anonymous_id)
+                self._matches[match.id] = anonymized
+                self._moves[match.id] = [
+                    _anonymize_move(move, user_id, anonymous_id)
+                    for move in self._moves.get(match.id, [])
+                ]
+
+            self._memberships.pop(user_id, None)
+            self._idempotency = {
+                key: value for key, value in self._idempotency.items() if key[0] != user_id
+            }
+            for rules_hash, queue in self._queues.items():
+                self._queues[rules_hash] = [entry for entry in queue if entry[0] != user_id]
+            self._active_ticket_by_user.pop(user_id, None)
+            self._matchmaking_records = {
+                key: value for key, value in self._matchmaking_records.items() if key[0] != user_id
+            }
+            self._matchmaking_locks.pop(user_id, None)
 
 
 class DynamoRepository:
@@ -837,12 +876,12 @@ class DynamoRepository:
     def enqueue(
         self,
         rules_hash: str,
-        user: User,
+        user_id: str,
         rules: dict[str, Any],
         ticket_id: str,
     ) -> None:
         now = datetime.now(UTC)
-        queue_sk = f"{now.isoformat()}#{user.id}"
+        queue_sk = f"{now.isoformat()}#{user_id}"
         expires_at = int((now + _MATCHMAKING_WAIT_TTL).timestamp())
         try:
             self._client.transact_write_items(
@@ -855,10 +894,9 @@ class DynamoRepository:
                                     "PK": f"QUEUE#{rules_hash}",
                                     "SK": queue_sk,
                                     "entity": "queue",
-                                    "userId": user.id,
+                                    "userId": user_id,
                                     "ticketId": ticket_id,
                                     "status": "waiting",
-                                    "user": user.model_dump_json(by_alias=True),
                                     "rules": json.dumps(
                                         rules, separators=(",", ":"), sort_keys=True
                                     ),
@@ -873,7 +911,7 @@ class DynamoRepository:
                             "TableName": self._table_name,
                             "Item": _serialize(
                                 {
-                                    "PK": f"USER#{user.id}",
+                                    "PK": f"USER#{user_id}",
                                     "SK": "QUEUE",
                                     "entity": "queuePointer",
                                     "ticketId": ticket_id,
@@ -891,7 +929,7 @@ class DynamoRepository:
                             "TableName": self._table_name,
                             "Item": _serialize(
                                 {
-                                    "PK": f"USER#{user.id}",
+                                    "PK": f"USER#{user_id}",
                                     "SK": f"TICKET#{ticket_id}",
                                     "entity": "matchmakingTicket",
                                     "ticketId": ticket_id,
@@ -908,7 +946,7 @@ class DynamoRepository:
             )
         except ClientError as error:
             if error.response["Error"]["Code"] == "TransactionCanceledException":
-                existing = self.matchmaking_status(user.id, ticket_id)
+                existing = self.matchmaking_status(user_id, ticket_id)
                 if existing is not None:
                     return
                 raise ApiError(
@@ -918,9 +956,7 @@ class DynamoRepository:
                 ) from error
             raise
 
-    def pop_opponent(
-        self, rules_hash: str, user_id: str
-    ) -> tuple[User, dict[str, Any], str] | None:
+    def pop_opponent(self, rules_hash: str, user_id: str) -> tuple[str, dict[str, Any], str] | None:
         query: dict[str, Any] = {
             "KeyConditionExpression": Key("PK").eq(f"QUEUE#{rules_hash}"),
             "ConsistentRead": True,
@@ -1019,7 +1055,7 @@ class DynamoRepository:
                         ]
                     )
                     return (
-                        User.model_validate_json(item["user"]),
+                        str(item["userId"]),
                         json.loads(item["rules"]),
                         ticket_id,
                     )
@@ -1531,6 +1567,78 @@ class DynamoRepository:
         transaction = StoredOAuthTransaction.model_validate_json(item["document"])
         return transaction if transaction.expires_at > datetime.now(UTC) else None
 
+    def delete_user_data(self, user_id: str) -> None:
+        user_items = self._partition_items(f"USER#{user_id}")
+        matches = [
+            match
+            for item in user_items
+            if item.get("entity") == "membership"
+            if (match := self.get_match(str(item["matchId"]))) is not None
+        ]
+        if any(match.status != MatchStatus.completed for match in matches):
+            raise ApiError(
+                "accountDeletionConflict",
+                "All active matches must end before account data can be deleted.",
+                status_code=409,
+            )
+
+        for match in matches:
+            anonymous_id = f"deleted-{uuid4()}"
+            anonymized = _anonymize_match(match, user_id, anonymous_id)
+            if anonymized != match:
+                self._table.put_item(Item=self._match_item(anonymized))
+            for item in self._partition_items(f"MATCH#{match.id}", sk_prefix="MOVE#"):
+                move = MoveEvent.model_validate_json(item["document"])
+                anonymized_move = _anonymize_move(move, user_id, anonymous_id)
+                if anonymized_move != move:
+                    self._table.put_item(
+                        Item={
+                            **item,
+                            "document": anonymized_move.model_dump_json(by_alias=True),
+                        }
+                    )
+
+        queue_pointer = next(
+            (item for item in user_items if item.get("entity") == "queuePointer"),
+            None,
+        )
+        if queue_pointer is not None:
+            self._table.delete_item(
+                Key={
+                    "PK": f"QUEUE#{queue_pointer['rulesHash']}",
+                    "SK": str(queue_pointer["queueSk"]),
+                }
+            )
+
+        self._delete_items(self._partition_items(f"IDEMP#{user_id}"))
+        self._delete_items(user_items)
+
+    def _partition_items(
+        self,
+        partition_key: str,
+        *,
+        sk_prefix: str | None = None,
+    ) -> list[dict[str, Any]]:
+        items: list[dict[str, Any]] = []
+        expression = Key("PK").eq(partition_key)
+        if sk_prefix is not None:
+            expression &= Key("SK").begins_with(sk_prefix)
+        query: dict[str, Any] = {
+            "KeyConditionExpression": expression,
+            "ConsistentRead": True,
+        }
+        while True:
+            response = self._table.query(**query)
+            items.extend(response.get("Items", []))
+            last_key = response.get("LastEvaluatedKey")
+            if not last_key:
+                return items
+            query["ExclusiveStartKey"] = last_key
+
+    def _delete_items(self, items: list[dict[str, Any]]) -> None:
+        for item in items:
+            self._table.delete_item(Key={"PK": item["PK"], "SK": item["SK"]})
+
 
 def _serialize(item: dict[str, Any]) -> dict[str, Any]:
     from boto3.dynamodb.types import TypeSerializer
@@ -1541,6 +1649,34 @@ def _serialize(item: dict[str, Any]) -> dict[str, Any]:
 
 def _serialize_values(item: dict[str, Any]) -> dict[str, Any]:
     return _serialize(item)
+
+
+def _anonymize_match(match: StoredMatch, user_id: str, anonymous_id: str) -> StoredMatch:
+    update: dict[str, Any] = {}
+    if match.creator_id == user_id:
+        update["creator_id"] = anonymous_id
+        update["creator_name"] = "Deleted player"
+    if match.black_player is not None and match.black_player.id == user_id:
+        update["black_player"] = PlayerSummary(
+            id=anonymous_id,
+            display_name="Deleted player",
+        )
+    if match.white_player is not None and match.white_player.id == user_id:
+        update["white_player"] = PlayerSummary(
+            id=anonymous_id,
+            display_name="Deleted player",
+        )
+    if not update:
+        return match
+    update["version"] = match.version + 1
+    update["updated_at"] = datetime.now(UTC)
+    return match.model_copy(update=update, deep=True)
+
+
+def _anonymize_move(move: MoveEvent, user_id: str, anonymous_id: str) -> MoveEvent:
+    if move.actor_id != user_id:
+        return move
+    return move.model_copy(update={"actor_id": anonymous_id}, deep=True)
 
 
 def build_repository(settings: Settings) -> Repository:

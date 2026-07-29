@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=The Game of Life
+Comment=A competitive two-player evolution strategy game
+Exec=game_of_life
+Icon=com.cmsflash.gameoflife
+Terminal=false
+Categories=Game;StrategyGame;
+StartupNotify=true
+StartupWMClass=com.cmsflash.gameoflife

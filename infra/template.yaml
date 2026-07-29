@@ -44,12 +44,16 @@ Parameters:
     Description: Optional From address, for example The Game of Life <noreply@example.com>.
   CorsAllowedOrigins:
     Type: CommaDelimitedList
-    Default: "http://localhost:3000,http://localhost:5000,http://localhost:8081"
-    Description: Exact browser origins allowed by API CORS; production should not use wildcards.
+    Default: "https://replace-me.invalid"
+    Description: >-
+      Exact HTTPS browser origins allowed by API CORS. The inert default must
+      be replaced for browser publication; HTTP, localhost, and wildcards are rejected at startup.
   AllowedReturnUrls:
     Type: CommaDelimitedList
-    Default: "http://localhost:3000/auth/callback,http://localhost:5000/auth/callback,com.cmsflash.gameoflife://auth"
-    Description: Exact post-login return URLs accepted by the application.
+    Default: "com.cmsflash.gameoflife://auth"
+    Description: >-
+      Exact HTTPS or reverse-domain app URLs accepted after login. HTTP,
+      localhost, and wildcards are rejected at startup.
   ApiCustomDomainName:
     Type: String
     Default: ""
@@ -397,6 +401,7 @@ Resources:
                 - dynamodb:PutItem
                 - dynamodb:Query
                 - dynamodb:TransactWriteItems
+                - dynamodb:UpdateItem
               Resource:
                 - !GetAtt GameTable.Arn
 

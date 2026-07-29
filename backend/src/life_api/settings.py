@@ -1,8 +1,13 @@
 from __future__ import annotations
 
+import ipaddress
 import os
+import re
 from dataclasses import dataclass
 from functools import lru_cache
+from urllib.parse import urlsplit
+
+_NATIVE_SCHEME_PATTERN = re.compile(r"^[A-Za-z][A-Za-z0-9+.-]*$")
 
 
 def _csv(name: str, default: str = "") -> tuple[str, ...]:
@@ -90,6 +95,87 @@ class Settings:
                 raise RuntimeError(f"missing production settings: {', '.join(missing)}")
             if self.local_token_secret == "local-development-only-secret":
                 raise RuntimeError("LOCAL_TOKEN_SECRET must be replaced in production")
+            self._validate_production_urls()
+
+    def _validate_production_urls(self) -> None:
+        if not self.cors_origins:
+            raise RuntimeError("CORS_ORIGINS must contain at least one production HTTPS origin")
+        for origin in self.cors_origins:
+            _validate_production_https_url("CORS_ORIGINS", origin, origin_only=True)
+
+        if not self.allowed_return_urls:
+            raise RuntimeError("ALLOWED_RETURN_URLS must contain at least one production URL")
+        for return_url in self.allowed_return_urls:
+            _validate_production_return_url(return_url)
+
+        assert self.cognito_hosted_ui_base
+        assert self.cognito_oauth_callback_url
+        _validate_production_https_url(
+            "COGNITO_HOSTED_UI_BASE",
+            self.cognito_hosted_ui_base,
+            origin_only=True,
+        )
+        _validate_production_https_url(
+            "COGNITO_OAUTH_CALLBACK_URL",
+            self.cognito_oauth_callback_url,
+            origin_only=False,
+        )
+
+
+def _validate_production_return_url(value: str) -> None:
+    if "*" in value:
+        raise RuntimeError("ALLOWED_RETURN_URLS must not contain wildcards in production")
+    parts = urlsplit(value)
+    scheme = parts.scheme.casefold()
+    if scheme in {"http", "https"}:
+        if scheme != "https":
+            raise RuntimeError("ALLOWED_RETURN_URLS must not contain HTTP URLs in production")
+        _validate_production_https_url("ALLOWED_RETURN_URLS", value, origin_only=False)
+        return
+    if (
+        not scheme
+        or not _NATIVE_SCHEME_PATTERN.fullmatch(parts.scheme)
+        or "." not in scheme
+        or not parts.netloc
+        or parts.username is not None
+        or parts.password is not None
+    ):
+        raise RuntimeError(
+            "ALLOWED_RETURN_URLS entries must be HTTPS URLs or reverse-domain app URLs"
+        )
+    if _is_local_hostname(parts.hostname):
+        raise RuntimeError("ALLOWED_RETURN_URLS must not contain localhost in production")
+
+
+def _validate_production_https_url(name: str, value: str, *, origin_only: bool) -> None:
+    if "*" in value:
+        raise RuntimeError(f"{name} must not contain wildcards in production")
+    parts = urlsplit(value)
+    if parts.scheme.casefold() != "https":
+        raise RuntimeError(f"{name} must use HTTPS in production")
+    if (
+        not parts.netloc
+        or parts.hostname is None
+        or parts.username is not None
+        or parts.password is not None
+    ):
+        raise RuntimeError(f"{name} contains an invalid production URL")
+    if _is_local_hostname(parts.hostname):
+        raise RuntimeError(f"{name} must not contain localhost in production")
+    if origin_only and (parts.path or parts.query or parts.fragment):
+        raise RuntimeError(f"{name} entries must be origins without a path, query, or fragment")
+
+
+def _is_local_hostname(hostname: str | None) -> bool:
+    if hostname is None:
+        return False
+    normalized = hostname.casefold().rstrip(".")
+    if normalized == "localhost" or normalized.endswith(".localhost"):
+        return True
+    try:
+        return ipaddress.ip_address(normalized).is_loopback
+    except ValueError:
+        return False
 
 
 @lru_cache(maxsize=1)

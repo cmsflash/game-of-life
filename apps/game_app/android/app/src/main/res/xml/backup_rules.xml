@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<full-backup-content>
+    <!-- The encrypted values cannot be restored without their device-bound key. -->
+    <exclude
+        domain="sharedpref"
+        path="FlutterSecureStorage.xml" />
+</full-backup-content>

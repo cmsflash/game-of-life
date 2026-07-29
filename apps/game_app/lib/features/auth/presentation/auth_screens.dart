@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/config.dart';
 import '../../../providers.dart';
 import '../../../shared/async_message.dart';
 import 'auth_widgets.dart';
@@ -47,13 +48,15 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              GoogleSignInButton(
-                busy: state.busy,
-                onPressed: () => ref
-                    .read(authControllerProvider.notifier)
-                    .beginGoogleSignIn(),
-              ),
-              const OrDivider(),
+              if (AppConfig.googleSignInAvailable) ...[
+                GoogleSignInButton(
+                  busy: state.busy,
+                  onPressed: () => ref
+                      .read(authControllerProvider.notifier)
+                      .beginGoogleSignIn(),
+                ),
+                const OrDivider(),
+              ],
               TextFormField(
                 key: const Key('login-username'),
                 controller: _username,
@@ -172,12 +175,15 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            GoogleSignInButton(
-              busy: state.busy,
-              onPressed: () =>
-                  ref.read(authControllerProvider.notifier).beginGoogleSignIn(),
-            ),
-            const OrDivider(),
+            if (AppConfig.googleSignInAvailable) ...[
+              GoogleSignInButton(
+                busy: state.busy,
+                onPressed: () => ref
+                    .read(authControllerProvider.notifier)
+                    .beginGoogleSignIn(),
+              ),
+              const OrDivider(),
+            ],
             TextFormField(
               key: const Key('register-username'),
               controller: _username,
@@ -185,7 +191,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
               validator: validateUsername,
               decoration: const InputDecoration(
                 labelText: 'Username',
-                helperText: 'Your unique public handle',
+                helperText: 'Your private sign-in ID',
                 prefixIcon: Icon(Icons.alternate_email),
               ),
             ),
@@ -198,6 +204,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                   : null,
               decoration: const InputDecoration(
                 labelText: 'Display name',
+                helperText: 'Shown only on your own profile',
                 prefixIcon: Icon(Icons.badge_outlined),
               ),
             ),
@@ -235,10 +242,25 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
               child: const Text('Create account'),
             ),
             const SizedBox(height: 14),
-            Text(
-              'By continuing, you agree to play fairly and keep your account secure.',
-              textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.bodySmall,
+            Wrap(
+              alignment: WrapAlignment.center,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                Text(
+                  'By creating an account, you agree to the ',
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+                TextButton(
+                  onPressed: () => context.push('/terms'),
+                  child: const Text('Terms'),
+                ),
+                Text('and', style: Theme.of(context).textTheme.bodySmall),
+                TextButton(
+                  onPressed: () => context.push('/privacy'),
+                  child: const Text('Privacy Policy'),
+                ),
+                const Text('.'),
+              ],
             ),
             const SizedBox(height: 10),
             TextButton(

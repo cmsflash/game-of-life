@@ -5,7 +5,7 @@ from collections.abc import Awaitable, Callable
 from typing import Annotated, Any, cast
 from uuid import uuid4
 
-from fastapi import Depends, FastAPI, Header, Query, Request, Response, status
+from fastapi import Depends, FastAPI, Header, Path, Query, Request, Response, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, RedirectResponse
 from pydantic import BaseModel
@@ -88,6 +88,15 @@ def current_user(
 
 
 CurrentUser = Annotated[User, Depends(current_user)]
+MatchId = Annotated[
+    str,
+    Path(
+        min_length=36,
+        max_length=36,
+        pattern=r"^[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-"
+        r"[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}$",
+    ),
+]
 
 
 class HealthResponse(BaseModel):
@@ -281,6 +290,16 @@ def create_app(
     def me(user: CurrentUser) -> User:
         return user
 
+    @app.delete("/v1/me", status_code=status.HTTP_204_NO_CONTENT, tags=["profile"])
+    def delete_me(
+        user: CurrentUser,
+        services: Services,
+        authorization: Annotated[str, Header()],
+    ) -> Response:
+        services.matches.delete_account_data(user)
+        services.identity.delete_account(authorization.removeprefix("Bearer ").strip())
+        return Response(status_code=status.HTTP_204_NO_CONTENT)
+
     @app.post(
         "/v1/matches",
         response_model=MatchDocument,
@@ -318,7 +337,7 @@ def create_app(
 
     @app.get("/v1/matches/{match_id}", response_model=MatchDocument, tags=["matches"])
     def get_match(
-        match_id: str,
+        match_id: MatchId,
         user: CurrentUser,
         services: Services,
         if_none_match: Annotated[str | None, Header(alias="If-None-Match")] = None,
@@ -338,7 +357,7 @@ def create_app(
         tags=["matches"],
     )
     def cancel_waiting_match(
-        match_id: str,
+        match_id: MatchId,
         user: CurrentUser,
         services: Services,
     ) -> MessageResponse:
@@ -351,7 +370,7 @@ def create_app(
         tags=["matches"],
     )
     def submit_move(
-        match_id: str,
+        match_id: MatchId,
         request: MoveRequest,
         response: Response,
         user: CurrentUser,
@@ -367,7 +386,7 @@ def create_app(
         tags=["matches"],
     )
     def resign(
-        match_id: str,
+        match_id: MatchId,
         request: ResignRequest,
         response: Response,
         user: CurrentUser,
@@ -383,7 +402,7 @@ def create_app(
         tags=["matches"],
     )
     def move_history(
-        match_id: str,
+        match_id: MatchId,
         user: CurrentUser,
         services: Services,
     ) -> MoveHistoryResponse:
@@ -394,7 +413,7 @@ def create_app(
         response_model=ReplayResponse,
         tags=["matches"],
     )
-    def replay(match_id: str, user: CurrentUser, services: Services) -> ReplayResponse:
+    def replay(match_id: MatchId, user: CurrentUser, services: Services) -> ReplayResponse:
         return services.matches.replay(user, match_id)
 
     @app.post(

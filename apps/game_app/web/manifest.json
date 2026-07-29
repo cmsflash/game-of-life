@@ -1,22 +1,29 @@
 {
     "name": "The Game of Life",
     "short_name": "Life",
+    "id": "./",
     "start_url": ".",
+    "scope": "./",
     "display": "standalone",
     "background_color": "#0B0E13",
     "theme_color": "#B7F36B",
-    "description": "A competitive, two-player evolution game.",
+    "description": "A competitive, two-player evolution game inspired by Conway's Game of Life.",
+    "lang": "en",
+    "dir": "ltr",
+    "categories": ["games", "entertainment"],
     "prefer_related_applications": false,
     "icons": [
         {
             "src": "icons/Icon-192.png",
             "sizes": "192x192",
-            "type": "image/png"
+            "type": "image/png",
+            "purpose": "any"
         },
         {
             "src": "icons/Icon-512.png",
             "sizes": "512x512",
-            "type": "image/png"
+            "type": "image/png",
+            "purpose": "any"
         },
         {
             "src": "icons/Icon-maskable-192.png",

@@ -24,7 +24,14 @@ def _create_active_match(
     )
     assert joined.status_code == 200
     assert joined.headers["etag"] == '"1"'
-    return joined.json(), alice_headers, bob_headers
+    document = joined.json()
+    assert document["blackPlayer"]["displayName"] == "Black player"
+    assert document["whitePlayer"]["displayName"] == "White player"
+    assert {
+        document["blackPlayer"]["displayName"],
+        document["whitePlayer"]["displayName"],
+    }.isdisjoint({"Alice", "Bob"})
+    return document, alice_headers, bob_headers
 
 
 def test_private_match_move_idempotency_etag_history_replay_and_resign(
@@ -188,6 +195,12 @@ def test_quick_match_pairs_compatible_players(client: TestClient) -> None:
     assert matched.json()["ticketId"] == bob_ticket
     assert matched.json()["status"] == "matched"
     assert matched.json()["matchId"]
+    quick_match = client.get(
+        f"/v1/matches/{matched.json()['matchId']}",
+        headers=bob_headers,
+    ).json()
+    assert quick_match["blackPlayer"]["displayName"] == "Black player"
+    assert quick_match["whitePlayer"]["displayName"] == "White player"
     alice_status = client.get(
         "/v1/matchmaking",
         params={"ticketId": alice_ticket},
