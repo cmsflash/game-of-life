@@ -6,10 +6,12 @@ from urllib.parse import parse_qs, urlsplit
 
 import boto3
 import pytest
+from botocore.exceptions import ClientError
 from conftest import register_and_login
 from fastapi.testclient import TestClient
 
 from life_api.auth import CognitoIdentityProvider
+from life_api.errors import ApiError
 from life_api.repository import InMemoryRepository
 from life_api.settings import Settings
 
@@ -300,6 +302,19 @@ class _RecordingCognitoClient:
         return {}
 
 
+class _DeletedUserCognitoClient:
+    def get_user(self, **kwargs: Any) -> dict[str, Any]:
+        raise ClientError(
+            {
+                "Error": {
+                    "Code": "UserNotFoundException",
+                    "Message": "User does not exist.",
+                }
+            },
+            "GetUser",
+        )
+
+
 def test_cognito_account_deletion_uses_the_authenticated_access_token(
     monkeypatch: pytest.MonkeyPatch,
     settings: Settings,
@@ -316,3 +331,26 @@ def test_cognito_account_deletion_uses_the_authenticated_access_token(
     provider.delete_account("current-access-token")
 
     assert client.calls == [{"AccessToken": "current-access-token"}]
+
+
+def test_cognito_authentication_maps_a_deleted_user_to_an_invalid_token(
+    monkeypatch: pytest.MonkeyPatch,
+    settings: Settings,
+) -> None:
+    monkeypatch.setattr(
+        boto3,
+        "client",
+        lambda *args, **kwargs: _DeletedUserCognitoClient(),
+    )
+    provider = CognitoIdentityProvider(
+        replace(
+            settings,
+            cognito_client_id="client-id",
+        )
+    )
+
+    with pytest.raises(ApiError) as raised:
+        provider.authenticate("deleted-user-access-token")
+
+    assert raised.value.code == "invalidToken"
+    assert raised.value.status_code == 401

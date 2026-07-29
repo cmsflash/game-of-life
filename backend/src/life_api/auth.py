@@ -380,7 +380,16 @@ class CognitoIdentityProvider:
         self._call("global_sign_out", AccessToken=access_token)
 
     def authenticate(self, access_token: str) -> User:
-        response = self._call("get_user", AccessToken=access_token)
+        try:
+            response = self._call("get_user", AccessToken=access_token)
+        except ApiError as error:
+            if error.code in {"invalidCredentials", "userNotFound"}:
+                raise ApiError(
+                    "invalidToken",
+                    "The access token is invalid.",
+                    status_code=401,
+                ) from error
+            raise
         attributes = {item["Name"]: item["Value"] for item in response["UserAttributes"]}
         return User(
             id=attributes["sub"],
