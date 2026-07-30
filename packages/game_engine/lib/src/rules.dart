@@ -1,5 +1,14 @@
 import 'json_utils.dart';
 
+enum BirthOwnership {
+  strictNeighborMajority('strictNeighborMajority'),
+  movingPlayer('movingPlayer');
+
+  const BirthOwnership(this.wireValue);
+
+  final String wireValue;
+}
+
 sealed class VictoryRule {
   const VictoryRule();
 
@@ -110,15 +119,34 @@ final class PopulationTargetVictory extends VictoryRule {
 
 final class GameRules {
   GameRules.standard({VictoryRule? victory})
-    : victory = victory ?? const EliminationVictory();
+    : this._(
+        version: rulesVersion,
+        birthOwnership: BirthOwnership.movingPlayer,
+        victory: victory ?? const EliminationVictory(),
+      );
+
+  GameRules.legacyV1({VictoryRule? victory})
+    : this._(
+        version: 1,
+        birthOwnership: BirthOwnership.strictNeighborMajority,
+        victory: victory ?? const EliminationVictory(),
+      );
+
+  const GameRules._({
+    required this.version,
+    required this.birthOwnership,
+    required this.victory,
+  });
 
   static const int schemaVersion = 1;
   static const String rulesetId = 'life-duel';
-  static const int rulesVersion = 1;
+  static const int rulesVersion = 2;
   static const int rows = 20;
   static const int columns = 20;
   static const int cellCount = rows * columns;
 
+  final int version;
+  final BirthOwnership birthOwnership;
   final VictoryRule victory;
 
   String get rulesHash => sha256Json(toJson());
@@ -126,13 +154,13 @@ final class GameRules {
   Map<String, Object?> toJson() => {
     'schemaVersion': schemaVersion,
     'rulesetId': rulesetId,
-    'rulesVersion': rulesVersion,
+    'rulesVersion': version,
     'board': {'rows': rows, 'columns': columns, 'boundary': 'finiteDead'},
     'neighborhood': 'moore8',
     'evolution': {
       'birth': [3],
       'survival': [2, 3],
-      'birthOwner': 'strictNeighborMajority',
+      'birthOwner': birthOwnership.wireValue,
     },
     'turn': {
       'placement': 'emptyOnly',
@@ -162,7 +190,10 @@ final class GameRules {
 
     _expectValue(json, 'schemaVersion', schemaVersion);
     _expectValue(json, 'rulesetId', rulesetId);
-    _expectValue(json, 'rulesVersion', rulesVersion);
+    final version = expectJsonInt(json['rulesVersion'], 'rules.rulesVersion');
+    if (version != 1 && version != rulesVersion) {
+      throw FormatException('unsupported rulesVersion: $version');
+    }
     _expectValue(json, 'neighborhood', 'moore8');
     _expectValue(json, 'initialPosition', 'centered2x2Diagonal');
     _expectValue(json, 'noLegalMove', 'draw');
@@ -185,7 +216,10 @@ final class GameRules {
     }, name: 'rules.evolution');
     _expectIntList(evolution, 'birth', const [3]);
     _expectIntList(evolution, 'survival', const [2, 3]);
-    _expectValue(evolution, 'birthOwner', 'strictNeighborMajority');
+    final birthOwnership = version == 1
+        ? BirthOwnership.strictNeighborMajority
+        : BirthOwnership.movingPlayer;
+    _expectValue(evolution, 'birthOwner', birthOwnership.wireValue);
 
     final turn = expectJsonObject(json['turn'], 'rules.turn');
     expectExactKeys(turn, {
@@ -199,7 +233,10 @@ final class GameRules {
     _expectValue(turn, 'firstPlayer', 'black');
     _expectValue(turn, 'evolveAfterPlacement', true);
 
-    return GameRules.standard(victory: VictoryRule.fromJson(json['victory']));
+    final victory = VictoryRule.fromJson(json['victory']);
+    return version == 1
+        ? GameRules.legacyV1(victory: victory)
+        : GameRules.standard(victory: victory);
   }
 
   static void _expectValue(
@@ -227,8 +264,11 @@ final class GameRules {
 
   @override
   bool operator ==(Object other) =>
-      other is GameRules && victory == other.victory;
+      other is GameRules &&
+      version == other.version &&
+      birthOwnership == other.birthOwnership &&
+      victory == other.victory;
 
   @override
-  int get hashCode => Object.hash(rulesVersion, victory);
+  int get hashCode => Object.hash(version, birthOwnership, victory);
 }

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:game_engine/game_engine.dart' as engine;
+import 'package:game_of_life/core/theme.dart';
 import 'package:game_of_life/features/game/presentation/life_board.dart';
 
 void main() {
@@ -64,6 +65,46 @@ void main() {
       'White cell',
     );
     semantics.dispose();
+  });
+
+  test('last-move marker outlines rather than covers a White cell', () {
+    final painter = LifeBoardPainter(
+      board: testBoard(),
+      colorScheme: ColorScheme.fromSeed(seedColor: LifeColors.sprout),
+      lastMove: const engine.Coordinate(1, 2),
+      births: const {},
+      hovered: null,
+      showHover: false,
+      focused: null,
+      showFocus: false,
+    );
+
+    void paintBoard(Canvas canvas) {
+      painter.paint(canvas, const Size.square(300));
+    }
+
+    expect(
+      paintBoard,
+      paints..something(
+        (method, arguments) =>
+            method == #drawRRect &&
+            arguments[1] is Paint &&
+            (arguments[1] as Paint).color.toARGB32() ==
+                LifeColors.paper.toARGB32() &&
+            (arguments[1] as Paint).style == PaintingStyle.fill,
+      ),
+    );
+    expect(
+      paintBoard,
+      paints..something(
+        (method, arguments) =>
+            method == #drawRRect &&
+            arguments[1] is Paint &&
+            (arguments[1] as Paint).color.toARGB32() ==
+                LifeColors.coral.toARGB32() &&
+            (arguments[1] as Paint).style == PaintingStyle.stroke,
+      ),
+    );
   });
 
   testWidgets('arrow keys select coordinates and Enter or Space activates', (

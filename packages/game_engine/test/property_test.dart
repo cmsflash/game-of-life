@@ -5,6 +5,9 @@ import 'package:test/test.dart';
 
 void main() {
   const engine = GameEngine();
+  Board evolveByMajority(Board board) => engine
+      .evolve(board, birthOwnership: BirthOwnership.strictNeighborMajority)
+      .board;
 
   test('optimized evolution matches an independent reference', () {
     final random = Random(20260720);
@@ -18,7 +21,7 @@ void main() {
         ),
       );
 
-      final actual = engine.evolve(board).board;
+      final actual = evolveByMajority(board);
       final expected = _referenceEvolution(board);
 
       expect(actual, expected, reason: 'random sample $sample');
@@ -37,8 +40,8 @@ void main() {
         ),
       );
 
-      final evolvedThenSwapped = _swapColors(engine.evolve(board).board);
-      final swappedThenEvolved = engine.evolve(_swapColors(board)).board;
+      final evolvedThenSwapped = _swapColors(evolveByMajority(board));
+      final swappedThenEvolved = evolveByMajority(_swapColors(board));
 
       expect(swappedThenEvolved, evolvedThenSwapped);
     }
@@ -56,8 +59,8 @@ void main() {
         ),
       );
 
-      final evolvedThenReflected = _reflect(engine.evolve(board).board);
-      final reflectedThenEvolved = engine.evolve(_reflect(board)).board;
+      final evolvedThenReflected = _reflect(evolveByMajority(board));
+      final reflectedThenEvolved = evolveByMajority(_reflect(board));
 
       expect(reflectedThenEvolved, evolvedThenReflected);
     }

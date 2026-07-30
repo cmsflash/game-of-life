@@ -95,7 +95,7 @@ void main() {
     expect((response['error']! as Map)['code'], 'passNotAllowed');
   });
 
-  test('evolve returns a board and simultaneous delta', () {
+  test('standalone evolve explicitly uses strict neighbor-majority births', () {
     final board = Board(
       rows: 3,
       columns: 3,
@@ -105,7 +105,7 @@ void main() {
         CellState.empty,
         CellState.black,
         CellState.black,
-        CellState.black,
+        CellState.white,
         CellState.empty,
         CellState.empty,
         CellState.empty,
@@ -140,6 +140,39 @@ void main() {
     expect(state.ply, 2);
     expect(state.toMove, Player.black);
     expect(result['turns'], hasLength(2));
+  });
+
+  test('replay preserves stored version 1 birth ownership', () {
+    final response = cli.handleRequest({
+      'op': 'replay',
+      'rules': GameRules.legacyV1().toJson(),
+      'moves': [
+        {'row': 7, 'column': 8},
+        {'row': 0, 'column': 0},
+      ],
+    });
+
+    expect(response['ok'], isTrue);
+    final state = GameState.fromJson(resultOf(response)['state']);
+    expect(state.rules.version, 1);
+    expect(state.board.at(8, 10), CellState.black);
+    expect(state.board.at(9, 8), CellState.black);
+  });
+
+  test('default replay gives White-turn births to White in version 2', () {
+    final response = cli.handleRequest({
+      'op': 'replay',
+      'moves': [
+        {'row': 7, 'column': 8},
+        {'row': 0, 'column': 0},
+      ],
+    });
+
+    expect(response['ok'], isTrue);
+    final state = GameState.fromJson(resultOf(response)['state']);
+    expect(state.rules.version, 2);
+    expect(state.board.at(8, 10), CellState.white);
+    expect(state.board.at(9, 8), CellState.white);
   });
 
   test('malformed JSON does not throw or poison the stream', () {

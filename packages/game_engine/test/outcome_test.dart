@@ -41,9 +41,10 @@ void main() {
       final state = activeState(
         boardWith({
           const Coordinate(0, 0): CellState.black,
-          const Coordinate(10, 9): CellState.white,
           const Coordinate(10, 10): CellState.white,
           const Coordinate(10, 11): CellState.white,
+          const Coordinate(11, 10): CellState.white,
+          const Coordinate(11, 11): CellState.white,
         }),
       );
       const move = GameMove(

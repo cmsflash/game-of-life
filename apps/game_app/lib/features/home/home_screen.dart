@@ -55,7 +55,7 @@ class HomeScreen extends ConsumerWidget {
             eyebrow: 'The rules',
             title: 'Place. Evolve. Outlive.',
             description:
-                'Every turn begins with one new cell. Then the whole board evolves under Conway’s rules. Births inherit the majority color of their three neighbors.',
+                'Every turn begins with one new cell. Then the whole board evolves under Conway’s rules. Every birth belongs to the player who just moved.',
           ),
           const SizedBox(height: 26),
           const _RuleCards(),
@@ -270,7 +270,7 @@ class _RuleCards extends StatelessWidget {
       (
         Icons.auto_awesome,
         'Evolve together',
-        'Every cell updates simultaneously. New life takes its color from the local majority.',
+        'Every cell updates simultaneously. New life joins the player who made the move.',
       ),
       (
         Icons.emoji_events_outlined,

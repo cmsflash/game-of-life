@@ -55,23 +55,39 @@ def test_real_engine_through_auth_and_match_api(settings: Settings) -> None:
         ).json()
         alice_match = client.get(f"/v1/matches/{joined['id']}", headers=alice).json()
         black = alice if alice_match["yourColor"] == "black" else bob
+        white = bob if black is alice else alice
         moved = client.post(
             f"/v1/matches/{joined['id']}/moves",
             headers=black,
             json={
-                "row": 0,
-                "column": 0,
+                "row": 7,
+                "column": 8,
                 "expectedRevision": 0,
                 "idempotencyKey": "real-engine-move-1",
             },
         )
         assert moved.status_code == 200
         assert moved.json()["state"]["revision"] == 1
-        assert moved.json()["state"]["cells"][0] == 0
         assert moved.json()["state"]["toMove"] == "white"
+        white_moved = client.post(
+            f"/v1/matches/{joined['id']}/moves",
+            headers=white,
+            json={
+                "row": 0,
+                "column": 0,
+                "expectedRevision": 1,
+                "idempotencyKey": "real-engine-move-2",
+            },
+        )
+        assert white_moved.status_code == 200
+        assert white_moved.json()["state"]["revision"] == 2
+        assert white_moved.json()["state"]["cells"][0] == 0
+        assert white_moved.json()["state"]["toMove"] == "black"
+        assert white_moved.json()["state"]["cells"][8 * 20 + 10] == 2
+        assert white_moved.json()["state"]["cells"][9 * 20 + 8] == 2
         assert (
             client.get(f"/v1/matches/{joined['id']}/replay", headers=alice).json()["finalState"][
                 "stateHash"
             ]
-            == moved.json()["state"]["stateHash"]
+            == white_moved.json()["state"]["stateHash"]
         )

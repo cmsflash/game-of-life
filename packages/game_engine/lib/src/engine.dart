@@ -68,7 +68,11 @@ final class GameEngine {
       move.coordinate,
       move.player.cell,
     );
-    final evolution = evolve(postPlacement);
+    final evolution = evolve(
+      postPlacement,
+      birthOwnership: state.rules.birthOwnership,
+      movingPlayer: move.player,
+    );
     final nextPly = state.ply + 1;
     final outcome = evaluateOutcome(evolution.board, state.rules, ply: nextPly);
     final nextState = GameState(
@@ -97,7 +101,19 @@ final class GameEngine {
     return AppliedMove(applyMove(state, move));
   }
 
-  EvolutionResult evolve(Board postPlacementBoard) {
+  /// Evolves [postPlacementBoard] once using an explicit birth-ownership rule.
+  ///
+  /// [movingPlayer] is required only when births belong to the player whose
+  /// turn produced this evolution. Standalone Conway-style evolution should
+  /// explicitly select [BirthOwnership.strictNeighborMajority].
+  EvolutionResult evolve(
+    Board postPlacementBoard, {
+    required BirthOwnership birthOwnership,
+    Player? movingPlayer,
+  }) {
+    if (birthOwnership == BirthOwnership.movingPlayer && movingPlayer == null) {
+      throw ArgumentError.notNull('movingPlayer');
+    }
     final nextCells = List<CellState>.filled(
       postPlacementBoard.length,
       CellState.empty,
@@ -140,9 +156,13 @@ final class GameEngine {
                 : CellState.empty,
           CellState.empty =>
             liveNeighbors == 3
-                ? (blackNeighbors > whiteNeighbors
-                      ? CellState.black
-                      : CellState.white)
+                ? switch (birthOwnership) {
+                    BirthOwnership.strictNeighborMajority =>
+                      blackNeighbors > whiteNeighbors
+                          ? CellState.black
+                          : CellState.white,
+                    BirthOwnership.movingPlayer => movingPlayer!.cell,
+                  }
                 : CellState.empty,
         };
         final coordinate = Coordinate(row, column);

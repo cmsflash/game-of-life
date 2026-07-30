@@ -1,4 +1,4 @@
-# Version 1 acceptance criteria
+# Production acceptance criteria
 
 ## Offline product
 
@@ -6,6 +6,10 @@
 - A local two-player match starts from the centered diagonal 2 by 2 position.
 - Every legal tap places the correct color and performs exactly one simultaneous
   evolution.
+- Every newborn cell produced by a turn belongs to the player who made that
+  move; stored version 1 replays retain their historical majority-color rule.
+- The last-move indicator outlines its coordinate without covering a surviving
+  Black or White cell.
 - Isolated placements visibly consume a turn even if the final board is
   unchanged.
 - Elimination, turn-limit population, and population-target modes finish with
@@ -55,5 +59,7 @@
   release tasks reject debug signing.
 - The board is operable by touch, keyboard, and assistive technologies, and
   narrow screens do not require horizontal scrolling for match status.
+- Route and victory-mode changes never paint outgoing and incoming content at
+  the same time.
 - The exact deployed authentication and move flow is measured from mainland
   China before public launch.

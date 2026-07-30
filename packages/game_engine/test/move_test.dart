@@ -66,6 +66,65 @@ void main() {
       );
     });
 
+    test('v2 keeps a White placement White and gives its births to White', () {
+      final state = activeState(
+        boardWith({
+          const Coordinate(4, 4): CellState.black,
+          const Coordinate(4, 5): CellState.black,
+        }),
+        toMove: Player.white,
+        ply: 1,
+      );
+
+      final result = engine.applyMove(state, move(state, 5, 4));
+
+      expect(result.delta.placement.player, Player.white);
+      expect(result.state.board.at(5, 4), CellState.white);
+      expect(result.state.board.at(5, 5), CellState.white);
+      expect(
+        result.delta.evolution.births,
+        contains(
+          isA<CellBirth>()
+              .having(
+                (birth) => birth.coordinate,
+                'coordinate',
+                const Coordinate(5, 5),
+              )
+              .having((birth) => birth.player, 'player', Player.white),
+        ),
+      );
+    });
+
+    test('v1 replays retain strict neighbor-majority birth ownership', () {
+      final state = activeState(
+        boardWith({
+          const Coordinate(4, 4): CellState.black,
+          const Coordinate(4, 5): CellState.black,
+        }),
+        toMove: Player.white,
+        rules: GameRules.legacyV1(),
+        ply: 1,
+      );
+
+      final result = engine.applyMove(state, move(state, 5, 4));
+
+      expect(result.delta.placement.player, Player.white);
+      expect(result.state.board.at(5, 4), CellState.white);
+      expect(result.state.board.at(5, 5), CellState.black);
+      expect(
+        result.delta.evolution.births,
+        contains(
+          isA<CellBirth>()
+              .having(
+                (birth) => birth.coordinate,
+                'coordinate',
+                const Coordinate(5, 5),
+              )
+              .having((birth) => birth.player, 'player', Player.black),
+        ),
+      );
+    });
+
     test('golden center-adjacent move has the specified result', () {
       final initial = engine.initialState();
 

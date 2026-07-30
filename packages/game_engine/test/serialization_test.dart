@@ -3,6 +3,8 @@ import 'dart:convert';
 import 'package:game_engine/game_engine.dart';
 import 'package:test/test.dart';
 
+import 'test_helpers.dart';
+
 void main() {
   const engine = GameEngine();
 
@@ -12,6 +14,8 @@ void main() {
         GameRules.standard(),
         GameRules.standard(victory: TurnLimitPopulationVictory(20)),
         GameRules.standard(victory: PopulationTargetVictory(100)),
+        GameRules.legacyV1(),
+        GameRules.legacyV1(victory: TurnLimitPopulationVictory(20)),
       ];
 
       for (final rules in rulesets) {
@@ -34,6 +38,34 @@ void main() {
       expect(initial.rules.rulesHash, hasLength(64));
       expect(initial.positionHash, hasLength(64));
       expect(initial.stateHash, hasLength(64));
+      expect(initial.rules.version, 2);
+      expect(initial.rules.birthOwnership, BirthOwnership.movingPlayer);
+      expect(
+        initial.rules.rulesHash,
+        '725f21234c95ee15f2c611aac441c299ae41cb828243a0ee6249ab9b751409cf',
+      );
+      expect(
+        initial.positionHash,
+        '34378b0e7fc88fa83ccc59631cd35c901b26f29bad0f0dc088819e388ff170d2',
+      );
+      expect(
+        initial.stateHash,
+        'beb279996681f206854970ae53ee14d59aaec4a3718b553f251b55f209e91f2a',
+      );
+    });
+
+    test('legacy v1 state retains its exact rules and hashes', () {
+      final initial = engine.initialState(GameRules.legacyV1());
+      final restored = GameState.fromJson(
+        jsonDecode(jsonEncode(initial.toJson())),
+      );
+
+      expect(restored, initial);
+      expect(initial.rules.version, 1);
+      expect(
+        initial.rules.birthOwnership,
+        BirthOwnership.strictNeighborMajority,
+      );
       expect(
         initial.rules.rulesHash,
         'cd7c375a1830a2e6a7b381fe0fe010055b686e603c51e1b3a519f48f3f7090a7',
@@ -57,8 +89,18 @@ void main() {
       final unsupportedRules = Map<String, Object?>.from(
         engine.initialState().rules.toJson(),
       );
-      unsupportedRules['rulesVersion'] = 2;
+      unsupportedRules['rulesVersion'] = 3;
       expect(() => GameRules.fromJson(unsupportedRules), throwsFormatException);
+
+      final mismatchedV1 = GameRules.legacyV1().toJson();
+      (mismatchedV1['evolution']! as Map<String, Object?>)['birthOwner'] =
+          BirthOwnership.movingPlayer.wireValue;
+      expect(() => GameRules.fromJson(mismatchedV1), throwsFormatException);
+
+      final mismatchedV2 = GameRules.standard().toJson();
+      (mismatchedV2['evolution']! as Map<String, Object?>)['birthOwner'] =
+          BirthOwnership.strictNeighborMajority.wireValue;
+      expect(() => GameRules.fromJson(mismatchedV2), throwsFormatException);
     });
 
     test('canonical JSON ignores insertion order', () {
@@ -83,6 +125,32 @@ void main() {
 
       expect(replayed, expected);
       expect(replayed.stateHash, expected.stateHash);
+    });
+
+    test('replaying stored v1 moves preserves legacy birth ownership', () {
+      final rules = GameRules.legacyV1();
+      final initial = activeState(
+        boardWith({
+          const Coordinate(4, 4): CellState.black,
+          const Coordinate(4, 5): CellState.black,
+        }),
+        toMove: Player.white,
+        rules: rules,
+        ply: 1,
+      );
+      const move = GameMove(
+        player: Player.white,
+        row: 5,
+        column: 4,
+        expectedRevision: 1,
+      );
+
+      final expected = engine.applyMove(initial, move).state;
+      final replayed = engine.replay([move], initial: initial);
+
+      expect(replayed, expected);
+      expect(replayed.rules.version, 1);
+      expect(replayed.board.at(5, 5), CellState.black);
     });
   });
 

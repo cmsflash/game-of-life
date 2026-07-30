@@ -156,13 +156,13 @@ class MatchRulesRequest(StrictModel):
         return {
             "schemaVersion": 1,
             "rulesetId": "life-duel",
-            "rulesVersion": 1,
+            "rulesVersion": 2,
             "board": {"rows": 20, "columns": 20, "boundary": "finiteDead"},
             "neighborhood": "moore8",
             "evolution": {
                 "birth": [3],
                 "survival": [2, 3],
-                "birthOwner": "strictNeighborMajority",
+                "birthOwner": "movingPlayer",
             },
             "turn": {
                 "placement": "emptyOnly",

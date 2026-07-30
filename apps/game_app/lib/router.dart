@@ -49,88 +49,113 @@ final routerProvider = Provider<GoRouter>((ref) {
     },
     routes: [
       ShellRoute(
-        builder: (context, state, child) => AppShell(child: child),
+        pageBuilder: (context, state, child) =>
+            _page(state, AppShell(child: child)),
         routes: [
-          GoRoute(path: '/', builder: (context, state) => const HomeScreen()),
+          GoRoute(
+            path: '/',
+            pageBuilder: (context, state) => _page(state, const HomeScreen()),
+          ),
           GoRoute(
             path: '/local/setup',
-            builder: (context, state) => const LocalSetupScreen(),
+            pageBuilder: (context, state) =>
+                _page(state, const LocalSetupScreen()),
           ),
           GoRoute(
             path: '/online',
-            builder: (context, state) => const LobbyScreen(),
+            pageBuilder: (context, state) => _page(state, const LobbyScreen()),
           ),
           GoRoute(
             path: '/profile',
-            builder: (context, state) => const ProfileScreen(),
+            pageBuilder: (context, state) =>
+                _page(state, const ProfileScreen()),
           ),
           GoRoute(
             path: '/about',
-            builder: (context, state) =>
-                const LegalScreen(document: LegalDocument.about),
+            pageBuilder: (context, state) =>
+                _page(state, const LegalScreen(document: LegalDocument.about)),
           ),
           GoRoute(
             path: '/privacy',
-            builder: (context, state) =>
-                const LegalScreen(document: LegalDocument.privacy),
+            pageBuilder: (context, state) => _page(
+              state,
+              const LegalScreen(document: LegalDocument.privacy),
+            ),
           ),
           GoRoute(
             path: '/terms',
-            builder: (context, state) =>
-                const LegalScreen(document: LegalDocument.terms),
+            pageBuilder: (context, state) =>
+                _page(state, const LegalScreen(document: LegalDocument.terms)),
           ),
           GoRoute(
             path: '/account-deletion',
-            builder: (context, state) =>
-                const LegalScreen(document: LegalDocument.accountDeletion),
+            pageBuilder: (context, state) => _page(
+              state,
+              const LegalScreen(document: LegalDocument.accountDeletion),
+            ),
           ),
         ],
       ),
       GoRoute(
         path: '/local/game',
-        builder: (context, state) => const LocalGameScreen(),
+        pageBuilder: (context, state) => _page(state, const LocalGameScreen()),
       ),
       GoRoute(
         path: '/online/match/:id',
-        builder: (context, state) =>
-            OnlineMatchScreen(matchId: state.pathParameters['id']!),
+        pageBuilder: (context, state) => _page(
+          state,
+          OnlineMatchScreen(matchId: state.pathParameters['id']!),
+        ),
       ),
       GoRoute(
         path: '/login',
-        builder: (context, state) =>
-            LoginScreen(returnTo: state.uri.queryParameters['returnTo']),
+        pageBuilder: (context, state) => _page(
+          state,
+          LoginScreen(returnTo: state.uri.queryParameters['returnTo']),
+        ),
       ),
       GoRoute(
         path: '/register',
-        builder: (context, state) => const RegisterScreen(),
+        pageBuilder: (context, state) => _page(state, const RegisterScreen()),
       ),
       GoRoute(
         path: '/confirm',
-        builder: (context, state) => ConfirmAccountScreen(
-          initialUsername: state.uri.queryParameters['username'],
-          initialCode: state.uri.queryParameters['code'],
+        pageBuilder: (context, state) => _page(
+          state,
+          ConfirmAccountScreen(
+            initialUsername: state.uri.queryParameters['username'],
+            initialCode: state.uri.queryParameters['code'],
+          ),
         ),
       ),
       GoRoute(
         path: '/forgot-password',
-        builder: (context, state) => const ForgotPasswordScreen(),
+        pageBuilder: (context, state) =>
+            _page(state, const ForgotPasswordScreen()),
       ),
       GoRoute(
         path: '/reset-password',
-        builder: (context, state) => ResetPasswordScreen(
-          initialUsername: state.uri.queryParameters['username'],
-          initialCode: state.uri.queryParameters['code'],
+        pageBuilder: (context, state) => _page(
+          state,
+          ResetPasswordScreen(
+            initialUsername: state.uri.queryParameters['username'],
+            initialCode: state.uri.queryParameters['code'],
+          ),
         ),
       ),
       GoRoute(
         path: '/auth',
-        builder: (context, state) =>
-            GoogleCallbackScreen(code: state.uri.queryParameters['code']),
+        pageBuilder: (context, state) => _page(
+          state,
+          GoogleCallbackScreen(code: state.uri.queryParameters['code']),
+        ),
       ),
       GoRoute(
         path: '/auth/callback',
-        builder: (context, state) =>
-            GoogleCallbackScreen(code: state.uri.queryParameters['code']),
+        pageBuilder: (context, state) => _page(
+          state,
+          GoogleCallbackScreen(code: state.uri.queryParameters['code']),
+        ),
       ),
     ],
     errorBuilder: (context, state) => Scaffold(
@@ -158,6 +183,9 @@ final routerProvider = Provider<GoRouter>((ref) {
     ),
   );
 });
+
+NoTransitionPage<void> _page(GoRouterState state, Widget child) =>
+    NoTransitionPage<void>(key: state.pageKey, child: child);
 
 class _RouterRefreshNotifier extends ChangeNotifier {
   void refresh() => notifyListeners();

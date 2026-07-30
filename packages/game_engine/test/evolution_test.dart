@@ -5,6 +5,10 @@ import 'test_helpers.dart';
 
 void main() {
   const engine = GameEngine();
+  EvolutionResult evolve(Board board) => engine.evolve(
+    board,
+    birthOwnership: BirthOwnership.strictNeighborMajority,
+  );
 
   group('initial state', () {
     test('is the stable centered diagonal-owned block', () {
@@ -26,7 +30,7 @@ void main() {
       expect(state.ply, 0);
       expect(state.revision, 0);
       expect(state.outcome, isNull);
-      expect(engine.evolve(state.board).board, state.board);
+      expect(evolve(state.board).board, state.board);
     });
   });
 
@@ -36,14 +40,14 @@ void main() {
         const Coordinate(5, 5): CellState.black,
         const Coordinate(5, 6): CellState.white,
       });
-      expect(engine.evolve(underpopulated).board.at(5, 5), CellState.empty);
+      expect(evolve(underpopulated).board.at(5, 5), CellState.empty);
 
       final twoNeighbors = boardWith({
         const Coordinate(5, 5): CellState.black,
         const Coordinate(4, 4): CellState.white,
         const Coordinate(4, 5): CellState.white,
       });
-      expect(engine.evolve(twoNeighbors).board.at(5, 5), CellState.black);
+      expect(evolve(twoNeighbors).board.at(5, 5), CellState.black);
 
       final threeNeighbors = boardWith({
         const Coordinate(5, 5): CellState.white,
@@ -51,7 +55,7 @@ void main() {
         const Coordinate(4, 5): CellState.black,
         const Coordinate(4, 6): CellState.black,
       });
-      expect(engine.evolve(threeNeighbors).board.at(5, 5), CellState.white);
+      expect(evolve(threeNeighbors).board.at(5, 5), CellState.white);
 
       final fourNeighbors = boardWith({
         const Coordinate(5, 5): CellState.black,
@@ -60,7 +64,7 @@ void main() {
         const Coordinate(4, 6): CellState.white,
         const Coordinate(5, 4): CellState.white,
       });
-      expect(engine.evolve(fourNeighbors).board.at(5, 5), CellState.empty);
+      expect(evolve(fourNeighbors).board.at(5, 5), CellState.empty);
     });
 
     test('blinker proves updates are simultaneous', () {
@@ -70,7 +74,7 @@ void main() {
         const Coordinate(5, 6): CellState.black,
       });
 
-      final next = engine.evolve(horizontal).board;
+      final next = evolve(horizontal).board;
 
       expect(coordinatesOf(next, CellState.black), {
         const Coordinate(4, 5),
@@ -86,10 +90,10 @@ void main() {
         const Coordinate(19, 19): CellState.black,
       });
 
-      expect(engine.evolve(board).board.at(0, 0), CellState.empty);
+      expect(evolve(board).board.at(0, 0), CellState.empty);
     });
 
-    test('birth color is the strict majority of three neighbors', () {
+    test('standalone evolution uses strict neighbor-majority births', () {
       Board birthBoard(CellState first, CellState second, CellState third) =>
           boardWith({
             const Coordinate(4, 4): first,
@@ -98,40 +102,60 @@ void main() {
           });
 
       expect(
-        engine
-            .evolve(
-              birthBoard(CellState.black, CellState.black, CellState.black),
-            )
-            .board
-            .at(5, 5),
+        evolve(
+          birthBoard(CellState.black, CellState.black, CellState.black),
+        ).board.at(5, 5),
         CellState.black,
       );
       expect(
-        engine
-            .evolve(
-              birthBoard(CellState.black, CellState.black, CellState.white),
-            )
-            .board
-            .at(5, 5),
+        evolve(
+          birthBoard(CellState.black, CellState.black, CellState.white),
+        ).board.at(5, 5),
         CellState.black,
       );
       expect(
-        engine
-            .evolve(
-              birthBoard(CellState.black, CellState.white, CellState.white),
-            )
-            .board
-            .at(5, 5),
+        evolve(
+          birthBoard(CellState.black, CellState.white, CellState.white),
+        ).board.at(5, 5),
         CellState.white,
       );
       expect(
-        engine
-            .evolve(
-              birthBoard(CellState.white, CellState.white, CellState.white),
-            )
-            .board
-            .at(5, 5),
+        evolve(
+          birthBoard(CellState.white, CellState.white, CellState.white),
+        ).board.at(5, 5),
         CellState.white,
+      );
+    });
+
+    test('turn evolution assigns every birth to the moving player', () {
+      final board = boardWith({
+        const Coordinate(4, 4): CellState.black,
+        const Coordinate(4, 5): CellState.black,
+        const Coordinate(4, 6): CellState.black,
+      });
+
+      final result = engine.evolve(
+        board,
+        birthOwnership: BirthOwnership.movingPlayer,
+        movingPlayer: Player.white,
+      );
+
+      expect(result.board.at(5, 5), CellState.white);
+      expect(
+        result.delta.births,
+        contains(
+          isA<CellBirth>()
+              .having(
+                (birth) => birth.coordinate,
+                'coordinate',
+                const Coordinate(5, 5),
+              )
+              .having((birth) => birth.player, 'player', Player.white),
+        ),
+      );
+      expect(
+        () => engine.evolve(board, birthOwnership: BirthOwnership.movingPlayer),
+        throwsArgumentError,
       );
     });
 
@@ -142,7 +166,7 @@ void main() {
         const Coordinate(4, 5): CellState.black,
       });
 
-      expect(engine.evolve(board).board.at(5, 5), CellState.white);
+      expect(evolve(board).board.at(5, 5), CellState.white);
     });
 
     test('reports row-major births and deaths', () {
@@ -152,7 +176,7 @@ void main() {
         const Coordinate(5, 6): CellState.black,
       });
 
-      final delta = engine.evolve(board).delta;
+      final delta = evolve(board).delta;
 
       expect(delta.births.map((event) => event.coordinate), [
         const Coordinate(4, 5),

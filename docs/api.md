@@ -122,6 +122,9 @@ The default is `{ "mode": "elimination" }`. Alternatives are:
 
 `maxPlies` must be positive and even. `target` is 3–400. The API resolves these
 options into the complete, versioned rules document stored with the match.
+New matches use rules version 2, where newborn cells belong to the player who
+made the move. Stored version 1 rules remain replayable with their historical
+strict-neighbor-majority birth ownership.
 
 All API timestamps are serialized as ISO 8601 UTC values with a `Z` suffix.
 DynamoDB TTL attributes are integer Unix seconds derived from the same

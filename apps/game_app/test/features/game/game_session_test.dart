@@ -30,6 +30,22 @@ void main() {
       expect(session.lastDeaths, contains(const engine.Coordinate(0, 0)));
     });
 
+    test('a surviving White move and its births render as White', () {
+      final controller = LocalGameController();
+      controller.start(const LocalGameConfig());
+      expect(controller.place(0, 0), isTrue);
+
+      expect(controller.place(8, 9), isTrue);
+
+      final session = controller.state!;
+      expect(session.game.revision, 2);
+      expect(session.game.toMove, engine.Player.black);
+      expect(session.lastMove, const engine.Coordinate(8, 9));
+      expect(session.game.board.at(8, 9), engine.CellState.white);
+      expect(session.lastBirths, contains(const engine.Coordinate(8, 10)));
+      expect(session.game.board.at(8, 10), engine.CellState.white);
+    });
+
     test('rejects placement on a living cell without advancing', () {
       final controller = LocalGameController();
       controller.start(const LocalGameConfig());

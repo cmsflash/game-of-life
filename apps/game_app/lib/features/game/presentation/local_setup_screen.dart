@@ -83,8 +83,11 @@ class _LocalSetupScreenState extends ConsumerState<LocalSetupScreen> {
                     },
                   ),
                   const SizedBox(height: 22),
-                  AnimatedSwitcher(
+                  AnimatedSize(
                     duration: const Duration(milliseconds: 220),
+                    curve: Curves.easeOutCubic,
+                    alignment: Alignment.topLeft,
+                    clipBehavior: Clip.hardEdge,
                     child: switch (_mode) {
                       LocalGameMode.elimination => const _ModeExplanation(
                         key: ValueKey('elimination'),

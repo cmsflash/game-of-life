@@ -2,8 +2,8 @@
 
 The Game of Life is a deterministic, two-player strategy game derived from
 Conway's Game of Life. Players alternate placing a colored cell and the board
-then evolves once. A newborn cell inherits the majority color of its three
-neighbors.
+then evolves once. In current rules, every newborn cell belongs to the player
+whose move triggered that evolution.
 
 This repository contains the complete cross-platform product:
 

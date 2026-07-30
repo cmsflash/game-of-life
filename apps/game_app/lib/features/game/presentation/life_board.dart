@@ -330,18 +330,6 @@ class LifeBoardPainter extends CustomPainter {
       }
     }
 
-    if (lastMove != null) {
-      final center = Offset(
-        (lastMove!.column + .5) * cellWidth,
-        (lastMove!.row + .5) * cellHeight,
-      );
-      canvas.drawCircle(
-        center,
-        math.min(cellWidth, cellHeight) * .13,
-        Paint()..color = LifeColors.coral,
-      );
-    }
-
     if (showHover && hovered != null) {
       final rect = Rect.fromLTWH(
         hovered!.column * cellWidth + 1,
@@ -372,6 +360,21 @@ class LifeBoardPainter extends CustomPainter {
           ..style = PaintingStyle.stroke
           ..strokeWidth = 2
           ..color = colorScheme.primary,
+      );
+    }
+    if (lastMove != null) {
+      final rect = Rect.fromLTWH(
+        lastMove!.column * cellWidth + cellWidth * .07,
+        lastMove!.row * cellHeight + cellHeight * .07,
+        cellWidth * .86,
+        cellHeight * .86,
+      );
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(rect, Radius.circular(radius * 1.15)),
+        Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 2.4
+          ..color = LifeColors.coral,
       );
     }
     canvas.restore();

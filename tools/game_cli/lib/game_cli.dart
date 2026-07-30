@@ -95,7 +95,9 @@ final class GameCli {
 
   Map<String, Object?> _evolve(Map<String, Object?> request) {
     final board = Board.fromJson(_required(request, 'board'));
-    return engine.evolve(board).toJson();
+    return engine
+        .evolve(board, birthOwnership: BirthOwnership.strictNeighborMajority)
+        .toJson();
   }
 
   Map<String, Object?> _legal(Map<String, Object?> request) {

@@ -41,6 +41,53 @@ void main() {
     expect(find.byKey(const Key('start-local-game')), findsOneWidget);
   });
 
+  testWidgets('route changes never paint old and new screens together', (
+    tester,
+  ) async {
+    await pumpApp(tester, size: const Size(390, 844));
+
+    expect(find.text('Give life\na side.'), findsOneWidget);
+    await tester.tap(find.byKey(const Key('play-local')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+
+    expect(find.text('Set the terms of life'), findsOneWidget);
+    expect(find.text('Give life\na side.'), findsNothing);
+  });
+
+  testWidgets('victory mode transition keeps only the current panel mounted', (
+    tester,
+  ) async {
+    await pumpApp(tester, size: const Size(390, 844));
+    await tester.tap(find.text('Local'));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('elimination')), findsOneWidget);
+    await tester.tap(find.text('Turn limit'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 110));
+
+    expect(find.byKey(const Key('elimination')), findsNothing);
+    expect(find.byKey(const Key('turn-limit')), findsOneWidget);
+  });
+
+  testWidgets('shell-to-game navigation never keeps the setup screen mounted', (
+    tester,
+  ) async {
+    await pumpApp(tester, size: const Size(390, 844));
+    await tester.tap(find.text('Local'));
+    await tester.pumpAndSettle();
+
+    final start = find.byKey(const Key('start-local-game'));
+    await tester.ensureVisible(start);
+    await tester.tap(start);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+
+    expect(find.byKey(const Key('local-life-board')), findsOneWidget);
+    expect(find.text('Set the terms of life'), findsNothing);
+  });
+
   testWidgets('sign-in page keeps password and local play always available', (
     tester,
   ) async {
