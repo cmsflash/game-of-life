@@ -28,9 +28,16 @@ void main() {
     expect(state, const GameEngine().initialState());
   });
 
-  test('accepts operation and command aliases', () {
-    expect(cli.handleRequest({'operation': 'initialState'})['ok'], isTrue);
-    expect(cli.handleRequest({'command': 'initial'})['ok'], isTrue);
+  test('rejects non-canonical operation fields and names', () {
+    for (final request in [
+      {'operation': 'initial'},
+      {'command': 'initial'},
+      {'op': 'initialState'},
+      {'op': 'apply'},
+      {'op': 'legal'},
+    ]) {
+      expect(cli.handleRequest(request)['ok'], isFalse);
+    }
   });
 
   test('legalMoves returns every empty coordinate', () {
@@ -59,15 +66,16 @@ void main() {
     expect(result['delta'], isA<Map>());
   });
 
-  test('applyMove supports top-level expectedRevision compatibility', () {
+  test('applyMove requires the complete canonical move schema', () {
     final response = cli.handleRequest({
-      'operation': 'applyMove',
+      'op': 'applyMove',
       'state': initialStateJson(),
       'expectedRevision': 0,
       'move': {'player': 'black', 'row': 0, 'column': 0},
     });
 
-    expect(response['ok'], isTrue);
+    expect(response['ok'], isFalse);
+    expect((response['error']! as Map)['code'], 'invalidRequest');
   });
 
   test('rule violations use the stable error envelope', () {
@@ -95,7 +103,7 @@ void main() {
     expect((response['error']! as Map)['code'], 'passNotAllowed');
   });
 
-  test('standalone evolve explicitly uses strict neighbor-majority births', () {
+  test('evolve requires the current moving player', () {
     final board = Board(
       rows: 3,
       columns: 3,
@@ -114,15 +122,23 @@ void main() {
     final response = cli.handleRequest({
       'op': 'evolve',
       'board': board.toJson(),
+      'player': 'white',
     });
 
     expect(response['ok'], isTrue);
     final result = resultOf(response);
     final evolved = Board.fromJson(result['board']);
-    expect(evolved.at(0, 1), CellState.black);
+    expect(evolved.at(0, 1), CellState.white);
     expect(evolved.at(1, 1), CellState.black);
-    expect(evolved.at(2, 1), CellState.black);
+    expect(evolved.at(2, 1), CellState.white);
     expect(result['delta'], isA<Map>());
+
+    final missingPlayer = cli.handleRequest({
+      'op': 'evolve',
+      'board': board.toJson(),
+    });
+    expect(missingPlayer['ok'], isFalse);
+    expect((missingPlayer['error']! as Map)['code'], 'invalidRequest');
   });
 
   test('replay fills deterministic player and revision defaults', () {
@@ -142,24 +158,7 @@ void main() {
     expect(result['turns'], hasLength(2));
   });
 
-  test('replay preserves stored version 1 birth ownership', () {
-    final response = cli.handleRequest({
-      'op': 'replay',
-      'rules': GameRules.legacyV1().toJson(),
-      'moves': [
-        {'row': 7, 'column': 8},
-        {'row': 0, 'column': 0},
-      ],
-    });
-
-    expect(response['ok'], isTrue);
-    final state = GameState.fromJson(resultOf(response)['state']);
-    expect(state.rules.version, 1);
-    expect(state.board.at(8, 10), CellState.black);
-    expect(state.board.at(9, 8), CellState.black);
-  });
-
-  test('default replay gives White-turn births to White in version 2', () {
+  test('replay gives White-turn births to White under current rules', () {
     final response = cli.handleRequest({
       'op': 'replay',
       'moves': [
@@ -170,7 +169,7 @@ void main() {
 
     expect(response['ok'], isTrue);
     final state = GameState.fromJson(resultOf(response)['state']);
-    expect(state.rules.version, 2);
+    expect(state.rules.toJson()['rulesVersion'], GameRules.rulesVersion);
     expect(state.board.at(8, 10), CellState.white);
     expect(state.board.at(9, 8), CellState.white);
   });

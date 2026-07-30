@@ -10,7 +10,7 @@ dart run bin/game_cli.dart --jsonl
 The default mode is also JSONL. `--once` processes the first non-empty input
 line and exits, which is convenient for Lambda-style process invocation.
 
-Every input line is one JSON object using `op`, `operation`, or `command`.
+Every input line is one JSON object using `op`.
 Every output is exactly one of:
 
 ```json
@@ -43,11 +43,12 @@ Apply an authoritative move:
 
 Other operations are:
 
-- `evolve`: accepts `board` with `rows`, `columns`, and row-major `cells`.
+- `evolve`: accepts `board` with `rows`, `columns`, and row-major `cells`, plus
+  the required `player` (`black` or `white`).
 - `legalMoves`: accepts `state` and returns every empty coordinate.
 - `replay`: accepts optional `rules` or `initialState` and a `moves` array.
   Replay moves may omit player and revision; the CLI deterministically fills
   them from the current state.
 
-The aliases `initialState`, `apply`, and `legal` are accepted for compatibility,
-but callers should emit the canonical operation names above.
+The accepted operation names are `initial`, `applyMove`, `evolve`,
+`legalMoves`, and `replay`.

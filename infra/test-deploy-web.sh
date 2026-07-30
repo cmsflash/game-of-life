@@ -14,7 +14,7 @@ cat >"$mock_bin/aws" <<'MOCK_AWS'
 #!/usr/bin/env bash
 set -euo pipefail
 printf 'aws' >>"$MOCK_COMMAND_LOG"
-printf ' %q' "$@" >>"$MOCK_COMMAND_LOG"
+printf ' %s' "$@" >>"$MOCK_COMMAND_LOG"
 printf '\n' >>"$MOCK_COMMAND_LOG"
 
 arguments="$*"
@@ -38,7 +38,7 @@ cat >"$mock_bin/flutter" <<'MOCK_FLUTTER'
 #!/usr/bin/env bash
 set -euo pipefail
 printf 'flutter' >>"$MOCK_COMMAND_LOG"
-printf ' %q' "$@" >>"$MOCK_COMMAND_LOG"
+printf ' %s' "$@" >>"$MOCK_COMMAND_LOG"
 printf '\n' >>"$MOCK_COMMAND_LOG"
 
 if [[ "${1:-}" != "build" || "${2:-}" != "web" ]]; then
@@ -97,7 +97,7 @@ grep -F -- "canvaskit/canvaskit.js s3://life-production-web-123456789012/canvask
 grep -F -- "canvaskit/canvaskit.wasm s3://life-production-web-123456789012/canvaskit/canvaskit.wasm" "$mock_log" >/dev/null
 grep -F -- "--cache-control public,max-age=0,must-revalidate,s-maxage=3600 --content-type application/wasm" "$mock_log" >/dev/null
 grep -F -- "--content-type application/wasm" "$mock_log" >/dev/null
-grep -F -- "cloudfront create-invalidation --distribution-id E123EXAMPLE --paths /\\*" "$mock_log" >/dev/null
+grep -F -- "cloudfront create-invalidation --distribution-id E123EXAMPLE --paths /*" "$mock_log" >/dev/null
 grep -F -- "cloudfront wait invalidation-completed --distribution-id E123EXAMPLE --id I123EXAMPLE" "$mock_log" >/dev/null
 
 if "$repo_dir/infra/deploy-web.sh" \

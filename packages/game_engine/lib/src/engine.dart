@@ -68,11 +68,7 @@ final class GameEngine {
       move.coordinate,
       move.player.cell,
     );
-    final evolution = evolve(
-      postPlacement,
-      birthOwnership: state.rules.birthOwnership,
-      movingPlayer: move.player,
-    );
+    final evolution = evolve(postPlacement, movingPlayer: move.player);
     final nextPly = state.ply + 1;
     final outcome = evaluateOutcome(evolution.board, state.rules, ply: nextPly);
     final nextState = GameState(
@@ -101,19 +97,13 @@ final class GameEngine {
     return AppliedMove(applyMove(state, move));
   }
 
-  /// Evolves [postPlacementBoard] once using an explicit birth-ownership rule.
+  /// Evolves [postPlacementBoard] once after [movingPlayer]'s placement.
   ///
-  /// [movingPlayer] is required only when births belong to the player whose
-  /// turn produced this evolution. Standalone Conway-style evolution should
-  /// explicitly select [BirthOwnership.strictNeighborMajority].
+  /// Every birth belongs to the player whose move produced the evolution.
   EvolutionResult evolve(
     Board postPlacementBoard, {
-    required BirthOwnership birthOwnership,
-    Player? movingPlayer,
+    required Player movingPlayer,
   }) {
-    if (birthOwnership == BirthOwnership.movingPlayer && movingPlayer == null) {
-      throw ArgumentError.notNull('movingPlayer');
-    }
     final nextCells = List<CellState>.filled(
       postPlacementBoard.length,
       CellState.empty,
@@ -123,8 +113,7 @@ final class GameEngine {
 
     for (var row = 0; row < postPlacementBoard.rows; row++) {
       for (var column = 0; column < postPlacementBoard.columns; column++) {
-        var blackNeighbors = 0;
-        var whiteNeighbors = 0;
+        var liveNeighbors = 0;
         for (var rowDelta = -1; rowDelta <= 1; rowDelta++) {
           for (var columnDelta = -1; columnDelta <= 1; columnDelta++) {
             if (rowDelta == 0 && columnDelta == 0) continue;
@@ -137,33 +126,22 @@ final class GameEngine {
               continue;
             }
             switch (postPlacementBoard.at(neighborRow, neighborColumn)) {
-              case CellState.black:
-                blackNeighbors++;
-              case CellState.white:
-                whiteNeighbors++;
               case CellState.empty:
                 break;
+              case CellState.black || CellState.white:
+                liveNeighbors++;
             }
           }
         }
 
         final current = postPlacementBoard.at(row, column);
-        final liveNeighbors = blackNeighbors + whiteNeighbors;
         final next = switch (current) {
           CellState.black || CellState.white =>
             liveNeighbors == 2 || liveNeighbors == 3
                 ? current
                 : CellState.empty,
           CellState.empty =>
-            liveNeighbors == 3
-                ? switch (birthOwnership) {
-                    BirthOwnership.strictNeighborMajority =>
-                      blackNeighbors > whiteNeighbors
-                          ? CellState.black
-                          : CellState.white,
-                    BirthOwnership.movingPlayer => movingPlayer!.cell,
-                  }
-                : CellState.empty,
+            liveNeighbors == 3 ? movingPlayer.cell : CellState.empty,
         };
         final coordinate = Coordinate(row, column);
         nextCells[coordinate.indexFor(postPlacementBoard.columns)] = next;

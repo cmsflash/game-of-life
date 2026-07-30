@@ -129,7 +129,8 @@ final class GameState {
   }) {
     if (board.rows != GameRules.rows || board.columns != GameRules.columns) {
       throw ArgumentError(
-        'rules version 1 requires a ${GameRules.rows}x${GameRules.columns} board',
+        'the current rules require a '
+        '${GameRules.rows}x${GameRules.columns} board',
       );
     }
     if (ply < 0 || revision < 0 || ply != revision) {

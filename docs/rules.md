@@ -21,5 +21,6 @@ limit, and first population target. Elimination always takes precedence. If
 both colors cross a target during the same simultaneous evolution, the result
 is a draw.
 
-Stored version 1 matches and replays remain supported. In version 1 only, a
-newborn cell receives the strict majority color of its three live neighbors.
+Rules documents must declare `"rulesVersion": 2` and
+`"evolution": { "birthOwner": "movingPlayer" }`. No other rules version or
+birth-ownership policy is accepted.

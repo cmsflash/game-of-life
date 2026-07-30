@@ -7,7 +7,7 @@
 - Every legal tap places the correct color and performs exactly one simultaneous
   evolution.
 - Every newborn cell produced by a turn belongs to the player who made that
-  move; stored version 1 replays retain their historical majority-color rule.
+  move. Only rules version 2 with `movingPlayer` birth ownership is accepted.
 - The last-move indicator outlines its coordinate without covering a surviving
   Black or White cell.
 - Isolated placements visibly consume a turn even if the final board is

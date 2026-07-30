@@ -74,7 +74,7 @@ def test_claimed_ticket_remains_active_until_released() -> None:
     assert released.status == "waiting"
 
 
-def test_match_documents_sanitize_legacy_stored_display_names() -> None:
+def test_match_documents_expose_only_color_labels() -> None:
     repository = InMemoryRepository()
     engine = StubEngine()
     alice = User(

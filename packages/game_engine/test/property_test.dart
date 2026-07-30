@@ -5,9 +5,8 @@ import 'package:test/test.dart';
 
 void main() {
   const engine = GameEngine();
-  Board evolveByMajority(Board board) => engine
-      .evolve(board, birthOwnership: BirthOwnership.strictNeighborMajority)
-      .board;
+  Board evolveFor(Board board, Player movingPlayer) =>
+      engine.evolve(board, movingPlayer: movingPlayer).board;
 
   test('optimized evolution matches an independent reference', () {
     final random = Random(20260720);
@@ -20,9 +19,10 @@ void main() {
           (_) => CellState.values[random.nextInt(CellState.values.length)],
         ),
       );
+      final movingPlayer = Player.values[random.nextInt(Player.values.length)];
 
-      final actual = evolveByMajority(board);
-      final expected = _referenceEvolution(board);
+      final actual = evolveFor(board, movingPlayer);
+      final expected = _referenceEvolution(board, movingPlayer);
 
       expect(actual, expected, reason: 'random sample $sample');
     }
@@ -40,8 +40,8 @@ void main() {
         ),
       );
 
-      final evolvedThenSwapped = _swapColors(evolveByMajority(board));
-      final swappedThenEvolved = evolveByMajority(_swapColors(board));
+      final evolvedThenSwapped = _swapColors(evolveFor(board, Player.black));
+      final swappedThenEvolved = evolveFor(_swapColors(board), Player.white);
 
       expect(swappedThenEvolved, evolvedThenSwapped);
     }
@@ -59,15 +59,15 @@ void main() {
         ),
       );
 
-      final evolvedThenReflected = _reflect(evolveByMajority(board));
-      final reflectedThenEvolved = evolveByMajority(_reflect(board));
+      final evolvedThenReflected = _reflect(evolveFor(board, Player.black));
+      final reflectedThenEvolved = evolveFor(_reflect(board), Player.black);
 
       expect(reflectedThenEvolved, evolvedThenReflected);
     }
   });
 }
 
-Board _referenceEvolution(Board board) {
+Board _referenceEvolution(Board board, Player movingPlayer) {
   final next = <CellState>[];
   for (var row = 0; row < board.rows; row++) {
     for (var column = 0; column < board.columns; column++) {
@@ -96,8 +96,7 @@ Board _referenceEvolution(Board board) {
       } else if (neighbors.length != 3) {
         next.add(CellState.empty);
       } else {
-        final black = neighbors.where((cell) => cell == CellState.black).length;
-        next.add(black >= 2 ? CellState.black : CellState.white);
+        next.add(movingPlayer.cell);
       }
     }
   }

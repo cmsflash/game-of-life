@@ -58,21 +58,14 @@ final class GameCli {
   }
 
   String _resolveOperation(Map<String, Object?> request) {
-    final raw = request['op'] ?? request['operation'] ?? request['command'];
+    final raw = request['op'];
     if (raw is! String) {
       throw const CliRequestException(
         'invalidRequest',
-        'request requires a string op, operation, or command',
+        'request requires a string op',
       );
     }
-    return switch (raw) {
-      'initial' || 'initialState' => 'initial',
-      'apply' || 'applyMove' => 'applyMove',
-      'evolve' => 'evolve',
-      'legal' || 'legalMoves' => 'legalMoves',
-      'replay' => 'replay',
-      _ => raw,
-    };
+    return raw;
   }
 
   Map<String, Object?> _initial(Map<String, Object?> request) {
@@ -84,20 +77,16 @@ final class GameCli {
 
   Map<String, Object?> _apply(Map<String, Object?> request) {
     final state = GameState.fromJson(_required(request, 'state'));
-    final moveJson = _normalizedMove(
-      _required(request, 'move'),
-      state,
-      topLevelExpectedRevision: request['expectedRevision'],
-    );
+    final moveJson = _required(request, 'move');
+    _rejectPass(moveJson);
     final result = engine.applyMove(state, GameMove.fromJson(moveJson));
     return result.toJson();
   }
 
   Map<String, Object?> _evolve(Map<String, Object?> request) {
     final board = Board.fromJson(_required(request, 'board'));
-    return engine
-        .evolve(board, birthOwnership: BirthOwnership.strictNeighborMajority)
-        .toJson();
+    final player = Player.fromJson(_required(request, 'player'));
+    return engine.evolve(board, movingPlayer: player).toJson();
   }
 
   Map<String, Object?> _legal(Map<String, Object?> request) {
@@ -137,7 +126,7 @@ final class GameCli {
           'move $index: the game is already complete',
         );
       }
-      final moveJson = _normalizedMove(rawMoves[index], state);
+      final moveJson = _replayMove(rawMoves[index], state);
       try {
         final turn = engine.applyMove(state, GameMove.fromJson(moveJson));
         turns.add(turn.toJson());
@@ -152,11 +141,7 @@ final class GameCli {
     return {'state': state.toJson(), 'turns': turns};
   }
 
-  Map<String, Object?> _normalizedMove(
-    Object? value,
-    GameState state, {
-    Object? topLevelExpectedRevision,
-  }) {
+  Map<String, Object?> _replayMove(Object? value, GameState state) {
     if (value is! Map) {
       throw const FormatException('move must be a JSON object');
     }
@@ -167,15 +152,19 @@ final class GameCli {
       }
       result[entry.key as String] = entry.value;
     }
-    if (result['pass'] == true) {
+    _rejectPass(result);
+    result['player'] ??= state.toMove?.name;
+    result['expectedRevision'] ??= state.revision;
+    return result;
+  }
+
+  void _rejectPass(Object? value) {
+    if (value is Map && value['pass'] == true) {
       throw const GameRuleViolation(
         MoveErrorCode.passNotAllowed,
         'passing is not allowed',
       );
     }
-    result['player'] ??= state.toMove?.name;
-    result['expectedRevision'] ??= topLevelExpectedRevision ?? state.revision;
-    return result;
   }
 
   Object? _required(Map<String, Object?> request, String key) {

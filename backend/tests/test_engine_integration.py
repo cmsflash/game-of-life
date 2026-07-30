@@ -6,6 +6,7 @@ from copy import deepcopy
 import pytest
 
 from life_api.engine import DartEngine
+from life_api.errors import ApiError
 from life_api.models import MatchRulesRequest
 from life_api.settings import Settings
 
@@ -49,27 +50,14 @@ def test_python_adapter_matches_real_cli_protocol(settings: Settings) -> None:
 
 
 @pytest.mark.skipif(shutil.which("dart") is None, reason="Dart SDK is not installed")
-def test_python_adapter_replays_stored_rules_version_1(settings: Settings) -> None:
+def test_python_adapter_rejects_non_current_rules(settings: Settings) -> None:
     engine = DartEngine(settings)
     rules = deepcopy(MatchRulesRequest().engine_rules())
     rules["rulesVersion"] = 1
     rules["evolution"]["birthOwner"] = "strictNeighborMajority"
-    initial = engine.initial(rules)
 
-    black_turn = engine.apply_move(
-        initial,
-        player="black",
-        row=7,
-        column=8,
-        expected_revision=0,
-    )
-    white_turn = engine.apply_move(
-        black_turn["state"],
-        player="white",
-        row=0,
-        column=0,
-        expected_revision=1,
-    )
+    with pytest.raises(ApiError) as captured:
+        engine.initial(rules)
 
-    assert white_turn["state"]["cells"][8 * 20 + 10] == 1
-    assert white_turn["state"]["cells"][9 * 20 + 8] == 1
+    assert captured.value.code == "invalidRequest"
+    assert "expected 2" in captured.value.message

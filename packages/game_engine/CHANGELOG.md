@@ -1,8 +1,7 @@
 ## Unreleased
 
-- Make rules version 2 assign newborn cells to the moving player.
-- Preserve rules version 1 parsing and strict-neighbor-majority replay behavior.
-- Require standalone evolution callers to choose birth ownership explicitly.
+- Make rules version 2 the only accepted ruleset and assign every newborn cell
+  to the moving player.
 
 ## 1.0.0
 
