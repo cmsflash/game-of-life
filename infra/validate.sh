@@ -12,6 +12,12 @@ SAM_CLI_TELEMETRY=0 sam validate \
 bash -n infra/deploy-web.sh infra/test-deploy-web.sh
 infra/test-deploy-web.sh
 
+grep -F 'id="life-startup"' apps/game_app/web/index.html >/dev/null
+grep -F 'id="life-startup-retry"' apps/game_app/web/index.html >/dev/null
+grep -F 'onEntrypointLoaded: async' apps/game_app/web/flutter_bootstrap.js >/dev/null
+grep -F 'initializeEngine(engineConfig)' apps/game_app/web/flutter_bootstrap.js >/dev/null
+grep -F '.catch(failStartup)' apps/game_app/web/flutter_bootstrap.js >/dev/null
+
 if [[ "${1:-}" == "--build" ]]; then
   docker_endpoint="${DOCKER_HOST:-}"
   if [[ -z "$docker_endpoint" ]] && command -v docker >/dev/null 2>&1; then

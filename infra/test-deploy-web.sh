@@ -64,7 +64,10 @@ for file in \
   main.dart.js \
   manifest.json \
   version.json \
+  assets/AssetManifest.bin \
   assets/AssetManifest.bin.json \
+  assets/FontManifest.json \
+  canvaskit/canvaskit.js \
   canvaskit/canvaskit.wasm; do
   printf '%s\n' "$file" >"$output_dir/$file"
 done
@@ -88,7 +91,11 @@ grep -F -- "flutter build web --release --no-web-resources-cdn --output $mock_bu
 grep -F -- "s3 sync $mock_build/ s3://life-production-web-123456789012/ --delete" "$mock_log" >/dev/null
 grep -F -- "--exclude index.html" "$mock_log" >/dev/null
 grep -F -- "--exclude main.dart.js" "$mock_log" >/dev/null
+grep -F -- "main.dart.js s3://life-production-web-123456789012/main.dart.js --cache-control public,max-age=0,must-revalidate,s-maxage=3600" "$mock_log" >/dev/null
+grep -F -- "assets/AssetManifest.bin s3://life-production-web-123456789012/assets/AssetManifest.bin --cache-control public,max-age=0,must-revalidate,s-maxage=3600" "$mock_log" >/dev/null
+grep -F -- "canvaskit/canvaskit.js s3://life-production-web-123456789012/canvaskit/canvaskit.js --cache-control public,max-age=0,must-revalidate,s-maxage=3600 --content-type application/javascript" "$mock_log" >/dev/null
 grep -F -- "canvaskit/canvaskit.wasm s3://life-production-web-123456789012/canvaskit/canvaskit.wasm" "$mock_log" >/dev/null
+grep -F -- "--cache-control public,max-age=0,must-revalidate,s-maxage=3600 --content-type application/wasm" "$mock_log" >/dev/null
 grep -F -- "--content-type application/wasm" "$mock_log" >/dev/null
 grep -F -- "cloudfront create-invalidation --distribution-id E123EXAMPLE --paths /\\*" "$mock_log" >/dev/null
 grep -F -- "cloudfront wait invalidation-completed --distribution-id E123EXAMPLE --id I123EXAMPLE" "$mock_log" >/dev/null

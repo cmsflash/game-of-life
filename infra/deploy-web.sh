@@ -208,12 +208,15 @@ no_cache_files=(
   "manifest.json|application/manifest+json"
   "version.json|application/json"
 )
-short_cache_files=(
+revalidate_files=(
   "flutter.js|application/javascript"
   "main.dart.js|application/javascript"
+  "assets/AssetManifest.bin|application/octet-stream"
+  "assets/AssetManifest.bin.json|application/json"
+  "assets/FontManifest.json|application/json"
 )
 sync_exclusions=()
-for file_specification in "${no_cache_files[@]}" "${short_cache_files[@]}"; do
+for file_specification in "${no_cache_files[@]}" "${revalidate_files[@]}"; do
   sync_exclusions+=(--exclude "${file_specification%%|*}")
 done
 
@@ -246,18 +249,31 @@ for file_specification in "${no_cache_files[@]}"; do
   fi
 done
 
-for file_specification in "${short_cache_files[@]}"; do
+for file_specification in "${revalidate_files[@]}"; do
   relative_path="${file_specification%%|*}"
   content_type="${file_specification#*|}"
   if [[ -f "$build_dir/$relative_path" ]]; then
     "${aws_cli[@]}" s3 cp \
       "$build_dir/$relative_path" \
       "s3://$bucket_name/$relative_path" \
-      --cache-control "public,max-age=300,must-revalidate" \
+      --cache-control "public,max-age=0,must-revalidate,s-maxage=3600" \
       --content-type "$content_type" \
       --only-show-errors
   fi
 done
+
+# CanvasKit filenames stay stable across Flutter releases. Require browser
+# revalidation so a previously visited phone never combines a new bootstrap
+# with an old JavaScript renderer after a deployment.
+while IFS= read -r -d '' canvaskit_js_path; do
+  relative_path="${canvaskit_js_path#"$build_dir/"}"
+  "${aws_cli[@]}" s3 cp \
+    "$canvaskit_js_path" \
+    "s3://$bucket_name/$relative_path" \
+    --cache-control "public,max-age=0,must-revalidate,s-maxage=3600" \
+    --content-type "application/javascript" \
+    --only-show-errors
+done < <(find "$build_dir/canvaskit" -type f -name "*.js" -print0)
 
 # WebAssembly streaming compilation requires the application/wasm media type.
 # Set it explicitly instead of depending on the deployer's host MIME database.
@@ -266,7 +282,7 @@ while IFS= read -r -d '' wasm_path; do
   "${aws_cli[@]}" s3 cp \
     "$wasm_path" \
     "s3://$bucket_name/$relative_path" \
-    --cache-control "public,max-age=3600,must-revalidate" \
+    --cache-control "public,max-age=0,must-revalidate,s-maxage=3600" \
     --content-type "application/wasm" \
     --only-show-errors
 done < <(find "$build_dir" -type f -name "*.wasm" -print0)
