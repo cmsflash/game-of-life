@@ -160,7 +160,8 @@ web release is built with `--google-sign-in-enabled true`. The script:
    prior startup shell, then replaces the startup files and stable JavaScript
    bundles only after their dependencies are present;
 4. assigns one-hour cache headers to ordinary assets, no-cache headers to
-   startup metadata, and five-minute caching to the stable JavaScript bundles;
+   startup metadata, and browser revalidation with one-hour shared-edge
+   caching to stable JavaScript, CanvasKit, WebAssembly, and manifest files;
 5. creates a `/*` invalidation and waits until CloudFront reports it complete.
 
 The deployer needs read access to the stack, object list/write/delete access to
