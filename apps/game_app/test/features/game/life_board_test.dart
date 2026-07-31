@@ -125,6 +125,90 @@ void main() {
     );
   });
 
+  test('board uses a warm wood surface with brown grid and border', () {
+    final painter = LifeBoardPainter(
+      board: engine.Board.empty(rows: 2, columns: 3),
+      colorScheme: ColorScheme.fromSeed(seedColor: LifeColors.sprout),
+      lastMove: null,
+      births: const {},
+      hovered: null,
+      showHover: false,
+      focused: null,
+      showFocus: false,
+    );
+
+    void paintBoard(Canvas canvas) {
+      painter.paint(canvas, const Size.square(300));
+    }
+
+    expect(
+      paintBoard,
+      paints
+        ..something(
+          (method, arguments) =>
+              method == #drawRRect &&
+              arguments[1] is Paint &&
+              (arguments[1] as Paint).shader != null,
+        )
+        ..something(
+          (method, arguments) =>
+              method == #drawLine &&
+              arguments[2] is Paint &&
+              (arguments[2] as Paint).color.toARGB32() ==
+                  LifeColors.boardGrid.withValues(alpha: .76).toARGB32(),
+        )
+        ..something(
+          (method, arguments) =>
+              method == #drawRRect &&
+              arguments[1] is Paint &&
+              (arguments[1] as Paint).style == PaintingStyle.stroke &&
+              (arguments[1] as Paint).color.toARGB32() ==
+                  LifeColors.boardBorder.toARGB32(),
+        ),
+    );
+  });
+
+  test('birth and last-move markers retain dark contrast rings', () {
+    final coordinate = const engine.Coordinate(1, 2);
+    final painter = LifeBoardPainter(
+      board: testBoard(),
+      colorScheme: ColorScheme.fromSeed(seedColor: LifeColors.sprout),
+      lastMove: coordinate,
+      births: {coordinate},
+      hovered: null,
+      showHover: false,
+      focused: null,
+      showFocus: false,
+    );
+
+    void paintBoard(Canvas canvas) {
+      painter.paint(canvas, const Size.square(300));
+    }
+
+    expect(
+      paintBoard,
+      paints
+        ..something(
+          (method, arguments) =>
+              method == #drawRRect &&
+              arguments[1] is Paint &&
+              (arguments[1] as Paint).style == PaintingStyle.stroke &&
+              ((arguments[1] as Paint).strokeWidth - 3.6).abs() < .001 &&
+              (arguments[1] as Paint).color.toARGB32() ==
+                  LifeColors.boardMarkerDark.toARGB32(),
+        )
+        ..something(
+          (method, arguments) =>
+              method == #drawRRect &&
+              arguments[1] is Paint &&
+              (arguments[1] as Paint).style == PaintingStyle.stroke &&
+              ((arguments[1] as Paint).strokeWidth - 4.2).abs() < .001 &&
+              (arguments[1] as Paint).color.toARGB32() ==
+                  LifeColors.boardLastMoveDark.toARGB32(),
+        ),
+    );
+  });
+
   test('last-move marker is omitted when the placed cell died', () {
     final painter = LifeBoardPainter(
       board: engine.Board.empty(rows: 2, columns: 3),

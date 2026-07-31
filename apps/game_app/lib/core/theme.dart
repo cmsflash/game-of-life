@@ -6,6 +6,12 @@ abstract final class LifeColors {
   static const sprout = Color(0xFFB7F36B);
   static const coral = Color(0xFFFF765E);
   static const sky = Color(0xFF7FC8FF);
+  static const boardWoodLight = Color(0xFFE4B96F);
+  static const boardWoodDark = Color(0xFFD6A35B);
+  static const boardGrid = Color(0xFF5B3A21);
+  static const boardBorder = Color(0xFF6B4424);
+  static const boardMarkerDark = Color(0xFF274C12);
+  static const boardLastMoveDark = Color(0xFF602119);
 }
 
 ThemeData buildLifeTheme(Brightness brightness) {

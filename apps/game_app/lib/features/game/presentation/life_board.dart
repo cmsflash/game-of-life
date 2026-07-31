@@ -285,19 +285,26 @@ class LifeBoardPainter extends CustomPainter {
     final cellHeight = size.height / board.rows;
     final radius = math.min(cellWidth, cellHeight) * .22;
     final boardRect = Offset.zero & size;
+    final boardShape = RRect.fromRectAndRadius(
+      boardRect,
+      Radius.circular(radius * 2),
+    );
 
     canvas.drawRRect(
-      RRect.fromRectAndRadius(boardRect, Radius.circular(radius * 2)),
-      Paint()..color = const Color(0xFF1B2028),
+      boardShape,
+      Paint()
+        ..shader = const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [LifeColors.boardWoodLight, LifeColors.boardWoodDark],
+        ).createShader(boardRect),
     );
     canvas.save();
-    canvas.clipRRect(
-      RRect.fromRectAndRadius(boardRect, Radius.circular(radius * 2)),
-    );
+    canvas.clipRRect(boardShape);
 
     final gridPaint = Paint()
-      ..color = Colors.white.withValues(alpha: .095)
-      ..strokeWidth = .7;
+      ..color = LifeColors.boardGrid.withValues(alpha: .76)
+      ..strokeWidth = .8;
     for (var row = 1; row < board.rows; row++) {
       final y = row * cellHeight;
       canvas.drawLine(Offset(0, y), Offset(size.width, y), gridPaint);
@@ -319,23 +326,40 @@ class LifeBoardPainter extends CustomPainter {
           cellHeight * .74,
         );
         final isBlack = cell == engine.CellState.black;
+        final isBirth = births.contains(coordinate);
+        final stoneShape = RRect.fromRectAndRadius(
+          rect,
+          Radius.circular(radius),
+        );
         final paint = Paint()
           ..color = isBlack ? const Color(0xFF080A0D) : LifeColors.paper;
-        canvas.drawRRect(
-          RRect.fromRectAndRadius(rect, Radius.circular(radius)),
-          paint,
-        );
-        canvas.drawRRect(
-          RRect.fromRectAndRadius(rect, Radius.circular(radius)),
-          Paint()
-            ..style = PaintingStyle.stroke
-            ..strokeWidth = births.contains(coordinate) ? 2.1 : 1
-            ..color = births.contains(coordinate)
-                ? LifeColors.sprout
-                : isBlack
-                ? Colors.white.withValues(alpha: .42)
-                : Colors.black.withValues(alpha: .22),
-        );
+        canvas.drawRRect(stoneShape, paint);
+        if (isBirth) {
+          canvas.drawRRect(
+            stoneShape,
+            Paint()
+              ..style = PaintingStyle.stroke
+              ..strokeWidth = 3.6
+              ..color = LifeColors.boardMarkerDark,
+          );
+          canvas.drawRRect(
+            stoneShape,
+            Paint()
+              ..style = PaintingStyle.stroke
+              ..strokeWidth = 2
+              ..color = LifeColors.sprout,
+          );
+        } else {
+          canvas.drawRRect(
+            stoneShape,
+            Paint()
+              ..style = PaintingStyle.stroke
+              ..strokeWidth = 1
+              ..color = isBlack
+                  ? Colors.white.withValues(alpha: .42)
+                  : LifeColors.boardBorder.withValues(alpha: .82),
+          );
+        }
       }
     }
 
@@ -367,6 +391,13 @@ class LifeBoardPainter extends CustomPainter {
         RRect.fromRectAndRadius(rect, Radius.circular(radius * .75)),
         Paint()
           ..style = PaintingStyle.stroke
+          ..strokeWidth = 3.8
+          ..color = LifeColors.boardMarkerDark,
+      );
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(rect, Radius.circular(radius * .75)),
+        Paint()
+          ..style = PaintingStyle.stroke
           ..strokeWidth = 2
           ..color = colorScheme.primary,
       );
@@ -385,17 +416,24 @@ class LifeBoardPainter extends CustomPainter {
         RRect.fromRectAndRadius(rect, Radius.circular(radius * 1.15)),
         Paint()
           ..style = PaintingStyle.stroke
+          ..strokeWidth = 4.2
+          ..color = LifeColors.boardLastMoveDark,
+      );
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(rect, Radius.circular(radius * 1.15)),
+        Paint()
+          ..style = PaintingStyle.stroke
           ..strokeWidth = 2.4
           ..color = LifeColors.coral,
       );
     }
     canvas.restore();
     canvas.drawRRect(
-      RRect.fromRectAndRadius(boardRect, Radius.circular(radius * 2)),
+      boardShape,
       Paint()
         ..style = PaintingStyle.stroke
-        ..strokeWidth = 1.5
-        ..color = colorScheme.outlineVariant,
+        ..strokeWidth = 1.7
+        ..color = LifeColors.boardBorder,
     );
   }
 
