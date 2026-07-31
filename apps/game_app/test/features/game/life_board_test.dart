@@ -13,6 +13,7 @@ void main() {
   Future<void> pumpBoard(
     WidgetTester tester, {
     required void Function(int row, int column) onCellTap,
+    bool enabled = true,
   }) {
     return tester.pumpWidget(
       MaterialApp(
@@ -23,12 +24,29 @@ void main() {
               child: LifeBoard(
                 board: testBoard(),
                 semanticLabel: 'Test game board',
+                enabled: enabled,
                 onCellTap: onCellTap,
               ),
             ),
           ),
         ),
       ),
+    );
+  }
+
+  void expectNoLastMoveMarker(LifeBoardPainter painter) {
+    void paintBoard(Canvas canvas) {
+      painter.paint(canvas, const Size.square(300));
+    }
+
+    expect(
+      paintBoard,
+      paints..everything((method, arguments) {
+        if (method != #drawRRect || arguments[1] is! Paint) return true;
+        final paint = arguments[1] as Paint;
+        return paint.style != PaintingStyle.stroke ||
+            paint.color.toARGB32() != LifeColors.coral.toARGB32();
+      }),
     );
   }
 
@@ -107,6 +125,36 @@ void main() {
     );
   });
 
+  test('last-move marker is omitted when the placed cell died', () {
+    final painter = LifeBoardPainter(
+      board: engine.Board.empty(rows: 2, columns: 3),
+      colorScheme: ColorScheme.fromSeed(seedColor: LifeColors.sprout),
+      lastMove: const engine.Coordinate(0, 0),
+      births: const {},
+      hovered: null,
+      showHover: false,
+      focused: null,
+      showFocus: false,
+    );
+
+    expectNoLastMoveMarker(painter);
+  });
+
+  test('stale out-of-bounds last move is ignored', () {
+    final painter = LifeBoardPainter(
+      board: engine.Board.empty(rows: 2, columns: 3),
+      colorScheme: ColorScheme.fromSeed(seedColor: LifeColors.sprout),
+      lastMove: const engine.Coordinate(-1, 8),
+      births: const {},
+      hovered: null,
+      showHover: false,
+      focused: null,
+      showFocus: false,
+    );
+
+    expectNoLastMoveMarker(painter);
+  });
+
   testWidgets('arrow keys select coordinates and Enter or Space activates', (
     tester,
   ) async {
@@ -141,6 +189,37 @@ void main() {
     final painter = customPaint.painter! as LifeBoardPainter;
     expect(painter.focused, const engine.Coordinate(1, 2));
     expect(painter.showFocus, isTrue);
+  });
+
+  testWidgets('disabled board hides retained keyboard focus', (tester) async {
+    await pumpBoard(tester, onCellTap: (_, _) {});
+    await tester.tap(find.byKey(const ValueKey('life-cell-0-0')));
+    await tester.pump();
+
+    final focusFinder = find.descendant(
+      of: find.byType(LifeBoard),
+      matching: find.byType(Focus),
+    );
+    expect(focusFinder, findsOneWidget);
+
+    LifeBoardPainter painter() {
+      final customPaint = tester.widget<CustomPaint>(
+        find.descendant(
+          of: find.byType(LifeBoard),
+          matching: find.byType(CustomPaint),
+        ),
+      );
+      return customPaint.painter! as LifeBoardPainter;
+    }
+
+    expect(painter().showFocus, isTrue);
+    expect(tester.widget<Focus>(focusFinder).focusNode!.hasFocus, isTrue);
+
+    await pumpBoard(tester, enabled: false, onCellTap: (_, _) {});
+    await tester.pump();
+
+    expect(painter().showFocus, isFalse);
+    expect(tester.widget<Focus>(focusFinder).focusNode!.hasFocus, isFalse);
   });
 
   testWidgets('keyboard navigation stops at board edges', (tester) async {

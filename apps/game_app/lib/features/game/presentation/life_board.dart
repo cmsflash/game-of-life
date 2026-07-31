@@ -46,6 +46,10 @@ class _LifeBoardState extends State<LifeBoard> {
   @override
   void didUpdateWidget(covariant LifeBoard oldWidget) {
     super.didUpdateWidget(oldWidget);
+    final wasActivatable = oldWidget.enabled && oldWidget.onCellTap != null;
+    if (wasActivatable && !_canActivate && _focusNode.hasFocus) {
+      _focusNode.unfocus();
+    }
     if (_selected.row >= widget.board.rows ||
         _selected.column >= widget.board.columns) {
       _selected = engine.Coordinate(
@@ -77,8 +81,8 @@ class _LifeBoardState extends State<LifeBoard> {
         return Center(
           child: Focus(
             focusNode: _focusNode,
-            canRequestFocus: _canActivate || _focusNode.hasFocus,
-            skipTraversal: !_canActivate && !_focusNode.hasFocus,
+            canRequestFocus: _canActivate,
+            skipTraversal: !_canActivate,
             onFocusChange: (hasFocus) {
               if (_hasFocus != hasFocus) {
                 setState(() => _hasFocus = hasFocus);
@@ -89,13 +93,15 @@ class _LifeBoardState extends State<LifeBoard> {
               container: true,
               explicitChildNodes: true,
               label: widget.semanticLabel,
-              value: _hasFocus ? _cellDescription(_selected) : null,
+              value: _hasFocus && _canActivate
+                  ? _cellDescription(_selected)
+                  : null,
               hint: _canActivate
                   ? 'Use the arrow keys to select a coordinate, then press '
                         'Enter or Space to activate it.'
                   : null,
               enabled: _canActivate,
-              liveRegion: _hasFocus,
+              liveRegion: _hasFocus && _canActivate,
               child: MouseRegion(
                 cursor: _canActivate
                     ? SystemMouseCursors.click
@@ -121,7 +127,7 @@ class _LifeBoardState extends State<LifeBoard> {
                           hovered: _hovered,
                           showHover: _canActivate,
                           focused: _selected,
-                          showFocus: _hasFocus,
+                          showFocus: _hasFocus && _canActivate,
                         ),
                       ),
                       ..._cellInteractionLayer(size),
@@ -157,7 +163,9 @@ class _LifeBoardState extends State<LifeBoard> {
               button: _canActivate,
               enabled: _canActivate,
               selected:
-                  _hasFocus && _selected == engine.Coordinate(row, column),
+                  _hasFocus &&
+                  _canActivate &&
+                  _selected == engine.Coordinate(row, column),
               onTap: _canActivate
                   ? () => _selectAndActivate(engine.Coordinate(row, column))
                   : null,
@@ -178,6 +186,7 @@ class _LifeBoardState extends State<LifeBoard> {
     if (event is! KeyDownEvent && event is! KeyRepeatEvent) {
       return KeyEventResult.ignored;
     }
+    if (!_canActivate) return KeyEventResult.ignored;
     final key = event.logicalKey;
     if (key == LogicalKeyboardKey.arrowUp) {
       _moveSelection(rowDelta: -1);
@@ -362,10 +371,13 @@ class LifeBoardPainter extends CustomPainter {
           ..color = colorScheme.primary,
       );
     }
-    if (lastMove != null) {
+    final visibleLastMove = lastMove;
+    if (visibleLastMove != null &&
+        board.contains(visibleLastMove) &&
+        board.atCoordinate(visibleLastMove) != engine.CellState.empty) {
       final rect = Rect.fromLTWH(
-        lastMove!.column * cellWidth + cellWidth * .07,
-        lastMove!.row * cellHeight + cellHeight * .07,
+        visibleLastMove.column * cellWidth + cellWidth * .07,
+        visibleLastMove.row * cellHeight + cellHeight * .07,
         cellWidth * .86,
         cellHeight * .86,
       );
