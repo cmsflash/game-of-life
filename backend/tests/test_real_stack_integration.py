@@ -83,8 +83,8 @@ def test_real_engine_through_auth_and_match_api(settings: Settings) -> None:
         assert white_moved.json()["state"]["revision"] == 2
         assert white_moved.json()["state"]["cells"][0] == 0
         assert white_moved.json()["state"]["toMove"] == "black"
-        assert white_moved.json()["state"]["cells"][8 * 20 + 10] == 2
-        assert white_moved.json()["state"]["cells"][9 * 20 + 8] == 2
+        assert white_moved.json()["state"]["cells"][8 * 20 + 10] == 1
+        assert white_moved.json()["state"]["cells"][9 * 20 + 8] == 1
         assert (
             client.get(f"/v1/matches/{joined['id']}/replay", headers=alice).json()["finalState"][
                 "stateHash"

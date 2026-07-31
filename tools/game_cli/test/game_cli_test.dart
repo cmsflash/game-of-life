@@ -103,7 +103,7 @@ void main() {
     expect((response['error']! as Map)['code'], 'passNotAllowed');
   });
 
-  test('evolve requires the current moving player', () {
+  test('evolve colors births from neighbor majority and rejects player', () {
     final board = Board(
       rows: 3,
       columns: 3,
@@ -122,23 +122,23 @@ void main() {
     final response = cli.handleRequest({
       'op': 'evolve',
       'board': board.toJson(),
-      'player': 'white',
     });
 
     expect(response['ok'], isTrue);
     final result = resultOf(response);
     final evolved = Board.fromJson(result['board']);
-    expect(evolved.at(0, 1), CellState.white);
+    expect(evolved.at(0, 1), CellState.black);
     expect(evolved.at(1, 1), CellState.black);
-    expect(evolved.at(2, 1), CellState.white);
+    expect(evolved.at(2, 1), CellState.black);
     expect(result['delta'], isA<Map>());
 
-    final missingPlayer = cli.handleRequest({
+    final legacyPlayer = cli.handleRequest({
       'op': 'evolve',
       'board': board.toJson(),
+      'player': 'white',
     });
-    expect(missingPlayer['ok'], isFalse);
-    expect((missingPlayer['error']! as Map)['code'], 'invalidRequest');
+    expect(legacyPlayer['ok'], isFalse);
+    expect((legacyPlayer['error']! as Map)['code'], 'invalidRequest');
   });
 
   test('replay fills deterministic player and revision defaults', () {
@@ -158,7 +158,7 @@ void main() {
     expect(result['turns'], hasLength(2));
   });
 
-  test('replay gives White-turn births to White under current rules', () {
+  test('replay colors White-turn births from neighbor majority', () {
     final response = cli.handleRequest({
       'op': 'replay',
       'moves': [
@@ -168,10 +168,15 @@ void main() {
     });
 
     expect(response['ok'], isTrue);
-    final state = GameState.fromJson(resultOf(response)['state']);
+    final result = resultOf(response);
+    final state = GameState.fromJson(result['state']);
     expect(state.rules.toJson()['rulesVersion'], GameRules.rulesVersion);
-    expect(state.board.at(8, 10), CellState.white);
-    expect(state.board.at(9, 8), CellState.white);
+    expect(
+      (result['turns']! as List)[1]['delta']['placement']['player'],
+      'white',
+    );
+    expect(state.board.at(8, 10), CellState.black);
+    expect(state.board.at(9, 8), CellState.black);
   });
 
   test('malformed JSON does not throw or poison the stream', () {

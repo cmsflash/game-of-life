@@ -84,9 +84,14 @@ final class GameCli {
   }
 
   Map<String, Object?> _evolve(Map<String, Object?> request) {
+    if (request.containsKey('player')) {
+      throw const CliRequestException(
+        'invalidRequest',
+        'evolve does not accept player; birth color comes from neighbor majority',
+      );
+    }
     final board = Board.fromJson(_required(request, 'board'));
-    final player = Player.fromJson(_required(request, 'player'));
-    return engine.evolve(board, movingPlayer: player).toJson();
+    return engine.evolve(board).toJson();
   }
 
   Map<String, Object?> _legal(Map<String, Object?> request) {

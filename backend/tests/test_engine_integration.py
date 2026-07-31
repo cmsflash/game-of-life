@@ -15,8 +15,8 @@ from life_api.settings import Settings
 def test_python_adapter_matches_real_cli_protocol(settings: Settings) -> None:
     engine = DartEngine(settings)
     rules = MatchRulesRequest().engine_rules()
-    assert rules["rulesVersion"] == 2
-    assert rules["evolution"]["birthOwner"] == "movingPlayer"
+    assert rules["rulesVersion"] == 3
+    assert rules["evolution"]["birthOwner"] == "strictNeighborMajority"
     initial = engine.initial(rules)
     assert initial["revision"] == 0
     assert initial["toMove"] == "black"
@@ -53,11 +53,11 @@ def test_python_adapter_matches_real_cli_protocol(settings: Settings) -> None:
 def test_python_adapter_rejects_non_current_rules(settings: Settings) -> None:
     engine = DartEngine(settings)
     rules = deepcopy(MatchRulesRequest().engine_rules())
-    rules["rulesVersion"] = 1
-    rules["evolution"]["birthOwner"] = "strictNeighborMajority"
+    rules["rulesVersion"] = 2
+    rules["evolution"]["birthOwner"] = "movingPlayer"
 
     with pytest.raises(ApiError) as captured:
         engine.initial(rules)
 
     assert captured.value.code == "invalidRequest"
-    assert "expected 2" in captured.value.message
+    assert "expected 3" in captured.value.message

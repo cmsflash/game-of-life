@@ -30,7 +30,7 @@ void main() {
       expect(session.lastDeaths, contains(const engine.Coordinate(0, 0)));
     });
 
-    test('a surviving White move and its births render as White', () {
+    test('a White-majority birth renders as White', () {
       final controller = LocalGameController();
       controller.start(const LocalGameConfig());
       expect(controller.place(0, 0), isTrue);

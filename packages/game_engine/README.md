@@ -14,8 +14,8 @@ replay tooling, and AI environments.
   first.
 - A turn places the current player's color on an empty cell and then performs
   one simultaneous B3/S23 evolution.
-- A survivor retains its color. Every birth belongs to the player whose move
-  triggered the evolution.
+- A survivor retains its color. Every birth takes the majority color of its
+  exactly three live neighbors.
 - Placement may die during the same turn. Passing and occupied placement are
   illegal.
 - Elimination is always terminal. Optional population-target and turn-limit
@@ -47,4 +47,5 @@ Rules, positions, and states have deterministic SHA-256 hashes. Move
 concurrency must use `revision`, because an isolated placement can evolve away
 and recreate an earlier position.
 
-The engine accepts only rules version 2 with `movingPlayer` birth ownership.
+The engine accepts only rules version 3 with `strictNeighborMajority` birth
+ownership.

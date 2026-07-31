@@ -43,8 +43,8 @@ Apply an authoritative move:
 
 Other operations are:
 
-- `evolve`: accepts `board` with `rows`, `columns`, and row-major `cells`, plus
-  the required `player` (`black` or `white`).
+- `evolve`: accepts `board` with `rows`, `columns`, and row-major `cells`.
+  Newborn cells take the majority color of their three live neighbors.
 - `legalMoves`: accepts `state` and returns every empty coordinate.
 - `replay`: accepts optional `rules` or `initialState` and a `moves` array.
   Replay moves may omit player and revision; the CLI deterministically fills

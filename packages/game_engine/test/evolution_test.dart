@@ -5,8 +5,7 @@ import 'test_helpers.dart';
 
 void main() {
   const engine = GameEngine();
-  EvolutionResult evolve(Board board, {Player movingPlayer = Player.black}) =>
-      engine.evolve(board, movingPlayer: movingPlayer);
+  EvolutionResult evolve(Board board) => engine.evolve(board);
 
   group('initial state', () {
     test('is the stable centered diagonal-owned block', () {
@@ -91,20 +90,38 @@ void main() {
       expect(evolve(board).board.at(0, 0), CellState.empty);
     });
 
-    test('assigns every birth to the moving player', () {
-      final board = boardWith({
-        const Coordinate(4, 4): CellState.black,
-        const Coordinate(4, 5): CellState.black,
-        const Coordinate(4, 6): CellState.white,
-      });
+    test('birth color is the strict majority of three neighbors', () {
+      Board birthBoard(CellState first, CellState second, CellState third) =>
+          boardWith({
+            const Coordinate(4, 4): first,
+            const Coordinate(4, 5): second,
+            const Coordinate(4, 6): third,
+          });
 
-      final blackResult = evolve(board);
-      final whiteResult = evolve(board, movingPlayer: Player.white);
-
-      expect(blackResult.board.at(5, 5), CellState.black);
-      expect(whiteResult.board.at(5, 5), CellState.white);
       expect(
-        whiteResult.delta.births,
+        evolve(
+          birthBoard(CellState.black, CellState.black, CellState.black),
+        ).board.at(5, 5),
+        CellState.black,
+      );
+      final mixedBlackMajority = evolve(
+        birthBoard(CellState.black, CellState.black, CellState.white),
+      );
+      expect(mixedBlackMajority.board.at(5, 5), CellState.black);
+      expect(
+        evolve(
+          birthBoard(CellState.black, CellState.white, CellState.white),
+        ).board.at(5, 5),
+        CellState.white,
+      );
+      expect(
+        evolve(
+          birthBoard(CellState.white, CellState.white, CellState.white),
+        ).board.at(5, 5),
+        CellState.white,
+      );
+      expect(
+        mixedBlackMajority.delta.births,
         contains(
           isA<CellBirth>()
               .having(
@@ -112,7 +129,7 @@ void main() {
                 'coordinate',
                 const Coordinate(5, 5),
               )
-              .having((birth) => birth.player, 'player', Player.white),
+              .having((birth) => birth.player, 'player', Player.black),
         ),
       );
     });

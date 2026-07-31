@@ -286,7 +286,6 @@ enum MoveErrorCode {
   occupied,
   passNotAllowed,
   invalidState,
-  unsupportedRulesVersion,
 }
 
 final class MoveValidation {

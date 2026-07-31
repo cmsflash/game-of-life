@@ -114,7 +114,7 @@ final class GameRules {
 
   static const int schemaVersion = 1;
   static const String rulesetId = 'life-duel';
-  static const int rulesVersion = 2;
+  static const int rulesVersion = 3;
   static const int rows = 20;
   static const int columns = 20;
   static const int cellCount = rows * columns;
@@ -132,7 +132,7 @@ final class GameRules {
     'evolution': {
       'birth': [3],
       'survival': [2, 3],
-      'birthOwner': 'movingPlayer',
+      'birthOwner': 'strictNeighborMajority',
     },
     'turn': {
       'placement': 'emptyOnly',
@@ -190,7 +190,7 @@ final class GameRules {
     }, name: 'rules.evolution');
     _expectIntList(evolution, 'birth', const [3]);
     _expectIntList(evolution, 'survival', const [2, 3]);
-    _expectValue(evolution, 'birthOwner', 'movingPlayer');
+    _expectValue(evolution, 'birthOwner', 'strictNeighborMajority');
 
     final turn = expectJsonObject(json['turn'], 'rules.turn');
     expectExactKeys(turn, {

@@ -49,49 +49,58 @@ void main() {
       expect(second.ply, 2);
     });
 
-    test('placement participates in births', () {
-      final state = activeState(
-        boardWith({
-          const Coordinate(4, 4): CellState.black,
-          const Coordinate(4, 5): CellState.white,
-        }),
-      );
+    test('placement participates in every mover/majority combination', () {
+      final cases = [
+        (Player.black, CellState.black, CellState.black, CellState.black),
+        (Player.black, CellState.black, CellState.white, CellState.black),
+        (Player.black, CellState.white, CellState.white, CellState.white),
+        (Player.white, CellState.black, CellState.black, CellState.black),
+        (Player.white, CellState.black, CellState.white, CellState.white),
+        (Player.white, CellState.white, CellState.white, CellState.white),
+      ];
 
-      final result = engine.applyMove(state, move(state, 5, 4));
+      for (final (mover, first, second, expectedBirth) in cases) {
+        final state = activeState(
+          boardWith({
+            const Coordinate(4, 4): first,
+            const Coordinate(4, 5): second,
+          }),
+          toMove: mover,
+          ply: mover == Player.black ? 0 : 1,
+        );
 
-      expect(result.state.board.at(5, 5), CellState.black);
-      expect(
-        result.delta.evolution.births.map((birth) => birth.coordinate),
-        contains(const Coordinate(5, 5)),
-      );
+        final result = engine.applyMove(state, move(state, 5, 4));
+
+        expect(result.delta.placement.player, mover);
+        expect(result.state.board.at(5, 4), mover.cell);
+        expect(result.state.board.at(5, 5), expectedBirth);
+        expect(result.delta.evolution.births, hasLength(1));
+        final birth = result.delta.evolution.births.single;
+        expect(
+          birth.coordinate,
+          const Coordinate(5, 5),
+          reason: 'mover=$mover, existing=$first/$second',
+        );
+        expect(birth.player, playerForCell(expectedBirth));
+        expect(result.delta.evolution.deaths, isEmpty);
+      }
     });
 
-    test('keeps a White placement White and gives its births to White', () {
+    test('placement is counted before evolution and can suppress a birth', () {
       final state = activeState(
         boardWith({
           const Coordinate(4, 4): CellState.black,
           const Coordinate(4, 5): CellState.black,
+          const Coordinate(4, 6): CellState.white,
         }),
-        toMove: Player.white,
-        ply: 1,
       );
 
       final result = engine.applyMove(state, move(state, 5, 4));
 
-      expect(result.delta.placement.player, Player.white);
-      expect(result.state.board.at(5, 4), CellState.white);
-      expect(result.state.board.at(5, 5), CellState.white);
+      expect(result.state.board.at(5, 5), CellState.empty);
       expect(
-        result.delta.evolution.births,
-        contains(
-          isA<CellBirth>()
-              .having(
-                (birth) => birth.coordinate,
-                'coordinate',
-                const Coordinate(5, 5),
-              )
-              .having((birth) => birth.player, 'player', Player.white),
-        ),
+        result.delta.evolution.births.map((birth) => birth.coordinate),
+        isNot(contains(const Coordinate(5, 5))),
       );
     });
 

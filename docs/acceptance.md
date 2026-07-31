@@ -6,8 +6,9 @@
 - A local two-player match starts from the centered diagonal 2 by 2 position.
 - Every legal tap places the correct color and performs exactly one simultaneous
   evolution.
-- Every newborn cell produced by a turn belongs to the player who made that
-  move. Only rules version 2 with `movingPlayer` birth ownership is accepted.
+- Every newborn cell takes the majority color of its exactly three live
+  neighbors. Only rules version 3 with `strictNeighborMajority` birth ownership
+  is accepted.
 - The last-move indicator outlines its coordinate without covering a surviving
   Black or White cell.
 - Isolated placements visibly consume a turn even if the final board is

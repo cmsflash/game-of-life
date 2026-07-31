@@ -37,19 +37,19 @@ void main() {
       expect(initial.rules.toJson()['rulesVersion'], GameRules.rulesVersion);
       expect(
         (initial.rules.toJson()['evolution']! as Map)['birthOwner'],
-        'movingPlayer',
+        'strictNeighborMajority',
       );
       expect(
         initial.rules.rulesHash,
-        '725f21234c95ee15f2c611aac441c299ae41cb828243a0ee6249ab9b751409cf',
+        '738d769985f317b342deb3e85c758ff827030ff4c3880a564089b07c6f68aa60',
       );
       expect(
         initial.positionHash,
-        '34378b0e7fc88fa83ccc59631cd35c901b26f29bad0f0dc088819e388ff170d2',
+        'd8a74fcd07d8fd0979a3ac5bfb925809d4fe3f8e1d3b2560c01f1f0956e6f32b',
       );
       expect(
         initial.stateHash,
-        'beb279996681f206854970ae53ee14d59aaec4a3718b553f251b55f209e91f2a',
+        '72945c1b136dd5034ecb52a14a80a6ea2ec59677068bb379e028517b33e169cd',
       );
     });
 
@@ -59,7 +59,7 @@ void main() {
       tampered['stateHash'] = List.filled(64, '0').join();
       expect(() => GameState.fromJson(tampered), throwsFormatException);
 
-      for (final unsupportedVersion in [1, 3]) {
+      for (final unsupportedVersion in [1, 2, 4]) {
         final unsupportedRules = Map<String, Object?>.from(
           engine.initialState().rules.toJson(),
         );
@@ -72,7 +72,7 @@ void main() {
 
       final wrongBirthOwner = GameRules.standard().toJson();
       (wrongBirthOwner['evolution']! as Map<String, Object?>)['birthOwner'] =
-          'strictNeighborMajority';
+          'movingPlayer';
       expect(() => GameRules.fromJson(wrongBirthOwner), throwsFormatException);
     });
 

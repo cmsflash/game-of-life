@@ -68,7 +68,7 @@ final class GameEngine {
       move.coordinate,
       move.player.cell,
     );
-    final evolution = evolve(postPlacement, movingPlayer: move.player);
+    final evolution = evolve(postPlacement);
     final nextPly = state.ply + 1;
     final outcome = evaluateOutcome(evolution.board, state.rules, ply: nextPly);
     final nextState = GameState(
@@ -97,13 +97,12 @@ final class GameEngine {
     return AppliedMove(applyMove(state, move));
   }
 
-  /// Evolves [postPlacementBoard] once after [movingPlayer]'s placement.
+  /// Evolves [postPlacementBoard] once using simultaneous B3/S23 rules.
   ///
-  /// Every birth belongs to the player whose move produced the evolution.
-  EvolutionResult evolve(
-    Board postPlacementBoard, {
-    required Player movingPlayer,
-  }) {
+  /// A newborn cell takes the strict majority color of its three live
+  /// neighbors. Because a birth always has exactly three neighbors, a tie is
+  /// impossible.
+  EvolutionResult evolve(Board postPlacementBoard) {
     final nextCells = List<CellState>.filled(
       postPlacementBoard.length,
       CellState.empty,
@@ -113,7 +112,8 @@ final class GameEngine {
 
     for (var row = 0; row < postPlacementBoard.rows; row++) {
       for (var column = 0; column < postPlacementBoard.columns; column++) {
-        var liveNeighbors = 0;
+        var blackNeighbors = 0;
+        var whiteNeighbors = 0;
         for (var rowDelta = -1; rowDelta <= 1; rowDelta++) {
           for (var columnDelta = -1; columnDelta <= 1; columnDelta++) {
             if (rowDelta == 0 && columnDelta == 0) continue;
@@ -126,22 +126,29 @@ final class GameEngine {
               continue;
             }
             switch (postPlacementBoard.at(neighborRow, neighborColumn)) {
+              case CellState.black:
+                blackNeighbors++;
+              case CellState.white:
+                whiteNeighbors++;
               case CellState.empty:
                 break;
-              case CellState.black || CellState.white:
-                liveNeighbors++;
             }
           }
         }
 
         final current = postPlacementBoard.at(row, column);
+        final liveNeighbors = blackNeighbors + whiteNeighbors;
         final next = switch (current) {
           CellState.black || CellState.white =>
             liveNeighbors == 2 || liveNeighbors == 3
                 ? current
                 : CellState.empty,
           CellState.empty =>
-            liveNeighbors == 3 ? movingPlayer.cell : CellState.empty,
+            liveNeighbors == 3
+                ? (blackNeighbors > whiteNeighbors
+                      ? CellState.black
+                      : CellState.white)
+                : CellState.empty,
         };
         final coordinate = Coordinate(row, column);
         nextCells[coordinate.indexFor(postPlacementBoard.columns)] = next;
