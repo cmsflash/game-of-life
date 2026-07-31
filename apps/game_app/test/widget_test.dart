@@ -101,6 +101,82 @@ void main() {
     expect(find.text('Play locally without an account'), findsOneWidget);
   });
 
+  testWidgets('registration exposes a standard new-password autofill form', (
+    tester,
+  ) async {
+    await pumpApp(tester);
+
+    await tester.tap(find.byTooltip('Sign in'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Create account'));
+    await tester.pumpAndSettle();
+
+    final usernameFinder = find.byKey(const Key('register-username'));
+    expect(
+      find.ancestor(of: usernameFinder, matching: find.byType(AutofillGroup)),
+      findsOneWidget,
+    );
+
+    TextField field(String label) => tester.widget<TextField>(
+      find.byWidgetPredicate(
+        (widget) =>
+            widget is TextField && widget.decoration?.labelText == label,
+      ),
+    );
+
+    final username = field('Username');
+    final displayName = field('Display name');
+    final email = field('Email');
+    final password = field('Password');
+
+    expect(username.autofillHints, const [
+      AutofillHints.username,
+      AutofillHints.newUsername,
+    ]);
+    expect(displayName.autofillHints, const [AutofillHints.nickname]);
+    expect(email.autofillHints, const [AutofillHints.email]);
+    expect(email.keyboardType, TextInputType.emailAddress);
+    expect(password.autofillHints, const [AutofillHints.newPassword]);
+    expect(password.obscureText, isTrue);
+    expect(password.autocorrect, isFalse);
+    expect(password.enableSuggestions, isFalse);
+  });
+
+  testWidgets('login and password reset use the right password contracts', (
+    tester,
+  ) async {
+    await pumpApp(tester);
+
+    await tester.tap(find.byTooltip('Sign in'));
+    await tester.pumpAndSettle();
+
+    TextField passwordField(String label) => tester.widget<TextField>(
+      find.byWidgetPredicate(
+        (widget) =>
+            widget is TextField && widget.decoration?.labelText == label,
+      ),
+    );
+
+    expect(passwordField('Password').autofillHints, const [
+      AutofillHints.password,
+    ]);
+
+    await tester.tap(find.text('Forgot password?'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextFormField), 'alice');
+    await tester.tap(find.text('Send reset code'));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(AutofillGroup), findsOneWidget);
+    expect(passwordField('New password').autofillHints, const [
+      AutofillHints.newPassword,
+    ]);
+    expect(passwordField('Reset code').keyboardType, TextInputType.number);
+    expect(passwordField('Reset code').autofillHints, const [
+      AutofillHints.oneTimeCode,
+    ]);
+  });
+
   testWidgets('about page exposes privacy, terms, and deletion guidance', (
     tester,
   ) async {

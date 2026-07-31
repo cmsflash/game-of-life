@@ -170,104 +170,112 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
       title: 'Create your player',
       subtitle:
           'Username and password work anywhere. Email confirms and recovers your account.',
-      child: Form(
-        key: _formKey,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            if (AppConfig.googleSignInAvailable) ...[
-              GoogleSignInButton(
-                busy: state.busy,
-                onPressed: () => ref
-                    .read(authControllerProvider.notifier)
-                    .beginGoogleSignIn(),
-              ),
-              const OrDivider(),
-            ],
-            TextFormField(
-              key: const Key('register-username'),
-              controller: _username,
-              textInputAction: TextInputAction.next,
-              validator: validateUsername,
-              decoration: const InputDecoration(
-                labelText: 'Username',
-                helperText: 'Your private sign-in ID',
-                prefixIcon: Icon(Icons.alternate_email),
-              ),
-            ),
-            const SizedBox(height: 14),
-            TextFormField(
-              controller: _displayName,
-              textInputAction: TextInputAction.next,
-              validator: (value) => value?.trim().isEmpty ?? true
-                  ? 'Enter a display name.'
-                  : null,
-              decoration: const InputDecoration(
-                labelText: 'Display name',
-                helperText: 'Shown only on your own profile',
-                prefixIcon: Icon(Icons.badge_outlined),
-              ),
-            ),
-            const SizedBox(height: 14),
-            TextFormField(
-              controller: _email,
-              keyboardType: TextInputType.emailAddress,
-              textInputAction: TextInputAction.next,
-              autofillHints: const [AutofillHints.email],
-              validator: (value) {
-                final email = value?.trim() ?? '';
-                if (email.isEmpty || !email.contains('@')) {
-                  return 'Enter a valid email address.';
-                }
-                return null;
-              },
-              decoration: const InputDecoration(
-                labelText: 'Email',
-                prefixIcon: Icon(Icons.mail_outline),
-              ),
-            ),
-            const SizedBox(height: 14),
-            PasswordField(
-              controller: _password,
-              validator: validateNewPassword,
-              onSubmitted: (_) => _submit(),
-            ),
-            const SizedBox(height: 18),
-            AsyncMessage(error: state.error, notice: state.notice),
-            if (state.error != null || state.notice != null)
-              const SizedBox(height: 14),
-            FilledButton(
-              key: const Key('register-submit'),
-              onPressed: state.busy ? null : _submit,
-              child: const Text('Create account'),
-            ),
-            const SizedBox(height: 14),
-            Wrap(
-              alignment: WrapAlignment.center,
-              crossAxisAlignment: WrapCrossAlignment.center,
-              children: [
-                Text(
-                  'By creating an account, you agree to the ',
-                  style: Theme.of(context).textTheme.bodySmall,
+      child: AutofillGroup(
+        child: Form(
+          key: _formKey,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              if (AppConfig.googleSignInAvailable) ...[
+                GoogleSignInButton(
+                  busy: state.busy,
+                  onPressed: () => ref
+                      .read(authControllerProvider.notifier)
+                      .beginGoogleSignIn(),
                 ),
-                TextButton(
-                  onPressed: () => context.push('/terms'),
-                  child: const Text('Terms'),
-                ),
-                Text('and', style: Theme.of(context).textTheme.bodySmall),
-                TextButton(
-                  onPressed: () => context.push('/privacy'),
-                  child: const Text('Privacy Policy'),
-                ),
-                const Text('.'),
+                const OrDivider(),
               ],
-            ),
-            const SizedBox(height: 10),
-            TextButton(
-              onPressed: () => context.go('/login'),
-              child: const Text('Already have an account? Sign in'),
-            ),
-          ],
+              TextFormField(
+                key: const Key('register-username'),
+                controller: _username,
+                autofillHints: const [
+                  AutofillHints.username,
+                  AutofillHints.newUsername,
+                ],
+                textInputAction: TextInputAction.next,
+                validator: validateUsername,
+                decoration: const InputDecoration(
+                  labelText: 'Username',
+                  helperText: 'Your private sign-in ID',
+                  prefixIcon: Icon(Icons.alternate_email),
+                ),
+              ),
+              const SizedBox(height: 14),
+              TextFormField(
+                controller: _displayName,
+                autofillHints: const [AutofillHints.nickname],
+                textInputAction: TextInputAction.next,
+                validator: (value) => value?.trim().isEmpty ?? true
+                    ? 'Enter a display name.'
+                    : null,
+                decoration: const InputDecoration(
+                  labelText: 'Display name',
+                  helperText: 'Shown only on your own profile',
+                  prefixIcon: Icon(Icons.badge_outlined),
+                ),
+              ),
+              const SizedBox(height: 14),
+              TextFormField(
+                controller: _email,
+                keyboardType: TextInputType.emailAddress,
+                textInputAction: TextInputAction.next,
+                autofillHints: const [AutofillHints.email],
+                validator: (value) {
+                  final email = value?.trim() ?? '';
+                  if (email.isEmpty || !email.contains('@')) {
+                    return 'Enter a valid email address.';
+                  }
+                  return null;
+                },
+                decoration: const InputDecoration(
+                  labelText: 'Email',
+                  prefixIcon: Icon(Icons.mail_outline),
+                ),
+              ),
+              const SizedBox(height: 14),
+              PasswordField(
+                controller: _password,
+                autofillHints: const [AutofillHints.newPassword],
+                validator: validateNewPassword,
+                onSubmitted: (_) => _submit(),
+              ),
+              const SizedBox(height: 18),
+              AsyncMessage(error: state.error, notice: state.notice),
+              if (state.error != null || state.notice != null)
+                const SizedBox(height: 14),
+              FilledButton(
+                key: const Key('register-submit'),
+                onPressed: state.busy ? null : _submit,
+                child: const Text('Create account'),
+              ),
+              const SizedBox(height: 14),
+              Wrap(
+                alignment: WrapAlignment.center,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: [
+                  Text(
+                    'By creating an account, you agree to the ',
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                  TextButton(
+                    onPressed: () => context.push('/terms'),
+                    child: const Text('Terms'),
+                  ),
+                  Text('and', style: Theme.of(context).textTheme.bodySmall),
+                  TextButton(
+                    onPressed: () => context.push('/privacy'),
+                    child: const Text('Privacy Policy'),
+                  ),
+                  const Text('.'),
+                ],
+              ),
+              const SizedBox(height: 10),
+              TextButton(
+                onPressed: () => context.go('/login'),
+                child: const Text('Already have an account? Sign in'),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -314,68 +322,73 @@ class _ConfirmAccountScreenState extends ConsumerState<ConfirmAccountScreen> {
     return AuthPageShell(
       title: 'Confirm your account',
       subtitle: 'Enter the short code sent to your recovery address.',
-      child: Form(
-        key: _formKey,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            TextFormField(
-              controller: _username,
-              validator: validateUsername,
-              decoration: const InputDecoration(labelText: 'Username'),
-            ),
-            const SizedBox(height: 14),
-            TextFormField(
-              controller: _code,
-              keyboardType: TextInputType.number,
-              validator: (value) => (value?.trim().length ?? 0) < 4
-                  ? 'Enter the confirmation code.'
-                  : null,
-              decoration: const InputDecoration(
-                labelText: 'Confirmation code',
-                prefixIcon: Icon(Icons.pin_outlined),
+      child: AutofillGroup(
+        child: Form(
+          key: _formKey,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              TextFormField(
+                controller: _username,
+                autofillHints: const [AutofillHints.username],
+                textInputAction: TextInputAction.next,
+                validator: validateUsername,
+                decoration: const InputDecoration(labelText: 'Username'),
               ),
-            ),
-            const SizedBox(height: 18),
-            AsyncMessage(error: state.error, notice: state.notice),
-            if (state.error != null || state.notice != null)
               const SizedBox(height: 14),
-            FilledButton(
-              onPressed: state.busy
-                  ? null
-                  : () async {
-                      if (!_formKey.currentState!.validate()) return;
-                      final done = await ref
-                          .read(authControllerProvider.notifier)
-                          .confirm(_username.text, _code.text);
-                      if (done && context.mounted) context.go('/login');
-                    },
-              child: const Text('Confirm account'),
-            ),
-            const SizedBox(height: 10),
-            TextButton(
-              onPressed: state.busy
-                  ? null
-                  : () async {
-                      final usernameError = validateUsername(_username.text);
-                      if (usernameError != null) {
-                        ScaffoldMessenger.of(
-                          context,
-                        ).showSnackBar(SnackBar(content: Text(usernameError)));
-                        return;
-                      }
-                      final sent = await ref
-                          .read(authControllerProvider.notifier)
-                          .resendConfirmation(_username.text);
-                      final debugCode = ref
-                          .read(authControllerProvider)
-                          .registration
-                          ?.debugConfirmationCode;
-                      if (sent && debugCode != null) _code.text = debugCode;
-                    },
-              child: const Text('Send a new code'),
-            ),
-          ],
+              TextFormField(
+                controller: _code,
+                keyboardType: TextInputType.number,
+                autofillHints: const [AutofillHints.oneTimeCode],
+                validator: (value) => (value?.trim().length ?? 0) < 4
+                    ? 'Enter the confirmation code.'
+                    : null,
+                decoration: const InputDecoration(
+                  labelText: 'Confirmation code',
+                  prefixIcon: Icon(Icons.pin_outlined),
+                ),
+              ),
+              const SizedBox(height: 18),
+              AsyncMessage(error: state.error, notice: state.notice),
+              if (state.error != null || state.notice != null)
+                const SizedBox(height: 14),
+              FilledButton(
+                onPressed: state.busy
+                    ? null
+                    : () async {
+                        if (!_formKey.currentState!.validate()) return;
+                        final done = await ref
+                            .read(authControllerProvider.notifier)
+                            .confirm(_username.text, _code.text);
+                        if (done && context.mounted) context.go('/login');
+                      },
+                child: const Text('Confirm account'),
+              ),
+              const SizedBox(height: 10),
+              TextButton(
+                onPressed: state.busy
+                    ? null
+                    : () async {
+                        final usernameError = validateUsername(_username.text);
+                        if (usernameError != null) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text(usernameError)),
+                          );
+                          return;
+                        }
+                        final sent = await ref
+                            .read(authControllerProvider.notifier)
+                            .resendConfirmation(_username.text);
+                        final debugCode = ref
+                            .read(authControllerProvider)
+                            .registration
+                            ?.debugConfirmationCode;
+                        if (sent && debugCode != null) _code.text = debugCode;
+                      },
+                child: const Text('Send a new code'),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -413,6 +426,7 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
           children: [
             TextFormField(
               controller: _username,
+              autofillHints: const [AutofillHints.username],
               validator: validateUsername,
               decoration: const InputDecoration(
                 labelText: 'Username',
@@ -499,51 +513,59 @@ class _ResetPasswordScreenState extends ConsumerState<ResetPasswordScreen> {
     return AuthPageShell(
       title: 'Choose a new password',
       subtitle: 'Enter the code and a password you do not use elsewhere.',
-      child: Form(
-        key: _formKey,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            TextFormField(
-              controller: _username,
-              validator: validateUsername,
-              decoration: const InputDecoration(labelText: 'Username'),
-            ),
-            const SizedBox(height: 14),
-            TextFormField(
-              controller: _code,
-              validator: (value) => (value?.trim().length ?? 0) < 4
-                  ? 'Enter the reset code.'
-                  : null,
-              decoration: const InputDecoration(labelText: 'Reset code'),
-            ),
-            const SizedBox(height: 14),
-            PasswordField(
-              controller: _password,
-              label: 'New password',
-              validator: validateNewPassword,
-            ),
-            const SizedBox(height: 18),
-            AsyncMessage(error: state.error, notice: state.notice),
-            if (state.error != null || state.notice != null)
+      child: AutofillGroup(
+        child: Form(
+          key: _formKey,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              TextFormField(
+                controller: _username,
+                autofillHints: const [AutofillHints.username],
+                textInputAction: TextInputAction.next,
+                validator: validateUsername,
+                decoration: const InputDecoration(labelText: 'Username'),
+              ),
               const SizedBox(height: 14),
-            FilledButton(
-              onPressed: state.busy
-                  ? null
-                  : () async {
-                      if (!_formKey.currentState!.validate()) return;
-                      final done = await ref
-                          .read(authControllerProvider.notifier)
-                          .resetPassword(
-                            _username.text,
-                            _code.text,
-                            _password.text,
-                          );
-                      if (done && context.mounted) context.go('/login');
-                    },
-              child: const Text('Update password'),
-            ),
-          ],
+              TextFormField(
+                controller: _code,
+                keyboardType: TextInputType.number,
+                autofillHints: const [AutofillHints.oneTimeCode],
+                textInputAction: TextInputAction.next,
+                validator: (value) => (value?.trim().length ?? 0) < 4
+                    ? 'Enter the reset code.'
+                    : null,
+                decoration: const InputDecoration(labelText: 'Reset code'),
+              ),
+              const SizedBox(height: 14),
+              PasswordField(
+                controller: _password,
+                label: 'New password',
+                autofillHints: const [AutofillHints.newPassword],
+                validator: validateNewPassword,
+              ),
+              const SizedBox(height: 18),
+              AsyncMessage(error: state.error, notice: state.notice),
+              if (state.error != null || state.notice != null)
+                const SizedBox(height: 14),
+              FilledButton(
+                onPressed: state.busy
+                    ? null
+                    : () async {
+                        if (!_formKey.currentState!.validate()) return;
+                        final done = await ref
+                            .read(authControllerProvider.notifier)
+                            .resetPassword(
+                              _username.text,
+                              _code.text,
+                              _password.text,
+                            );
+                        if (done && context.mounted) context.go('/login');
+                      },
+                child: const Text('Update password'),
+              ),
+            ],
+          ),
         ),
       ),
     );

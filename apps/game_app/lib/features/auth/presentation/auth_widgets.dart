@@ -126,6 +126,7 @@ class PasswordField extends StatefulWidget {
     required this.controller,
     this.label = 'Password',
     this.validator,
+    this.autofillHints = const [AutofillHints.password],
     this.textInputAction = TextInputAction.done,
     this.onSubmitted,
   });
@@ -133,6 +134,7 @@ class PasswordField extends StatefulWidget {
   final TextEditingController controller;
   final String label;
   final String? Function(String?)? validator;
+  final Iterable<String>? autofillHints;
   final TextInputAction textInputAction;
   final ValueChanged<String>? onSubmitted;
 
@@ -147,7 +149,9 @@ class _PasswordFieldState extends State<PasswordField> {
   Widget build(BuildContext context) => TextFormField(
     controller: widget.controller,
     obscureText: _obscure,
-    autofillHints: const [AutofillHints.password],
+    autocorrect: false,
+    enableSuggestions: false,
+    autofillHints: widget.autofillHints,
     textInputAction: widget.textInputAction,
     validator: widget.validator,
     onFieldSubmitted: widget.onSubmitted,

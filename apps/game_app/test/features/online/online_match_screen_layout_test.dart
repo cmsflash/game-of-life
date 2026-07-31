@@ -7,46 +7,35 @@ import 'package:game_of_life/features/online/data/online_repository.dart';
 import 'package:game_of_life/features/online/presentation/online_match_screen.dart';
 import 'package:game_of_life/providers.dart';
 
+import '../../support/game_play_layout_test_support.dart';
+
 void main() {
-  testWidgets('online match fits its board and scrolls status vertically', (
-    tester,
-  ) async {
-    tester.view.physicalSize = const Size(320, 568);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.resetPhysicalSize);
-    addTearDown(tester.view.resetDevicePixelRatio);
+  for (final viewport in gameLayoutViewports) {
+    testWidgets('online match uses ${viewport.name} geometry', (tester) async {
+      configureGameViewport(tester, viewport);
 
-    await tester.pumpWidget(
-      ProviderScope(
-        overrides: [
-          onlineRepositoryProvider.overrideWithValue(
-            _MatchRepository(_activeMatch()),
-          ),
-        ],
-        child: const MaterialApp(home: OnlineMatchScreen(matchId: 'match-1')),
-      ),
-    );
-    await tester.pump();
-    await tester.pump();
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            onlineRepositoryProvider.overrideWithValue(
+              _MatchRepository(_activeMatch()),
+            ),
+          ],
+          child: const MaterialApp(home: OnlineMatchScreen(matchId: 'match-1')),
+        ),
+      );
+      await tester.pump();
+      await tester.pump();
 
-    expect(find.byKey(const Key('online-life-board')), findsOneWidget);
-    expect(tester.takeException(), isNull);
-    final scrollViews = tester.widgetList<SingleChildScrollView>(
-      find.byType(SingleChildScrollView),
-    );
-    expect(scrollViews, isNotEmpty);
-    expect(
-      scrollViews.every((view) => view.scrollDirection == Axis.vertical),
-      isTrue,
-    );
-
-    final statusCard = find.ancestor(
-      of: find.text('MOVE 1'),
-      matching: find.byType(Card),
-    );
-    expect(statusCard, findsOneWidget);
-    expect(tester.getSize(statusCard).width, lessThanOrEqualTo(320));
-  });
+      expect(tester.takeException(), isNull);
+      expect(find.text('MOVE 1'), findsOneWidget);
+      expectGameLayoutGeometry(
+        tester,
+        viewport,
+        boardKey: const Key('online-life-board'),
+      );
+    });
+  }
 }
 
 OnlineMatch _activeMatch() {

@@ -8,6 +8,7 @@ import 'package:go_router/go_router.dart';
 import '../../../core/api_client.dart';
 import '../../../core/theme.dart';
 import '../../../providers.dart';
+import '../../../shared/game_play_layout.dart';
 import '../../game/presentation/life_board.dart';
 import '../data/online_models.dart';
 
@@ -160,72 +161,27 @@ class _OnlineMatchScreenState extends ConsumerState<OnlineMatchScreen> {
       ),
       body: SafeArea(
         top: false,
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            final wide = constraints.maxWidth >= 880;
-            final board = Padding(
-              padding: EdgeInsets.all(wide ? 24 : 12),
-              child: Center(
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(
-                    maxWidth: 760,
-                    maxHeight: 760,
-                  ),
-                  child: AspectRatio(
-                    aspectRatio: 1,
-                    child: Stack(
-                      children: [
-                        Positioned.fill(
-                          child: LifeBoard(
-                            key: const Key('online-life-board'),
-                            board: match.board,
-                            enabled: match.isYourTurn && !_submitting,
-                            onCellTap: _place,
-                          ),
-                        ),
-                        if (_submitting)
-                          Positioned.fill(
-                            child: ColoredBox(
-                              color: Colors.black.withValues(alpha: .2),
-                              child: const Center(
-                                child: CircularProgressIndicator(),
-                              ),
-                            ),
-                          ),
-                      ],
-                    ),
-                  ),
+        child: GamePlayLayout(
+          board: Stack(
+            children: [
+              Positioned.fill(
+                child: LifeBoard(
+                  key: const Key('online-life-board'),
+                  board: match.board,
+                  enabled: match.isYourTurn && !_submitting,
+                  onCellTap: _place,
                 ),
               ),
-            );
-            final panel = _OnlineGamePanel(match: match, error: _error);
-            if (wide) {
-              return Row(
-                children: [
-                  Expanded(child: board),
-                  SizedBox(
-                    width: 360,
-                    child: SingleChildScrollView(
-                      padding: const EdgeInsets.fromLTRB(0, 24, 24, 24),
-                      child: panel,
-                    ),
-                  ),
-                ],
-              );
-            }
-            return Column(
-              children: [
-                Expanded(flex: 3, child: board),
-                Flexible(
-                  flex: 2,
-                  child: SingleChildScrollView(
-                    padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
-                    child: panel,
+              if (_submitting)
+                Positioned.fill(
+                  child: ColoredBox(
+                    color: Colors.black.withValues(alpha: .2),
+                    child: const Center(child: CircularProgressIndicator()),
                   ),
                 ),
-              ],
-            );
-          },
+            ],
+          ),
+          panel: _OnlineGamePanel(match: match, error: _error),
         ),
       ),
     );
@@ -269,6 +225,7 @@ class _OnlineGamePanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final compact = GamePlayLayout.isCompact(context);
     final yourPlayer = match.yourColor == null
         ? null
         : match.playerFor(match.yourColor!);
@@ -290,7 +247,7 @@ class _OnlineGamePanel extends StatelessWidget {
               ? Theme.of(context).colorScheme.primaryContainer
               : Theme.of(context).colorScheme.surfaceContainer,
           child: Padding(
-            padding: const EdgeInsets.all(20),
+            padding: EdgeInsets.all(compact ? 16 : 20),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -304,9 +261,9 @@ class _OnlineGamePanel extends StatelessWidget {
                     context,
                   ).textTheme.labelMedium?.copyWith(letterSpacing: 1.4),
                 ),
-                const SizedBox(height: 7),
+                SizedBox(height: compact ? 5 : 7),
                 Text(title, style: Theme.of(context).textTheme.headlineSmall),
-                const SizedBox(height: 7),
+                SizedBox(height: compact ? 5 : 7),
                 Text(
                   match.status == 'waiting'
                       ? 'Return to the lobby to share the join code.'
@@ -319,9 +276,9 @@ class _OnlineGamePanel extends StatelessWidget {
           ),
         ),
         if (error != null) ...[
-          const SizedBox(height: 10),
+          SizedBox(height: compact ? 8 : 10),
           Container(
-            padding: const EdgeInsets.all(12),
+            padding: EdgeInsets.all(compact ? 10 : 12),
             decoration: BoxDecoration(
               color: Theme.of(context).colorScheme.errorContainer,
               borderRadius: BorderRadius.circular(14),
@@ -329,7 +286,7 @@ class _OnlineGamePanel extends StatelessWidget {
             child: Text(error!),
           ),
         ],
-        const SizedBox(height: 12),
+        SizedBox(height: compact ? 8 : 12),
         _OnlinePlayerTile(
           name: yourPlayer?.displayName ?? 'You',
           label: 'YOU',
@@ -339,7 +296,7 @@ class _OnlineGamePanel extends StatelessWidget {
               : match.blackPopulation,
           active: match.nextPlayer == match.yourColor,
         ),
-        const SizedBox(height: 10),
+        SizedBox(height: compact ? 8 : 10),
         _OnlinePlayerTile(
           name: opponent?.displayName ?? 'Opponent',
           label: 'OPPONENT',
@@ -349,10 +306,10 @@ class _OnlineGamePanel extends StatelessWidget {
               : match.whitePopulation,
           active: match.nextPlayer == opponent?.color,
         ),
-        const SizedBox(height: 12),
+        SizedBox(height: compact ? 8 : 12),
         Card(
           child: Padding(
-            padding: const EdgeInsets.all(16),
+            padding: EdgeInsets.all(compact ? 12 : 16),
             child: Row(
               children: [
                 const Icon(Icons.verified_user_outlined, size: 19),
@@ -391,50 +348,54 @@ class _OnlinePlayerTile extends StatelessWidget {
   final bool active;
 
   @override
-  Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.all(16),
-    decoration: BoxDecoration(
-      color: Theme.of(context).colorScheme.surfaceContainer,
-      borderRadius: BorderRadius.circular(18),
-      border: Border.all(
-        color: active
-            ? Theme.of(context).colorScheme.primary
-            : Theme.of(context).colorScheme.outlineVariant,
-        width: active ? 2 : 1,
+  Widget build(BuildContext context) {
+    final compact = GamePlayLayout.isCompact(context);
+    final markerSize = compact ? 30.0 : 34.0;
+    return Container(
+      padding: EdgeInsets.all(compact ? 12 : 16),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surfaceContainer,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(
+          color: active
+              ? Theme.of(context).colorScheme.primary
+              : Theme.of(context).colorScheme.outlineVariant,
+          width: active ? 2 : 1,
+        ),
       ),
-    ),
-    child: Row(
-      children: [
-        Container(
-          width: 34,
-          height: 34,
-          decoration: BoxDecoration(
-            color: color == engine.Player.black
-                ? LifeColors.ink
-                : LifeColors.paper,
-            shape: BoxShape.circle,
-            border: Border.all(color: Colors.grey),
+      child: Row(
+        children: [
+          Container(
+            width: markerSize,
+            height: markerSize,
+            decoration: BoxDecoration(
+              color: color == engine.Player.black
+                  ? LifeColors.ink
+                  : LifeColors.paper,
+              shape: BoxShape.circle,
+              border: Border.all(color: Colors.grey),
+            ),
           ),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                label,
-                style: Theme.of(
-                  context,
-                ).textTheme.labelSmall?.copyWith(letterSpacing: 1.2),
-              ),
-              Text(name, style: Theme.of(context).textTheme.titleMedium),
-            ],
+          SizedBox(width: compact ? 10 : 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: Theme.of(
+                    context,
+                  ).textTheme.labelSmall?.copyWith(letterSpacing: 1.2),
+                ),
+                Text(name, style: Theme.of(context).textTheme.titleMedium),
+              ],
+            ),
           ),
-        ),
-        Text('$cells', style: Theme.of(context).textTheme.headlineSmall),
-      ],
-    ),
-  );
+          Text('$cells', style: Theme.of(context).textTheme.headlineSmall),
+        ],
+      ),
+    );
+  }
 }
 
 extension<T> on Iterable<T> {

@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/theme.dart';
 import '../../../providers.dart';
+import '../../../shared/game_play_layout.dart';
 import '../domain/game_session.dart';
 import 'life_board.dart';
 
@@ -54,71 +55,28 @@ class LocalGameScreen extends ConsumerWidget {
       ),
       body: SafeArea(
         top: false,
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            final wide = constraints.maxWidth >= 860;
-            final board = Padding(
-              padding: EdgeInsets.all(wide ? 24 : 12),
-              child: Center(
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(
-                    maxWidth: 760,
-                    maxHeight: 760,
-                  ),
-                  child: AspectRatio(
-                    aspectRatio: 1,
-                    child: LifeBoard(
-                      key: const Key('local-life-board'),
-                      board: game.board,
-                      enabled: game.isActive,
-                      lastMove: session.lastMove,
-                      births: session.lastBirths,
-                      onCellTap: (row, column) {
-                        final success = ref
-                            .read(localGameProvider.notifier)
-                            .place(row, column);
-                        if (!success) {
-                          final message = ref.read(localGameProvider)?.error;
-                          if (message != null) {
-                            ScaffoldMessenger.of(context)
-                              ..clearSnackBars()
-                              ..showSnackBar(SnackBar(content: Text(message)));
-                          }
-                        }
-                      },
-                    ),
-                  ),
-                ),
-              ),
-            );
-            final panel = _GamePanel(session: session);
-            if (wide) {
-              return Row(
-                children: [
-                  Expanded(child: board),
-                  SizedBox(
-                    width: 340,
-                    child: SingleChildScrollView(
-                      padding: const EdgeInsets.fromLTRB(0, 24, 24, 24),
-                      child: panel,
-                    ),
-                  ),
-                ],
-              );
-            }
-            return Column(
-              children: [
-                Expanded(flex: 3, child: board),
-                Flexible(
-                  flex: 2,
-                  child: SingleChildScrollView(
-                    padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
-                    child: panel,
-                  ),
-                ),
-              ],
-            );
-          },
+        child: GamePlayLayout(
+          board: LifeBoard(
+            key: const Key('local-life-board'),
+            board: game.board,
+            enabled: game.isActive,
+            lastMove: session.lastMove,
+            births: session.lastBirths,
+            onCellTap: (row, column) {
+              final success = ref
+                  .read(localGameProvider.notifier)
+                  .place(row, column);
+              if (!success) {
+                final message = ref.read(localGameProvider)?.error;
+                if (message != null) {
+                  ScaffoldMessenger.of(context)
+                    ..clearSnackBars()
+                    ..showSnackBar(SnackBar(content: Text(message)));
+                }
+              }
+            },
+          ),
+          panel: _GamePanel(session: session),
         ),
       ),
     );
@@ -155,6 +113,8 @@ class _GamePanel extends StatelessWidget {
   Widget build(BuildContext context) {
     final game = session.game;
     final outcome = game.outcome;
+    final compact = GamePlayLayout.isCompact(context);
+    final sectionGap = compact ? 8.0 : 12.0;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -163,7 +123,7 @@ class _GamePanel extends StatelessWidget {
               ? Theme.of(context).colorScheme.surfaceContainer
               : Theme.of(context).colorScheme.primaryContainer,
           child: Padding(
-            padding: const EdgeInsets.all(20),
+            padding: EdgeInsets.all(compact ? 16 : 20),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -174,7 +134,7 @@ class _GamePanel extends StatelessWidget {
                     color: Theme.of(context).colorScheme.primary,
                   ),
                 ),
-                const SizedBox(height: 8),
+                SizedBox(height: compact ? 6 : 8),
                 Text(
                   outcome == null
                       ? '${session.config.nameFor(game.toMove!)} to move'
@@ -183,7 +143,7 @@ class _GamePanel extends StatelessWidget {
                     fontWeight: FontWeight.w800,
                   ),
                 ),
-                const SizedBox(height: 7),
+                SizedBox(height: compact ? 5 : 7),
                 Text(
                   outcome == null
                       ? 'Place one ${game.toMove!.name} cell on any empty square.'
@@ -193,7 +153,7 @@ class _GamePanel extends StatelessWidget {
             ),
           ),
         ),
-        const SizedBox(height: 12),
+        SizedBox(height: sectionGap),
         Row(
           children: [
             Expanded(
@@ -204,7 +164,7 @@ class _GamePanel extends StatelessWidget {
                 active: game.toMove == engine.Player.black,
               ),
             ),
-            const SizedBox(width: 10),
+            SizedBox(width: compact ? 8 : 10),
             Expanded(
               child: _PlayerScore(
                 name: session.config.nameFor(engine.Player.white),
@@ -215,10 +175,10 @@ class _GamePanel extends StatelessWidget {
             ),
           ],
         ),
-        const SizedBox(height: 12),
+        SizedBox(height: sectionGap),
         Card(
           child: Padding(
-            padding: const EdgeInsets.all(18),
+            padding: EdgeInsets.all(compact ? 14 : 18),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -282,47 +242,50 @@ class _PlayerScore extends StatelessWidget {
   final bool active;
 
   @override
-  Widget build(BuildContext context) => AnimatedContainer(
-    duration: const Duration(milliseconds: 220),
-    padding: const EdgeInsets.all(15),
-    decoration: BoxDecoration(
-      color: active
-          ? Theme.of(context).colorScheme.primaryContainer
-          : Theme.of(context).colorScheme.surfaceContainer,
-      borderRadius: BorderRadius.circular(18),
-      border: Border.all(
+  Widget build(BuildContext context) {
+    final compact = GamePlayLayout.isCompact(context);
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 220),
+      padding: EdgeInsets.all(compact ? 12 : 15),
+      decoration: BoxDecoration(
         color: active
-            ? Theme.of(context).colorScheme.primary
-            : Theme.of(context).colorScheme.outlineVariant,
-        width: active ? 2 : 1,
+            ? Theme.of(context).colorScheme.primaryContainer
+            : Theme.of(context).colorScheme.surfaceContainer,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(
+          color: active
+              ? Theme.of(context).colorScheme.primary
+              : Theme.of(context).colorScheme.outlineVariant,
+          width: active ? 2 : 1,
+        ),
       ),
-    ),
-    child: Row(
-      children: [
-        Container(
-          width: 24,
-          height: 24,
-          decoration: BoxDecoration(
-            color: color == engine.Player.black
-                ? LifeColors.ink
-                : LifeColors.paper,
-            shape: BoxShape.circle,
-            border: Border.all(color: Colors.grey),
+      child: Row(
+        children: [
+          Container(
+            width: 24,
+            height: 24,
+            decoration: BoxDecoration(
+              color: color == engine.Player.black
+                  ? LifeColors.ink
+                  : LifeColors.paper,
+              shape: BoxShape.circle,
+              border: Border.all(color: Colors.grey),
+            ),
           ),
-        ),
-        const SizedBox(width: 9),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(name, overflow: TextOverflow.ellipsis),
-              Text('$score', style: Theme.of(context).textTheme.titleLarge),
-            ],
+          SizedBox(width: compact ? 7 : 9),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(name, overflow: TextOverflow.ellipsis),
+                Text('$score', style: Theme.of(context).textTheme.titleLarge),
+              ],
+            ),
           ),
-        ),
-      ],
-    ),
-  );
+        ],
+      ),
+    );
+  }
 }
 
 class _DeltaStat extends StatelessWidget {
