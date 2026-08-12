@@ -75,7 +75,7 @@ class OnlineMatchSummary {
 }
 
 class OnlineMatch {
-  const OnlineMatch({
+  OnlineMatch({
     required this.id,
     required this.status,
     required this.revision,
@@ -83,20 +83,24 @@ class OnlineMatch {
     required this.players,
     required this.blackPopulation,
     required this.whitePopulation,
+    engine.GameRules? rules,
     this.yourColor,
     this.nextPlayer,
+    this.lastMove,
     this.result,
     this.etag,
     this.updatedAt,
-  });
+  }) : rules = rules ?? engine.GameRules.standard();
 
   final String id;
   final String status;
   final int revision;
   final engine.Board board;
+  final engine.GameRules rules;
   final List<OnlinePlayer> players;
   final engine.Player? yourColor;
   final engine.Player? nextPlayer;
+  final engine.Coordinate? lastMove;
   final int blackPopulation;
   final int whitePopulation;
   final Map<String, dynamic>? result;
@@ -122,8 +126,10 @@ class OnlineMatch {
     players: players,
     blackPopulation: blackPopulation,
     whitePopulation: whitePopulation,
+    rules: rules,
     yourColor: yourColor,
     nextPlayer: nextPlayer,
+    lastMove: lastMove,
     result: result,
     etag: value ?? etag,
     updatedAt: updatedAt,
@@ -152,9 +158,11 @@ class OnlineMatch {
           (state?['revision'] as num?)?.round() ??
           0,
       board: board,
+      rules: _decodeRules(json, state),
       players: players,
       yourColor: _player(json['yourColor']),
       nextPlayer: nextPlayer,
+      lastMove: _decodeLastMove(json['lastMove']),
       blackPopulation:
           (counts?['black'] as num?)?.round() ??
           board.population(engine.CellState.black),
@@ -168,6 +176,37 @@ class OnlineMatch {
       updatedAt: DateTime.tryParse(json['updatedAt'] as String? ?? ''),
     );
   }
+}
+
+engine.GameRules _decodeRules(
+  Map<String, dynamic> json,
+  Map<String, dynamic>? state,
+) {
+  final value = json['rules'] ?? state?['rules'];
+  if (value != null) {
+    try {
+      return engine.GameRules.fromJson(value);
+    } on FormatException {
+      // A subsequent poll can repair a malformed legacy response. The
+      // production API currently supports only the standard rules document.
+    }
+  }
+  return engine.GameRules.standard();
+}
+
+engine.Coordinate? _decodeLastMove(Object? value) {
+  if (value is! Map<String, dynamic>) return null;
+  final row = (value['row'] as num?)?.round();
+  final column = (value['column'] as num?)?.round();
+  if (row == null ||
+      column == null ||
+      row < 0 ||
+      row >= 20 ||
+      column < 0 ||
+      column >= 20) {
+    return null;
+  }
+  return engine.Coordinate(row, column);
 }
 
 class MatchPage {

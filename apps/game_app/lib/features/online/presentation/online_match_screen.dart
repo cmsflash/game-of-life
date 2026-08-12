@@ -6,10 +6,12 @@ import 'package:game_engine/game_engine.dart' as engine;
 import 'package:go_router/go_router.dart';
 
 import '../../../core/api_client.dart';
-import '../../../core/theme.dart';
 import '../../../providers.dart';
 import '../../../shared/game_play_layout.dart';
+import '../../game/domain/move_preview.dart';
+import '../../game/presentation/game_view_settings_dialog.dart';
 import '../../game/presentation/life_board.dart';
+import '../../game/presentation/player_turn_marker.dart';
 import '../data/online_models.dart';
 
 class OnlineMatchScreen extends ConsumerStatefulWidget {
@@ -24,6 +26,7 @@ class OnlineMatchScreen extends ConsumerStatefulWidget {
 class _OnlineMatchScreenState extends ConsumerState<OnlineMatchScreen> {
   Timer? _timer;
   OnlineMatch? _match;
+  MovePreview? _preview;
   String? _error;
   var _loading = true;
   var _submitting = false;
@@ -43,7 +46,7 @@ class _OnlineMatchScreenState extends ConsumerState<OnlineMatchScreen> {
   }
 
   Future<void> _refresh({bool force = false}) async {
-    if (_requestInFlight || !mounted) return;
+    if (_requestInFlight || !mounted || (_submitting && !force)) return;
     _requestInFlight = true;
     try {
       final updated = await ref
@@ -51,7 +54,12 @@ class _OnlineMatchScreenState extends ConsumerState<OnlineMatchScreen> {
           .getMatch(widget.matchId, etag: force ? null : _match?.etag);
       if (!mounted) return;
       setState(() {
-        if (updated != null) _match = updated;
+        final current = _match;
+        if (updated != null &&
+            (current == null || updated.revision >= current.revision)) {
+          if (!_previewStillValid(updated)) _preview = null;
+          _match = updated;
+        }
         _loading = false;
         _error = null;
       });
@@ -68,7 +76,17 @@ class _OnlineMatchScreenState extends ConsumerState<OnlineMatchScreen> {
     }
   }
 
-  Future<void> _place(int row, int column) async {
+  bool _previewStillValid(OnlineMatch updated) {
+    final current = _match;
+    return _preview != null &&
+        current != null &&
+        updated.isYourTurn &&
+        updated.revision == current.revision &&
+        updated.nextPlayer == current.nextPlayer &&
+        updated.board == current.board;
+  }
+
+  void _consider(int row, int column) {
     final match = _match;
     if (match == null || !match.isYourTurn || _submitting) return;
     if (match.board.at(row, column) != engine.CellState.empty) {
@@ -77,23 +95,59 @@ class _OnlineMatchScreenState extends ConsumerState<OnlineMatchScreen> {
       ).showSnackBar(const SnackBar(content: Text('Choose an empty cell.')));
       return;
     }
+    try {
+      final game = engine.GameState(
+        rules: match.rules,
+        board: match.board,
+        ply: match.revision,
+        revision: match.revision,
+        toMove: match.nextPlayer,
+        outcome: null,
+      );
+      setState(() {
+        _preview = MovePreview.simulate(game, engine.Coordinate(row, column));
+        _error = null;
+      });
+    } on engine.GameRuleViolation catch (error) {
+      ScaffoldMessenger.of(context)
+        ..clearSnackBars()
+        ..showSnackBar(SnackBar(content: Text(error.message)));
+    }
+  }
+
+  Future<void> _commit() async {
+    final match = _match;
+    final preview = _preview;
+    if (match == null ||
+        preview == null ||
+        !match.isYourTurn ||
+        _submitting ||
+        preview.move.expectedRevision != match.revision) {
+      return;
+    }
     setState(() {
       _submitting = true;
       _error = null;
     });
+    var refreshAfterSubmit = false;
     try {
       final updated = await ref
           .read(onlineRepositoryProvider)
           .submitMove(
             match.id,
             revision: match.revision,
-            row: row,
-            column: column,
+            row: preview.coordinate.row,
+            column: preview.coordinate.column,
           );
-      if (mounted) setState(() => _match = updated);
+      if (mounted) {
+        setState(() {
+          _match = updated;
+          _preview = null;
+        });
+      }
     } on ApiException catch (error) {
       if (error.code == 'staleRevision' || error.code == 'REVISION_MISMATCH') {
-        await _refresh(force: true);
+        refreshAfterSubmit = true;
       }
       if (mounted) setState(() => _error = error.message);
     } catch (_) {
@@ -103,6 +157,7 @@ class _OnlineMatchScreenState extends ConsumerState<OnlineMatchScreen> {
     } finally {
       if (mounted) setState(() => _submitting = false);
     }
+    if (refreshAfterSubmit && mounted) await _refresh(force: true);
   }
 
   @override
@@ -131,6 +186,7 @@ class _OnlineMatchScreenState extends ConsumerState<OnlineMatchScreen> {
     final opponent = match.players
         .where((player) => player.color != match.yourColor)
         .firstOrNull;
+    final viewSettings = ref.watch(gameViewSettingsProvider);
     return Scaffold(
       appBar: AppBar(
         leading: IconButton(
@@ -145,6 +201,7 @@ class _OnlineMatchScreenState extends ConsumerState<OnlineMatchScreen> {
             onPressed: () => _refresh(force: true),
             icon: const Icon(Icons.refresh),
           ),
+          const GameViewSettingsButton(),
           PopupMenuButton<String>(
             onSelected: (value) {
               if (value == 'resign') _confirmResign(match);
@@ -169,7 +226,12 @@ class _OnlineMatchScreenState extends ConsumerState<OnlineMatchScreen> {
                   key: const Key('online-life-board'),
                   board: match.board,
                   enabled: match.isYourTurn && !_submitting,
-                  onCellTap: _place,
+                  lastMove: match.lastMove,
+                  previewBoard: _preview?.board,
+                  tentativeMove: _preview?.coordinate,
+                  previewDeaths: _preview?.deathEvents ?? const [],
+                  visualizePreviewDeaths: viewSettings.visualizeDeathsInPreview,
+                  onCellTap: _consider,
                 ),
               ),
               if (_submitting)
@@ -181,7 +243,13 @@ class _OnlineMatchScreenState extends ConsumerState<OnlineMatchScreen> {
                 ),
             ],
           ),
-          panel: _OnlineGamePanel(match: match, error: _error),
+          panel: _OnlineGamePanel(
+            match: match,
+            preview: _preview,
+            error: _error,
+            submitting: _submitting,
+            onCommit: _commit,
+          ),
         ),
       ),
     );
@@ -218,14 +286,24 @@ class _OnlineMatchScreenState extends ConsumerState<OnlineMatchScreen> {
 }
 
 class _OnlineGamePanel extends StatelessWidget {
-  const _OnlineGamePanel({required this.match, required this.error});
+  const _OnlineGamePanel({
+    required this.match,
+    required this.preview,
+    required this.error,
+    required this.submitting,
+    required this.onCommit,
+  });
 
   final OnlineMatch match;
+  final MovePreview? preview;
   final String? error;
+  final bool submitting;
+  final VoidCallback onCommit;
 
   @override
   Widget build(BuildContext context) {
     final compact = GamePlayLayout.isCompact(context);
+    final displayBoard = preview?.board ?? match.board;
     final yourPlayer = match.yourColor == null
         ? null
         : match.playerFor(match.yourColor!);
@@ -236,6 +314,9 @@ class _OnlineGamePanel extends StatelessWidget {
         ? 'Waiting for a player'
         : !match.isActive
         ? _resultTitle(match)
+        : preview != null
+        ? 'Previewing row ${preview!.coordinate.row + 1}, '
+              'column ${preview!.coordinate.column + 1}'
         : match.isYourTurn
         ? 'Your move'
         : '${opponent?.displayName ?? 'Opponent'} is thinking';
@@ -268,7 +349,10 @@ class _OnlineGamePanel extends StatelessWidget {
                   match.status == 'waiting'
                       ? 'Return to the lobby to share the join code.'
                       : match.isYourTurn
-                      ? 'Choose any empty square. The server will evolve the board.'
+                      ? preview == null
+                            ? 'Choose an empty square to preview the next round.'
+                            : 'Tap another square to compare, or press the check '
+                                  'to commit this move.'
                       : 'The board refreshes automatically.',
                 ),
               ],
@@ -292,9 +376,11 @@ class _OnlineGamePanel extends StatelessWidget {
           label: 'YOU',
           color: match.yourColor ?? engine.Player.black,
           cells: match.yourColor == engine.Player.white
-              ? match.whitePopulation
-              : match.blackPopulation,
+              ? displayBoard.population(engine.CellState.white)
+              : displayBoard.population(engine.CellState.black),
           active: match.nextPlayer == match.yourColor,
+          onCommit: preview != null && match.isYourTurn ? onCommit : null,
+          busy: submitting && preview != null,
         ),
         SizedBox(height: compact ? 8 : 10),
         _OnlinePlayerTile(
@@ -302,8 +388,8 @@ class _OnlineGamePanel extends StatelessWidget {
           label: 'OPPONENT',
           color: opponent?.color ?? engine.Player.white,
           cells: opponent?.color == engine.Player.black
-              ? match.blackPopulation
-              : match.whitePopulation,
+              ? displayBoard.population(engine.CellState.black)
+              : displayBoard.population(engine.CellState.white),
           active: match.nextPlayer == opponent?.color,
         ),
         SizedBox(height: compact ? 8 : 12),
@@ -339,6 +425,8 @@ class _OnlinePlayerTile extends StatelessWidget {
     required this.color,
     required this.cells,
     required this.active,
+    this.onCommit,
+    this.busy = false,
   });
 
   final String name;
@@ -346,6 +434,8 @@ class _OnlinePlayerTile extends StatelessWidget {
   final engine.Player color;
   final int cells;
   final bool active;
+  final VoidCallback? onCommit;
+  final bool busy;
 
   @override
   Widget build(BuildContext context) {
@@ -365,18 +455,14 @@ class _OnlinePlayerTile extends StatelessWidget {
       ),
       child: Row(
         children: [
-          Container(
-            width: markerSize,
-            height: markerSize,
-            decoration: BoxDecoration(
-              color: color == engine.Player.black
-                  ? LifeColors.ink
-                  : LifeColors.paper,
-              shape: BoxShape.circle,
-              border: Border.all(color: Colors.grey),
-            ),
+          PlayerTurnMarker(
+            player: color,
+            active: active,
+            onCommit: onCommit,
+            busy: busy,
+            markerSize: markerSize,
           ),
-          SizedBox(width: compact ? 10 : 12),
+          SizedBox(width: compact ? 6 : 8),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,

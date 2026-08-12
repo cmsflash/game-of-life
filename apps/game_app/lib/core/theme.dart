@@ -11,7 +11,6 @@ abstract final class LifeColors {
   static const boardGrid = Color(0xFF5B3A21);
   static const boardBorder = Color(0xFF6B4424);
   static const boardMarkerDark = Color(0xFF274C12);
-  static const boardLastMoveDark = Color(0xFF602119);
 }
 
 ThemeData buildLifeTheme(Brightness brightness) {

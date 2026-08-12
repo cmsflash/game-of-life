@@ -6,7 +6,9 @@ import 'core/api_client.dart';
 import 'features/auth/data/auth_repository.dart';
 import 'features/auth/data/session_store.dart';
 import 'features/auth/presentation/auth_controller.dart';
+import 'features/game/data/game_view_settings_store.dart';
 import 'features/game/domain/game_session.dart';
+import 'features/game/domain/game_view_settings.dart';
 import 'features/online/data/online_repository.dart';
 
 final sessionStoreProvider = Provider<SessionStore>(
@@ -47,4 +49,14 @@ final onlineRepositoryProvider = Provider<OnlineRepository>(
 final localGameProvider =
     StateNotifierProvider<LocalGameController, LocalGameSession?>(
       (ref) => LocalGameController(),
+    );
+
+final gameViewSettingsStoreProvider = Provider<GameViewSettingsStore>(
+  (ref) => SecureGameViewSettingsStore(),
+);
+
+final gameViewSettingsProvider =
+    StateNotifierProvider<GameViewSettingsController, GameViewSettings>(
+      (ref) =>
+          GameViewSettingsController(ref.watch(gameViewSettingsStoreProvider)),
     );

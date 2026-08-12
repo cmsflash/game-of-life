@@ -1,6 +1,8 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:game_engine/game_engine.dart' as engine;
 
+import 'move_preview.dart';
+
 enum LocalGameMode { elimination, turnLimit, populationTarget }
 
 class LocalGameConfig {
@@ -50,6 +52,7 @@ class LocalGameSession {
     this.lastMove,
     this.lastBirths = const [],
     this.lastDeaths = const [],
+    this.preview,
     this.error,
   });
 
@@ -58,6 +61,7 @@ class LocalGameSession {
   final engine.Coordinate? lastMove;
   final List<engine.Coordinate> lastBirths;
   final List<engine.Coordinate> lastDeaths;
+  final MovePreview? preview;
   final String? error;
 
   LocalGameSession copyWith({
@@ -65,7 +69,9 @@ class LocalGameSession {
     engine.Coordinate? lastMove,
     List<engine.Coordinate>? lastBirths,
     List<engine.Coordinate>? lastDeaths,
+    MovePreview? preview,
     String? error,
+    bool clearPreview = false,
     bool clearError = false,
   }) => LocalGameSession(
     config: config,
@@ -73,6 +79,7 @@ class LocalGameSession {
     lastMove: lastMove ?? this.lastMove,
     lastBirths: lastBirths ?? this.lastBirths,
     lastDeaths: lastDeaths ?? this.lastDeaths,
+    preview: clearPreview ? null : preview ?? this.preview,
     error: clearError ? null : error ?? this.error,
   );
 }
@@ -89,34 +96,43 @@ class LocalGameController extends StateNotifier<LocalGameSession?> {
     );
   }
 
-  bool place(int row, int column) {
+  bool consider(int row, int column) {
     final current = state;
     if (current == null || !current.game.isActive) return false;
     try {
-      final result = _engine.applyMove(
+      final preview = MovePreview.simulate(
         current.game,
-        engine.GameMove(
-          player: current.game.toMove!,
-          row: row,
-          column: column,
-          expectedRevision: current.game.revision,
-        ),
+        engine.Coordinate(row, column),
       );
-      state = current.copyWith(
-        game: result.state,
-        lastMove: engine.Coordinate(row, column),
-        lastBirths: result.delta.evolution.births
-            .map((birth) => birth.coordinate)
-            .toList(growable: false),
-        lastDeaths: result.delta.evolution.deaths
-            .map((death) => death.coordinate)
-            .toList(growable: false),
-        clearError: true,
-      );
+      state = current.copyWith(preview: preview, clearError: true);
       return true;
     } on engine.GameRuleViolation catch (error) {
       state = current.copyWith(error: error.message);
       return false;
+    }
+  }
+
+  bool commit() {
+    final current = state;
+    final preview = current?.preview;
+    if (current == null || preview == null || !current.game.isActive) {
+      return false;
+    }
+    state = current.copyWith(
+      game: preview.turn.state,
+      lastMove: preview.coordinate,
+      lastBirths: preview.births,
+      lastDeaths: preview.deaths,
+      clearPreview: true,
+      clearError: true,
+    );
+    return true;
+  }
+
+  void cancelPreview() {
+    final current = state;
+    if (current != null && current.preview != null) {
+      state = current.copyWith(clearPreview: true, clearError: true);
     }
   }
 

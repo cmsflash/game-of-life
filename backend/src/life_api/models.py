@@ -222,6 +222,13 @@ class MatchStatus(StrEnum):
     completed = "completed"
 
 
+class LastMove(StrictModel):
+    revision: int = Field(ge=1)
+    player: Literal["black", "white"]
+    row: int = Field(ge=0, le=19)
+    column: int = Field(ge=0, le=19)
+
+
 class MatchDocument(StrictModel):
     id: str
     join_code: str | None = Field(default=None, alias="joinCode")
@@ -232,6 +239,7 @@ class MatchDocument(StrictModel):
     your_color: Literal["black", "white"] | None = Field(default=None, alias="yourColor")
     status: MatchStatus
     version: int = Field(ge=0)
+    last_move: LastMove | None = Field(default=None, alias="lastMove")
     result: dict[str, Any] | None = None
     created_at: UtcDateTime = Field(alias="createdAt")
     updated_at: UtcDateTime = Field(alias="updatedAt")
@@ -283,6 +291,7 @@ class StoredMatch(StrictModel):
     white_player: PlayerSummary | None = Field(default=None, alias="whitePlayer")
     status: MatchStatus
     version: int = Field(default=0, ge=0)
+    last_move: LastMove | None = Field(default=None, alias="lastMove")
     result: dict[str, Any] | None = None
     created_at: UtcDateTime = Field(
         default_factory=lambda: datetime.now(UTC),

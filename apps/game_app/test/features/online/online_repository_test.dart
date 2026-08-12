@@ -96,6 +96,39 @@ void main() {
       expect((body['idempotencyKey'] as String).length, greaterThan(8));
     },
   );
+
+  test(
+    'submitMove sends the selected coordinate only on explicit call',
+    () async {
+      http.Request? recorded;
+      final store = MemorySessionStore()
+        ..session = const StoredSession(
+          accessToken: 'access',
+          refreshToken: null,
+        );
+      final client = MockClient((request) async {
+        recorded = request;
+        return http.Response(jsonEncode(_matchDocument()), 200);
+      });
+      final repository = ApiOnlineRepository(
+        ApiClient(
+          sessionStore: store,
+          httpClient: client,
+          baseUrl: 'https://api.example.test',
+        ),
+      );
+
+      await repository.submitMove('match-1', revision: 7, row: 4, column: 9);
+
+      expect(recorded?.method, 'POST');
+      expect(recorded?.url.path, '/v1/matches/match-1/moves');
+      final body = jsonDecode(recorded!.body) as Map<String, dynamic>;
+      expect(body['expectedRevision'], 7);
+      expect(body['row'], 4);
+      expect(body['column'], 9);
+      expect(body['idempotencyKey'], isA<String>());
+    },
+  );
 }
 
 Map<String, dynamic> _matchDocument() {

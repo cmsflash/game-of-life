@@ -89,6 +89,10 @@ include a request fingerprint: reusing a key for different content returns
 the separate match `version` advances for every mutation and is the value used
 by ETags and DynamoDB conditional writes.
 
+Match documents include an optional `lastMove` object with `revision`,
+`player`, `row`, and `column`. It is written atomically with a successful move
+and remains present if that placed cell dies during the resulting evolution.
+
 ## Matchmaking
 
 | Method | Path | Purpose |

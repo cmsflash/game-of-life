@@ -57,6 +57,12 @@ def test_private_match_move_idempotency_etag_history_replay_and_resign(
     assert moved.status_code == 200
     assert moved.headers["etag"] == '"2"'
     assert moved.json()["state"]["revision"] == 1
+    assert moved.json()["lastMove"] == {
+        "revision": 1,
+        "player": "black",
+        "row": 0,
+        "column": 0,
+    }
     repeated = client.post(
         f"/v1/matches/{match_id}/moves",
         headers=black_headers,
@@ -70,6 +76,7 @@ def test_private_match_move_idempotency_etag_history_replay_and_resign(
     assert repeated.status_code == 200
     assert repeated.headers["etag"] == '"2"'
     assert repeated.json()["state"]["revision"] == 1
+    assert repeated.json()["lastMove"] == moved.json()["lastMove"]
     conflicting_reuse = client.post(
         f"/v1/matches/{match_id}/moves",
         headers=black_headers,
@@ -99,6 +106,7 @@ def test_private_match_move_idempotency_etag_history_replay_and_resign(
     current = client.get(f"/v1/matches/{match_id}", headers=white_headers)
     assert current.status_code == 200
     assert current.headers["etag"] == '"2"'
+    assert current.json()["lastMove"] == moved.json()["lastMove"]
     unchanged = client.get(
         f"/v1/matches/{match_id}",
         headers={**white_headers, "If-None-Match": '"2"'},
@@ -120,6 +128,7 @@ def test_private_match_move_idempotency_etag_history_replay_and_resign(
     assert resigned.status_code == 200
     assert resigned.headers["etag"] == '"3"'
     assert resigned.json()["status"] == "completed"
+    assert resigned.json()["lastMove"] == moved.json()["lastMove"]
     assert resigned.json()["result"] == {
         "type": "win",
         "winner": "black",

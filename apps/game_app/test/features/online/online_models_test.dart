@@ -71,4 +71,29 @@ void main() {
     expect(match.board.at(10, 10), engine.CellState.white);
     expect(match.players, hasLength(2));
   });
+
+  test('parses authoritative rules and an optional persisted last move', () {
+    final rules = engine.GameRules.standard(
+      victory: engine.TurnLimitPopulationVictory(20),
+    );
+    final state = const engine.GameEngine().initialState(rules);
+    final match = OnlineMatch.fromJson({
+      'id': 'with-preview-data',
+      'status': 'active',
+      'rules': rules.toJson(),
+      'state': state.toJson(),
+      'yourColor': 'black',
+      'lastMove': {'revision': 3, 'player': 'black', 'row': 4, 'column': 7},
+    });
+
+    expect(match.rules, rules);
+    expect(match.lastMove, const engine.Coordinate(4, 7));
+
+    final legacy = OnlineMatch.fromJson({
+      'id': 'legacy',
+      'status': 'active',
+      'state': state.toJson(),
+    });
+    expect(legacy.lastMove, isNull);
+  });
 }

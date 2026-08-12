@@ -7,7 +7,9 @@ import '../../../core/theme.dart';
 import '../../../providers.dart';
 import '../../../shared/game_play_layout.dart';
 import '../domain/game_session.dart';
+import 'game_view_settings_dialog.dart';
 import 'life_board.dart';
+import 'player_turn_marker.dart';
 
 class LocalGameScreen extends ConsumerWidget {
   const LocalGameScreen({super.key});
@@ -36,6 +38,7 @@ class LocalGameScreen extends ConsumerWidget {
       );
     }
     final game = session.game;
+    final viewSettings = ref.watch(gameViewSettingsProvider);
     return Scaffold(
       appBar: AppBar(
         leading: IconButton(
@@ -45,6 +48,7 @@ class LocalGameScreen extends ConsumerWidget {
         ),
         title: Text(session.config.modeLabel),
         actions: [
+          const GameViewSettingsButton(),
           IconButton(
             tooltip: 'Restart game',
             onPressed: () => _confirmRestart(context, ref),
@@ -61,11 +65,15 @@ class LocalGameScreen extends ConsumerWidget {
             board: game.board,
             enabled: game.isActive,
             lastMove: session.lastMove,
+            previewBoard: session.preview?.board,
+            tentativeMove: session.preview?.coordinate,
+            previewDeaths: session.preview?.deathEvents ?? const [],
+            visualizePreviewDeaths: viewSettings.visualizeDeathsInPreview,
             births: session.lastBirths,
             onCellTap: (row, column) {
               final success = ref
                   .read(localGameProvider.notifier)
-                  .place(row, column);
+                  .consider(row, column);
               if (!success) {
                 final message = ref.read(localGameProvider)?.error;
                 if (message != null) {
@@ -76,7 +84,10 @@ class LocalGameScreen extends ConsumerWidget {
               }
             },
           ),
-          panel: _GamePanel(session: session),
+          panel: _GamePanel(
+            session: session,
+            onCommit: () => ref.read(localGameProvider.notifier).commit(),
+          ),
         ),
       ),
     );
@@ -105,14 +116,17 @@ class LocalGameScreen extends ConsumerWidget {
 }
 
 class _GamePanel extends StatelessWidget {
-  const _GamePanel({required this.session});
+  const _GamePanel({required this.session, required this.onCommit});
 
   final LocalGameSession session;
+  final VoidCallback onCommit;
 
   @override
   Widget build(BuildContext context) {
     final game = session.game;
     final outcome = game.outcome;
+    final preview = session.preview;
+    final displayBoard = preview?.board ?? game.board;
     final compact = GamePlayLayout.isCompact(context);
     final sectionGap = compact ? 8.0 : 12.0;
     return Column(
@@ -137,7 +151,10 @@ class _GamePanel extends StatelessWidget {
                 SizedBox(height: compact ? 6 : 8),
                 Text(
                   outcome == null
-                      ? '${session.config.nameFor(game.toMove!)} to move'
+                      ? preview == null
+                            ? '${session.config.nameFor(game.toMove!)} to move'
+                            : 'Previewing row ${preview.coordinate.row + 1}, '
+                                  'column ${preview.coordinate.column + 1}'
                       : _outcomeTitle(outcome, session.config),
                   style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                     fontWeight: FontWeight.w800,
@@ -146,7 +163,10 @@ class _GamePanel extends StatelessWidget {
                 SizedBox(height: compact ? 5 : 7),
                 Text(
                   outcome == null
-                      ? 'Place one ${game.toMove!.name} cell on any empty square.'
+                      ? preview == null
+                            ? 'Choose an empty square to preview the next round.'
+                            : 'Tap another square to compare, or press the check '
+                                  'to commit this move.'
                       : _reason(outcome.reason),
                 ),
               ],
@@ -160,8 +180,11 @@ class _GamePanel extends StatelessWidget {
               child: _PlayerScore(
                 name: session.config.nameFor(engine.Player.black),
                 color: engine.Player.black,
-                score: game.blackPopulation,
+                score: displayBoard.population(engine.CellState.black),
                 active: game.toMove == engine.Player.black,
+                onCommit: preview != null && game.toMove == engine.Player.black
+                    ? onCommit
+                    : null,
               ),
             ),
             SizedBox(width: compact ? 8 : 10),
@@ -169,8 +192,11 @@ class _GamePanel extends StatelessWidget {
               child: _PlayerScore(
                 name: session.config.nameFor(engine.Player.white),
                 color: engine.Player.white,
-                score: game.whitePopulation,
+                score: displayBoard.population(engine.CellState.white),
                 active: game.toMove == engine.Player.white,
+                onCommit: preview != null && game.toMove == engine.Player.white
+                    ? onCommit
+                    : null,
               ),
             ),
           ],
@@ -185,13 +211,13 @@ class _GamePanel extends StatelessWidget {
                 _DeltaStat(
                   icon: Icons.add,
                   label: 'Births',
-                  value: session.lastBirths.length,
+                  value: preview?.births.length ?? session.lastBirths.length,
                   color: LifeColors.sprout,
                 ),
                 _DeltaStat(
                   icon: Icons.remove,
                   label: 'Deaths',
-                  value: session.lastDeaths.length,
+                  value: preview?.deaths.length ?? session.lastDeaths.length,
                   color: LifeColors.coral,
                 ),
                 _DeltaStat(
@@ -234,12 +260,14 @@ class _PlayerScore extends StatelessWidget {
     required this.color,
     required this.score,
     required this.active,
+    this.onCommit,
   });
 
   final String name;
   final engine.Player color;
   final int score;
   final bool active;
+  final VoidCallback? onCommit;
 
   @override
   Widget build(BuildContext context) {
@@ -261,18 +289,13 @@ class _PlayerScore extends StatelessWidget {
       ),
       child: Row(
         children: [
-          Container(
-            width: 24,
-            height: 24,
-            decoration: BoxDecoration(
-              color: color == engine.Player.black
-                  ? LifeColors.ink
-                  : LifeColors.paper,
-              shape: BoxShape.circle,
-              border: Border.all(color: Colors.grey),
-            ),
+          PlayerTurnMarker(
+            player: color,
+            active: active,
+            onCommit: onCommit,
+            markerSize: 24,
           ),
-          SizedBox(width: compact ? 7 : 9),
+          SizedBox(width: compact ? 3 : 5),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,

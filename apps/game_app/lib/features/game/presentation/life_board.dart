@@ -14,6 +14,10 @@ class LifeBoard extends StatefulWidget {
     this.onCellTap,
     this.enabled = true,
     this.lastMove,
+    this.previewBoard,
+    this.tentativeMove,
+    this.previewDeaths = const [],
+    this.visualizePreviewDeaths = false,
     this.births = const [],
     this.semanticLabel = '20 by 20 game board',
   });
@@ -22,6 +26,10 @@ class LifeBoard extends StatefulWidget {
   final void Function(int row, int column)? onCellTap;
   final bool enabled;
   final engine.Coordinate? lastMove;
+  final engine.Board? previewBoard;
+  final engine.Coordinate? tentativeMove;
+  final List<engine.CellDeath> previewDeaths;
+  final bool visualizePreviewDeaths;
   final List<engine.Coordinate> births;
   final String semanticLabel;
 
@@ -98,7 +106,7 @@ class _LifeBoardState extends State<LifeBoard> {
                   : null,
               hint: _canActivate
                   ? 'Use the arrow keys to select a coordinate, then press '
-                        'Enter or Space to activate it.'
+                        'Enter or Space to preview it.'
                   : null,
               enabled: _canActivate,
               liveRegion: _hasFocus && _canActivate,
@@ -123,6 +131,10 @@ class _LifeBoardState extends State<LifeBoard> {
                           board: widget.board,
                           colorScheme: Theme.of(context).colorScheme,
                           lastMove: widget.lastMove,
+                          previewBoard: widget.previewBoard,
+                          tentativeMove: widget.tentativeMove,
+                          previewDeaths: widget.previewDeaths,
+                          visualizePreviewDeaths: widget.visualizePreviewDeaths,
                           births: widget.births.toSet(),
                           hovered: _hovered,
                           showHover: _canActivate,
@@ -159,7 +171,7 @@ class _LifeBoardState extends State<LifeBoard> {
                 (row * widget.board.columns + column).toDouble(),
               ),
               label: 'Row ${row + 1}, column ${column + 1}',
-              value: _cellStateLabel(widget.board.at(row, column)),
+              value: _cellStateLabel(engine.Coordinate(row, column)),
               button: _canActivate,
               enabled: _canActivate,
               selected:
@@ -237,16 +249,42 @@ class _LifeBoardState extends State<LifeBoard> {
   }
 
   String _cellDescription(engine.Coordinate coordinate) {
-    final state = widget.board.atCoordinate(coordinate);
     return 'Selected row ${coordinate.row + 1}, column '
-        '${coordinate.column + 1}, ${_cellStateLabel(state).toLowerCase()}';
+        '${coordinate.column + 1}, '
+        '${_cellStateLabel(coordinate).toLowerCase()}';
   }
 
-  String _cellStateLabel(engine.CellState state) => switch (state) {
-    engine.CellState.empty => 'Empty',
-    engine.CellState.black => 'Black cell',
-    engine.CellState.white => 'White cell',
-  };
+  String _cellStateLabel(engine.Coordinate coordinate) {
+    final current = widget.board.atCoordinate(coordinate);
+    final preview = widget.previewBoard?.atCoordinate(coordinate);
+    final death = _previewDeathAt(coordinate);
+    if (death != null) {
+      final color = death.player == engine.Player.black ? 'Black' : 'White';
+      if (current == engine.CellState.empty &&
+          coordinate == widget.tentativeMove) {
+        return 'Tentative ${color.toLowerCase()} placement will die next round';
+      }
+      return '$color cell will die next round';
+    }
+    if (preview == null || preview == current) {
+      return switch (current) {
+        engine.CellState.empty => 'Empty',
+        engine.CellState.black => 'Black cell',
+        engine.CellState.white => 'White cell',
+      };
+    }
+    if (preview == engine.CellState.empty) {
+      return 'Empty next round; currently ${current.name}';
+    }
+    return 'Hypothetical ${preview.name} cell';
+  }
+
+  engine.CellDeath? _previewDeathAt(engine.Coordinate coordinate) {
+    for (final death in widget.previewDeaths) {
+      if (death.coordinate == coordinate) return death;
+    }
+    return null;
+  }
 
   engine.Coordinate _coordinate(Offset position, Size size) {
     final cellWidth = size.width / widget.board.columns;
@@ -263,6 +301,10 @@ class LifeBoardPainter extends CustomPainter {
     required this.board,
     required this.colorScheme,
     required this.lastMove,
+    this.previewBoard,
+    this.tentativeMove,
+    this.previewDeaths = const [],
+    this.visualizePreviewDeaths = false,
     required this.births,
     required this.hovered,
     required this.showHover,
@@ -273,6 +315,10 @@ class LifeBoardPainter extends CustomPainter {
   final engine.Board board;
   final ColorScheme colorScheme;
   final engine.Coordinate? lastMove;
+  final engine.Board? previewBoard;
+  final engine.Coordinate? tentativeMove;
+  final List<engine.CellDeath> previewDeaths;
+  final bool visualizePreviewDeaths;
   final Set<engine.Coordinate> births;
   final engine.Coordinate? hovered;
   final bool showHover;
@@ -281,6 +327,7 @@ class LifeBoardPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
+    final displayBoard = previewBoard ?? board;
     final cellWidth = size.width / board.columns;
     final cellHeight = size.height / board.rows;
     final radius = math.min(cellWidth, cellHeight) * .22;
@@ -316,7 +363,7 @@ class LifeBoardPainter extends CustomPainter {
 
     for (var row = 0; row < board.rows; row++) {
       for (var column = 0; column < board.columns; column++) {
-        final cell = board.at(row, column);
+        final cell = displayBoard.at(row, column);
         if (cell == engine.CellState.empty) continue;
         final coordinate = engine.Coordinate(row, column);
         final rect = Rect.fromLTWH(
@@ -326,13 +373,18 @@ class LifeBoardPainter extends CustomPainter {
           cellHeight * .74,
         );
         final isBlack = cell == engine.CellState.black;
-        final isBirth = births.contains(coordinate);
+        final isHypothetical =
+            previewBoard != null && board.atCoordinate(coordinate) != cell;
+        final isBirth = previewBoard == null && births.contains(coordinate);
         final stoneShape = RRect.fromRectAndRadius(
           rect,
           Radius.circular(radius),
         );
+        final stoneColor = isBlack ? const Color(0xFF080A0D) : LifeColors.paper;
         final paint = Paint()
-          ..color = isBlack ? const Color(0xFF080A0D) : LifeColors.paper;
+          ..color = isHypothetical
+              ? stoneColor.withValues(alpha: .56)
+              : stoneColor;
         canvas.drawRRect(stoneShape, paint);
         if (isBirth) {
           canvas.drawRRect(
@@ -355,11 +407,30 @@ class LifeBoardPainter extends CustomPainter {
             Paint()
               ..style = PaintingStyle.stroke
               ..strokeWidth = 1
-              ..color = isBlack
-                  ? Colors.white.withValues(alpha: .42)
-                  : LifeColors.boardBorder.withValues(alpha: .82),
+              ..color =
+                  (isBlack
+                          ? Colors.white.withValues(alpha: .42)
+                          : LifeColors.boardBorder.withValues(alpha: .82))
+                      .withValues(alpha: isHypothetical ? .46 : 1),
           );
         }
+      }
+    }
+
+    if (previewBoard != null && visualizePreviewDeaths) {
+      for (final death in previewDeaths) {
+        if (!board.contains(death.coordinate) ||
+            previewBoard!.atCoordinate(death.coordinate) !=
+                engine.CellState.empty) {
+          continue;
+        }
+        _drawDeathGhost(
+          canvas,
+          death: death,
+          cellWidth: cellWidth,
+          cellHeight: cellHeight,
+          radius: radius,
+        );
       }
     }
 
@@ -402,29 +473,13 @@ class LifeBoardPainter extends CustomPainter {
           ..color = colorScheme.primary,
       );
     }
-    final visibleLastMove = lastMove;
-    if (visibleLastMove != null &&
-        board.contains(visibleLastMove) &&
-        board.atCoordinate(visibleLastMove) != engine.CellState.empty) {
-      final rect = Rect.fromLTWH(
-        visibleLastMove.column * cellWidth + cellWidth * .07,
-        visibleLastMove.row * cellHeight + cellHeight * .07,
-        cellWidth * .86,
-        cellHeight * .86,
-      );
-      canvas.drawRRect(
-        RRect.fromRectAndRadius(rect, Radius.circular(radius * 1.15)),
-        Paint()
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = 4.2
-          ..color = LifeColors.boardLastMoveDark,
-      );
-      canvas.drawRRect(
-        RRect.fromRectAndRadius(rect, Radius.circular(radius * 1.15)),
-        Paint()
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = 2.4
-          ..color = LifeColors.coral,
+    final shutter = tentativeMove ?? lastMove;
+    if (shutter != null && board.contains(shutter)) {
+      _drawShutter(
+        canvas,
+        coordinate: shutter,
+        cellWidth: cellWidth,
+        cellHeight: cellHeight,
       );
     }
     canvas.restore();
@@ -437,11 +492,109 @@ class LifeBoardPainter extends CustomPainter {
     );
   }
 
+  void _drawDeathGhost(
+    Canvas canvas, {
+    required engine.CellDeath death,
+    required double cellWidth,
+    required double cellHeight,
+    required double radius,
+  }) {
+    final coordinate = death.coordinate;
+    final rect = Rect.fromLTWH(
+      coordinate.column * cellWidth + cellWidth * .13,
+      coordinate.row * cellHeight + cellHeight * .13,
+      cellWidth * .74,
+      cellHeight * .74,
+    );
+    final stoneShape = RRect.fromRectAndRadius(rect, Radius.circular(radius));
+    final isBlack = death.player == engine.Player.black;
+    final stoneColor = isBlack ? const Color(0xFF080A0D) : LifeColors.paper;
+    canvas.drawRRect(
+      stoneShape,
+      Paint()..color = stoneColor.withValues(alpha: isBlack ? .28 : .46),
+    );
+    canvas.drawRRect(
+      stoneShape,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 3.8
+        ..color = LifeColors.boardMarkerDark.withValues(alpha: .9),
+    );
+    canvas.drawRRect(
+      stoneShape,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2
+        ..color = LifeColors.coral,
+    );
+
+    final inset = math.min(cellWidth, cellHeight) * .24;
+    final firstStart = Offset(rect.left + inset, rect.top + inset);
+    final firstEnd = Offset(rect.right - inset, rect.bottom - inset);
+    final secondStart = Offset(rect.right - inset, rect.top + inset);
+    final secondEnd = Offset(rect.left + inset, rect.bottom - inset);
+    final darkPaint = Paint()
+      ..color = LifeColors.boardMarkerDark
+      ..strokeWidth = 4
+      ..strokeCap = StrokeCap.round;
+    final coralPaint = Paint()
+      ..color = LifeColors.coral
+      ..strokeWidth = 2.2
+      ..strokeCap = StrokeCap.round;
+    canvas
+      ..drawLine(firstStart, firstEnd, darkPaint)
+      ..drawLine(secondStart, secondEnd, darkPaint)
+      ..drawLine(firstStart, firstEnd, coralPaint)
+      ..drawLine(secondStart, secondEnd, coralPaint);
+  }
+
+  void _drawShutter(
+    Canvas canvas, {
+    required engine.Coordinate coordinate,
+    required double cellWidth,
+    required double cellHeight,
+  }) {
+    final left = coordinate.column * cellWidth + cellWidth * .08;
+    final top = coordinate.row * cellHeight + cellHeight * .08;
+    final right = (coordinate.column + 1) * cellWidth - cellWidth * .08;
+    final bottom = (coordinate.row + 1) * cellHeight - cellHeight * .08;
+    final horizontal = cellWidth * .24;
+    final vertical = cellHeight * .24;
+    final segments = <(Offset, Offset)>[
+      (Offset(left, top), Offset(left + horizontal, top)),
+      (Offset(left, top), Offset(left, top + vertical)),
+      (Offset(right, top), Offset(right - horizontal, top)),
+      (Offset(right, top), Offset(right, top + vertical)),
+      (Offset(left, bottom), Offset(left + horizontal, bottom)),
+      (Offset(left, bottom), Offset(left, bottom - vertical)),
+      (Offset(right, bottom), Offset(right - horizontal, bottom)),
+      (Offset(right, bottom), Offset(right, bottom - vertical)),
+    ];
+    final darkPaint = Paint()
+      ..color = LifeColors.boardMarkerDark
+      ..strokeWidth = 4.6
+      ..strokeCap = StrokeCap.square;
+    final greenPaint = Paint()
+      ..color = LifeColors.sprout
+      ..strokeWidth = 2.5
+      ..strokeCap = StrokeCap.square;
+    for (final segment in segments) {
+      canvas.drawLine(segment.$1, segment.$2, darkPaint);
+    }
+    for (final segment in segments) {
+      canvas.drawLine(segment.$1, segment.$2, greenPaint);
+    }
+  }
+
   @override
   bool shouldRepaint(covariant LifeBoardPainter oldDelegate) =>
       oldDelegate.board != board ||
       oldDelegate.colorScheme != colorScheme ||
       oldDelegate.lastMove != lastMove ||
+      oldDelegate.previewBoard != previewBoard ||
+      oldDelegate.tentativeMove != tentativeMove ||
+      oldDelegate.previewDeaths != previewDeaths ||
+      oldDelegate.visualizePreviewDeaths != visualizePreviewDeaths ||
       oldDelegate.hovered != hovered ||
       oldDelegate.showHover != showHover ||
       oldDelegate.focused != focused ||

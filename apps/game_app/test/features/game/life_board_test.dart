@@ -14,6 +14,12 @@ void main() {
     WidgetTester tester, {
     required void Function(int row, int column) onCellTap,
     bool enabled = true,
+    engine.Board? board,
+    engine.Board? previewBoard,
+    engine.Coordinate? tentativeMove,
+    engine.Coordinate? lastMove,
+    List<engine.CellDeath> previewDeaths = const [],
+    bool visualizePreviewDeaths = false,
   }) {
     return tester.pumpWidget(
       MaterialApp(
@@ -22,7 +28,12 @@ void main() {
             child: SizedBox.square(
               dimension: 300,
               child: LifeBoard(
-                board: testBoard(),
+                board: board ?? testBoard(),
+                previewBoard: previewBoard,
+                tentativeMove: tentativeMove,
+                lastMove: lastMove,
+                previewDeaths: previewDeaths,
+                visualizePreviewDeaths: visualizePreviewDeaths,
                 semanticLabel: 'Test game board',
                 enabled: enabled,
                 onCellTap: onCellTap,
@@ -42,10 +53,9 @@ void main() {
     expect(
       paintBoard,
       paints..everything((method, arguments) {
-        if (method != #drawRRect || arguments[1] is! Paint) return true;
-        final paint = arguments[1] as Paint;
-        return paint.style != PaintingStyle.stroke ||
-            paint.color.toARGB32() != LifeColors.coral.toARGB32();
+        if (method != #drawLine || arguments[2] is! Paint) return true;
+        final paint = arguments[2] as Paint;
+        return paint.color.toARGB32() != LifeColors.sprout.toARGB32();
       }),
     );
   }
@@ -85,7 +95,7 @@ void main() {
     semantics.dispose();
   });
 
-  test('last-move marker outlines rather than covers a White cell', () {
+  test('last-move shutter surrounds rather than covers a White cell', () {
     final painter = LifeBoardPainter(
       board: testBoard(),
       colorScheme: ColorScheme.fromSeed(seedColor: LifeColors.sprout),
@@ -116,11 +126,10 @@ void main() {
       paintBoard,
       paints..something(
         (method, arguments) =>
-            method == #drawRRect &&
-            arguments[1] is Paint &&
-            (arguments[1] as Paint).color.toARGB32() ==
-                LifeColors.coral.toARGB32() &&
-            (arguments[1] as Paint).style == PaintingStyle.stroke,
+            method == #drawLine &&
+            arguments[2] is Paint &&
+            (arguments[2] as Paint).color.toARGB32() ==
+                LifeColors.sprout.toARGB32(),
       ),
     );
   });
@@ -168,7 +177,7 @@ void main() {
     );
   });
 
-  test('birth and last-move markers retain dark contrast rings', () {
+  test('birth ring and last-move shutter retain dark contrast', () {
     final coordinate = const engine.Coordinate(1, 2);
     final painter = LifeBoardPainter(
       board: testBoard(),
@@ -199,17 +208,16 @@ void main() {
         )
         ..something(
           (method, arguments) =>
-              method == #drawRRect &&
-              arguments[1] is Paint &&
-              (arguments[1] as Paint).style == PaintingStyle.stroke &&
-              ((arguments[1] as Paint).strokeWidth - 4.2).abs() < .001 &&
-              (arguments[1] as Paint).color.toARGB32() ==
-                  LifeColors.boardLastMoveDark.toARGB32(),
+              method == #drawLine &&
+              arguments[2] is Paint &&
+              ((arguments[2] as Paint).strokeWidth - 4.6).abs() < .001 &&
+              (arguments[2] as Paint).color.toARGB32() ==
+                  LifeColors.boardMarkerDark.toARGB32(),
         ),
     );
   });
 
-  test('last-move marker is omitted when the placed cell died', () {
+  test('last-move shutter remains when the placed cell died', () {
     final painter = LifeBoardPainter(
       board: engine.Board.empty(rows: 2, columns: 3),
       colorScheme: ColorScheme.fromSeed(seedColor: LifeColors.sprout),
@@ -221,7 +229,20 @@ void main() {
       showFocus: false,
     );
 
-    expectNoLastMoveMarker(painter);
+    void paintBoard(Canvas canvas) {
+      painter.paint(canvas, const Size.square(300));
+    }
+
+    expect(
+      paintBoard,
+      paints..something(
+        (method, arguments) =>
+            method == #drawLine &&
+            arguments[2] is Paint &&
+            (arguments[2] as Paint).color.toARGB32() ==
+                LifeColors.sprout.toARGB32(),
+      ),
+    );
   });
 
   test('stale out-of-bounds last move is ignored', () {
@@ -237,6 +258,213 @@ void main() {
     );
 
     expectNoLastMoveMarker(painter);
+  });
+
+  test('preview renders newly living cells as translucent', () {
+    final state = const engine.GameEngine().initialState();
+    final turn = const engine.GameEngine().applyMove(
+      state,
+      const engine.GameMove(
+        player: engine.Player.black,
+        row: 8,
+        column: 9,
+        expectedRevision: 0,
+      ),
+    );
+    final painter = LifeBoardPainter(
+      board: state.board,
+      previewBoard: turn.state.board,
+      tentativeMove: const engine.Coordinate(8, 9),
+      colorScheme: ColorScheme.fromSeed(seedColor: LifeColors.sprout),
+      lastMove: null,
+      births: const {},
+      hovered: null,
+      showHover: false,
+      focused: null,
+      showFocus: false,
+    );
+
+    void paintBoard(Canvas canvas) {
+      painter.paint(canvas, const Size.square(400));
+    }
+
+    expect(
+      paintBoard,
+      paints
+        ..something(
+          (method, arguments) =>
+              method == #drawRRect &&
+              arguments[1] is Paint &&
+              (arguments[1] as Paint).style == PaintingStyle.fill &&
+              (arguments[1] as Paint).shader == null &&
+              (arguments[1] as Paint).color.a > 0 &&
+              (arguments[1] as Paint).color.a < 1,
+        )
+        ..something(
+          (method, arguments) =>
+              method == #drawRRect &&
+              arguments[1] is Paint &&
+              (arguments[1] as Paint).style == PaintingStyle.fill &&
+              (arguments[1] as Paint).shader == null &&
+              (arguments[1] as Paint).color.a == 1,
+        ),
+    );
+  });
+
+  test('preview can render deaths as faded stones with a coral cross', () {
+    final state = const engine.GameEngine().initialState();
+    final turn = const engine.GameEngine().applyMove(
+      state,
+      const engine.GameMove(
+        player: engine.Player.black,
+        row: 0,
+        column: 0,
+        expectedRevision: 0,
+      ),
+    );
+    expect(turn.state.board, state.board);
+    final painter = LifeBoardPainter(
+      board: state.board,
+      previewBoard: turn.state.board,
+      tentativeMove: const engine.Coordinate(0, 0),
+      previewDeaths: turn.delta.evolution.deaths,
+      visualizePreviewDeaths: true,
+      colorScheme: ColorScheme.fromSeed(seedColor: LifeColors.sprout),
+      lastMove: null,
+      births: const {},
+      hovered: null,
+      showHover: false,
+      focused: null,
+      showFocus: false,
+    );
+
+    void paintBoard(Canvas canvas) {
+      painter.paint(canvas, const Size.square(400));
+    }
+
+    expect(
+      paintBoard,
+      paints
+        ..something(
+          (method, arguments) =>
+              method == #drawRRect &&
+              arguments[1] is Paint &&
+              (arguments[1] as Paint).style == PaintingStyle.fill &&
+              (arguments[1] as Paint).color.a > 0 &&
+              (arguments[1] as Paint).color.a < 1,
+        )
+        ..something(
+          (method, arguments) =>
+              method == #drawLine &&
+              arguments[2] is Paint &&
+              (arguments[2] as Paint).color.toARGB32() ==
+                  LifeColors.coral.toARGB32(),
+        ),
+    );
+  });
+
+  test('preview omits death ghosts when visualization is disabled', () {
+    final state = const engine.GameEngine().initialState();
+    final turn = const engine.GameEngine().applyMove(
+      state,
+      const engine.GameMove(
+        player: engine.Player.black,
+        row: 0,
+        column: 0,
+        expectedRevision: 0,
+      ),
+    );
+    final painter = LifeBoardPainter(
+      board: state.board,
+      previewBoard: turn.state.board,
+      tentativeMove: const engine.Coordinate(0, 0),
+      previewDeaths: turn.delta.evolution.deaths,
+      visualizePreviewDeaths: false,
+      colorScheme: ColorScheme.fromSeed(seedColor: LifeColors.sprout),
+      lastMove: null,
+      births: const {},
+      hovered: null,
+      showHover: false,
+      focused: null,
+      showFocus: false,
+    );
+
+    void paintBoard(Canvas canvas) {
+      painter.paint(canvas, const Size.square(400));
+    }
+
+    expect(
+      paintBoard,
+      paints..everything((method, arguments) {
+        if (method == #drawLine && arguments[2] is Paint) {
+          return (arguments[2] as Paint).color.toARGB32() !=
+              LifeColors.coral.toARGB32();
+        }
+        if (method == #drawRRect && arguments[1] is Paint) {
+          return (arguments[1] as Paint).color.toARGB32() !=
+              LifeColors.coral.toARGB32();
+        }
+        return true;
+      }),
+    );
+  });
+
+  testWidgets('semantics distinguishes hypothetical cells', (tester) async {
+    final semantics = tester.ensureSemantics();
+    final board = engine.Board.empty(rows: 2, columns: 3);
+    final preview = board.withCell(
+      const engine.Coordinate(0, 0),
+      engine.CellState.black,
+    );
+    await pumpBoard(
+      tester,
+      board: board,
+      previewBoard: preview,
+      tentativeMove: const engine.Coordinate(0, 0),
+      onCellTap: (_, _) {},
+    );
+
+    expect(
+      tester
+          .getSemantics(find.byKey(const ValueKey('life-cell-0-0')))
+          .getSemanticsData()
+          .value,
+      'Hypothetical black cell',
+    );
+    semantics.dispose();
+  });
+
+  testWidgets('semantics announces a tentative placement that will die', (
+    tester,
+  ) async {
+    final semantics = tester.ensureSemantics();
+    final state = const engine.GameEngine().initialState();
+    final turn = const engine.GameEngine().applyMove(
+      state,
+      const engine.GameMove(
+        player: engine.Player.black,
+        row: 0,
+        column: 0,
+        expectedRevision: 0,
+      ),
+    );
+    await pumpBoard(
+      tester,
+      board: state.board,
+      previewBoard: turn.state.board,
+      tentativeMove: const engine.Coordinate(0, 0),
+      previewDeaths: turn.delta.evolution.deaths,
+      onCellTap: (_, _) {},
+    );
+
+    expect(
+      tester
+          .getSemantics(find.byKey(const ValueKey('life-cell-0-0')))
+          .getSemanticsData()
+          .value,
+      'Tentative black placement will die next round',
+    );
+    semantics.dispose();
   });
 
   testWidgets('arrow keys select coordinates and Enter or Space activates', (

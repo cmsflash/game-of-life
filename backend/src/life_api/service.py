@@ -12,6 +12,7 @@ from .engine import Engine
 from .errors import ApiError
 from .models import (
     CreateMatchRequest,
+    LastMove,
     MatchDocument,
     MatchRulesRequest,
     MatchStatus,
@@ -282,6 +283,12 @@ class MatchService:
             update={
                 "state": state,
                 "status": MatchStatus.completed if outcome else MatchStatus.active,
+                "last_move": LastMove(
+                    revision=int(state["revision"]),
+                    player=color,
+                    row=request.row,
+                    column=request.column,
+                ),
                 "result": outcome,
                 "version": match.version + 1,
                 "updated_at": now,
@@ -400,6 +407,7 @@ class MatchService:
             your_color=match.color_for(user_id),
             status=match.status,
             version=match.version,
+            last_move=match.last_move,
             result=match.result,
             created_at=match.created_at,
             updated_at=match.updated_at,

@@ -4,13 +4,20 @@
 
 - The application launches without an account on all Flutter target platforms.
 - A local two-player match starts from the centered diagonal 2 by 2 position.
-- Every legal tap places the correct color and performs exactly one simultaneous
-  evolution.
+- Every legal tap previews the board after the correct-color placement and one
+  simultaneous evolution without consuming the turn.
+- Tapping another empty cell replaces the preview; only the separate player-
+  colored check control commits the selected move and advances one turn.
 - Every newborn cell takes the majority color of its exactly three live
   neighbors. Only rules version 3 with `strictNeighborMajority` birth ownership
   is accepted.
-- The last-move indicator outlines its coordinate without covering a surviving
-  Black or White cell.
+- Cells that exist only in the preview are translucent while surviving current
+  cells remain opaque.
+- Game-view settings offer a `Visualize deaths in preview` option. When enabled,
+  cells that will die remain as faded, original-color stones with a coral cross;
+  when disabled, those cells disappear from the preview.
+- A light-green corner shutter surrounds the tentative coordinate and remains
+  on the committed last-move coordinate, even if that placed cell dies.
 - Isolated placements visibly consume a turn even if the final board is
   unchanged.
 - Elimination, turn-limit population, and population-target modes finish with
@@ -40,6 +47,8 @@
 - The service rejects moves by spectators, moves on the wrong turn, occupied
   coordinates, stale revisions, and duplicate commands.
 - A successful command atomically persists the snapshot and append-only move.
+- The match snapshot retains the latest committed move coordinate so both
+  players see the same last-move shutter after polling or reopening the match.
 - Polling returns `304 Not Modified` when the match version is unchanged.
 - Both players can load the same replay and independently reproduce its final
   state hash.
