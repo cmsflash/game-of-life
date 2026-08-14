@@ -545,6 +545,7 @@ void main() {
       elo: 1188,
     );
     final now = DateTime.utc(2026, 8, 14);
+    final challengeExpiry = DateTime.utc(2026, 8, 21);
     final social = FakeSocialRepository(
       searchResults: const [searchResult],
       overview: SocialOverview(
@@ -570,7 +571,7 @@ void main() {
             player: incomingPlayer,
             status: 'pending',
             createdAt: now,
-            expiresAt: DateTime.utc(2026, 8, 21),
+            expiresAt: challengeExpiry,
           ),
         ],
       ),
@@ -598,7 +599,11 @@ void main() {
       find.byKey(const Key('incoming-challenge-challenge-in')),
       findsOneWidget,
     );
-    expect(find.textContaining('Expires 8/20'), findsOneWidget);
+    final localExpiry = challengeExpiry.toLocal();
+    expect(
+      find.textContaining('Expires ${localExpiry.month}/${localExpiry.day}'),
+      findsOneWidget,
+    );
     expect(find.textContaining('private_alice'), findsNothing);
 
     final visibility = tester.widget<SwitchListTile>(
