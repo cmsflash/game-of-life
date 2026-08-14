@@ -76,6 +76,9 @@ def install_error_handlers(app: FastAPI) -> None:
         details = exc.errors()
         for detail in details:
             detail.pop("ctx", None)
+            # Validation inputs can contain passwords or push credentials. The
+            # field location and error type are sufficient for clients.
+            detail.pop("input", None)
         return JSONResponse(
             status_code=422,
             content=error_payload(

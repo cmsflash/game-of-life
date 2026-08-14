@@ -1,11 +1,15 @@
 from __future__ import annotations
 
+import base64
+import binascii
 import ipaddress
 import os
 import re
 from dataclasses import dataclass
 from functools import lru_cache
 from urllib.parse import urlsplit
+
+from cryptography.hazmat.primitives.asymmetric import ec
 
 _NATIVE_SCHEME_PATTERN = re.compile(r"^[A-Za-z][A-Za-z0-9+.-]*$")
 
@@ -42,6 +46,22 @@ class Settings:
     cognito_oauth_callback_url: str | None
     oauth_state_secret: str
     google_login_enabled: bool
+    push_providers: tuple[str, ...] = ()
+    firebase_service_account_secret_arn: str | None = None
+    web_push_vapid_private_key_secret_arn: str | None = None
+    web_push_vapid_public_key: str | None = None
+    web_push_vapid_subject: str | None = None
+    web_push_allowed_host_suffixes: tuple[str, ...] = (
+        "fcm.googleapis.com",
+        "push.services.mozilla.com",
+        "push.apple.com",
+        "notify.windows.com",
+    )
+    notification_function_arn: str | None = None
+    notification_scheduler_role_arn: str | None = None
+    notification_schedule_group_name: str | None = None
+    notification_dead_letter_queue_arn: str | None = None
+    app_component: str = "api"
 
     @property
     def is_production(self) -> bool:
@@ -75,6 +95,28 @@ class Settings:
             cognito_oauth_callback_url=os.getenv("COGNITO_OAUTH_CALLBACK_URL") or None,
             oauth_state_secret=oauth_secret,
             google_login_enabled=_boolean("GOOGLE_LOGIN_ENABLED", app_env != "production"),
+            push_providers=_csv("PUSH_PROVIDERS"),
+            firebase_service_account_secret_arn=(
+                os.getenv("FIREBASE_SERVICE_ACCOUNT_SECRET_ARN") or None
+            ),
+            web_push_vapid_private_key_secret_arn=(
+                os.getenv("WEB_PUSH_VAPID_PRIVATE_KEY_SECRET_ARN") or None
+            ),
+            web_push_vapid_public_key=os.getenv("WEB_PUSH_VAPID_PUBLIC_KEY") or None,
+            web_push_vapid_subject=os.getenv("WEB_PUSH_VAPID_SUBJECT") or None,
+            web_push_allowed_host_suffixes=_csv(
+                "WEB_PUSH_ALLOWED_HOST_SUFFIXES",
+                ("fcm.googleapis.com,push.services.mozilla.com,push.apple.com,notify.windows.com"),
+            ),
+            notification_function_arn=os.getenv("NOTIFICATION_FUNCTION_ARN") or None,
+            notification_scheduler_role_arn=(os.getenv("NOTIFICATION_SCHEDULER_ROLE_ARN") or None),
+            notification_schedule_group_name=(
+                os.getenv("NOTIFICATION_SCHEDULE_GROUP_NAME") or None
+            ),
+            notification_dead_letter_queue_arn=(
+                os.getenv("NOTIFICATION_DEAD_LETTER_QUEUE_ARN") or None
+            ),
+            app_component=os.getenv("APP_COMPONENT", "api").strip().lower(),
         )
         settings.validate()
         return settings
@@ -83,7 +125,82 @@ class Settings:
         allowed_environments = {"local", "test", "production"}
         if self.app_env not in allowed_environments:
             raise RuntimeError(f"APP_ENV must be one of: {', '.join(sorted(allowed_environments))}")
-        if self.is_production:
+        if self.app_component not in {"api", "notifications"}:
+            raise RuntimeError("APP_COMPONENT must be api or notifications")
+        supported_push_providers = {"firebase", "webPush"}
+        unknown_push_providers = set(self.push_providers) - supported_push_providers
+        if unknown_push_providers:
+            raise RuntimeError(
+                "PUSH_PROVIDERS contains unsupported values: "
+                + ", ".join(sorted(unknown_push_providers))
+            )
+        if "firebase" in self.push_providers and not self.firebase_service_account_secret_arn:
+            raise RuntimeError(
+                "FIREBASE_SERVICE_ACCOUNT_SECRET_ARN is required when firebase push is enabled"
+            )
+        if "webPush" in self.push_providers:
+            missing_web_push = [
+                name
+                for name, value in {
+                    "WEB_PUSH_VAPID_PRIVATE_KEY_SECRET_ARN": (
+                        self.web_push_vapid_private_key_secret_arn
+                    ),
+                    "WEB_PUSH_VAPID_PUBLIC_KEY": self.web_push_vapid_public_key,
+                    "WEB_PUSH_VAPID_SUBJECT": self.web_push_vapid_subject,
+                }.items()
+                if not value
+            ]
+            if missing_web_push:
+                raise RuntimeError("missing Web Push settings: " + ", ".join(missing_web_push))
+            if not self.web_push_allowed_host_suffixes:
+                raise RuntimeError("WEB_PUSH_ALLOWED_HOST_SUFFIXES must not be empty")
+            assert self.web_push_vapid_public_key
+            try:
+                decoded_public_key = base64.b64decode(
+                    self.web_push_vapid_public_key
+                    + "=" * (-len(self.web_push_vapid_public_key) % 4),
+                    altchars=b"-_",
+                    validate=True,
+                )
+            except (binascii.Error, ValueError) as error:
+                raise RuntimeError("WEB_PUSH_VAPID_PUBLIC_KEY must be URL-safe base64") from error
+            if len(decoded_public_key) != 65 or decoded_public_key[0] != 4:
+                raise RuntimeError(
+                    "WEB_PUSH_VAPID_PUBLIC_KEY must be an uncompressed P-256 public key"
+                )
+            try:
+                ec.EllipticCurvePublicKey.from_encoded_point(
+                    ec.SECP256R1(),
+                    decoded_public_key,
+                )
+            except ValueError as error:
+                raise RuntimeError(
+                    "WEB_PUSH_VAPID_PUBLIC_KEY must contain a valid P-256 point"
+                ) from error
+            assert self.web_push_vapid_subject
+            if not (
+                (
+                    self.web_push_vapid_subject.startswith("mailto:")
+                    and "@" in self.web_push_vapid_subject.removeprefix("mailto:")
+                )
+                or self.web_push_vapid_subject.startswith("https://")
+            ):
+                raise RuntimeError("WEB_PUSH_VAPID_SUBJECT must be a mailto: or HTTPS URI")
+        if self.push_providers:
+            missing_scheduler = [
+                name
+                for name, value in {
+                    "NOTIFICATION_FUNCTION_ARN": self.notification_function_arn,
+                    "NOTIFICATION_SCHEDULER_ROLE_ARN": self.notification_scheduler_role_arn,
+                    "NOTIFICATION_SCHEDULE_GROUP_NAME": self.notification_schedule_group_name,
+                }.items()
+                if not value
+            ]
+            if missing_scheduler:
+                raise RuntimeError(
+                    "missing notification scheduler settings: " + ", ".join(missing_scheduler)
+                )
+        if self.is_production and self.app_component == "api":
             required = {
                 "COGNITO_USER_POOL_ID": self.cognito_user_pool_id,
                 "COGNITO_CLIENT_ID": self.cognito_client_id,

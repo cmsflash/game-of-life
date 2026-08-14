@@ -49,8 +49,56 @@ resigns every active game. Completed game records remain available to the
 opponent, but the deleted player's identifier and generic color label are replaced
 with an unlinkable `Deleted player` identity in both match state and move
 history. The deleted player's memberships, matchmaking records, idempotency
-records, and identity-provider account are then removed. Existing access and
+records, push subscriptions, and identity-provider account are then removed. Existing access and
 refresh tokens no longer authenticate.
+
+## Turn notifications
+
+`GET /notifications/config` is public and returns the configured provider names
+plus the public VAPID key when standard Web Push is enabled. Registration and
+deletion require a bearer token and are always scoped to that account.
+
+| ID | Method | Path | Purpose |
+| --- | --- | --- | --- |
+| N1 | `GET` | `/notifications/config` | Read enabled providers and the public Web Push key. |
+| N2 | `POST` | `/notifications/subscriptions` | Create or replace one authenticated installation subscription. |
+| N3 | `GET` | `/notifications/subscriptions` | List token-free subscription metadata for this account. |
+| N4 | `DELETE` | `/notifications/subscriptions/{installationId}` | Remove this account's installation subscription; returns `204`. |
+
+Browser registration uses standard Web Push:
+
+```json
+{
+  "installationId": "client-generated-stable-random-id",
+  "platform": "web",
+  "provider": "webPush",
+  "endpoint": "https://fcm.googleapis.com/fcm/send/browser-subscription",
+  "p256dh": "browser-generated-public-key",
+  "auth": "browser-generated-auth-secret",
+  "locale": "en-US",
+  "timeZone": "America/Los_Angeles"
+}
+```
+
+Android and iOS registration uses a Firebase registration token:
+
+```json
+{
+  "installationId": "client-generated-stable-random-id",
+  "platform": "android",
+  "provider": "firebase",
+  "token": "firebase-registration-token",
+  "locale": "en-US",
+  "timeZone": "America/Los_Angeles"
+}
+```
+
+The response and list endpoint never return the endpoint, token, encryption
+keys, or auth secret. Registering the same installation under a new account
+atomically removes its old account association. The server sends at turn start
+and after 8, 24, and 72 hours. Every delivery rechecks the match ID, revision,
+status, next-player ID, and player-to-move; a stale reminder sends nothing.
+Each account can keep up to five active installations.
 
 ## Matches
 

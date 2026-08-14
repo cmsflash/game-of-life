@@ -60,6 +60,7 @@ for file in \
   index.html \
   flutter_bootstrap.js \
   flutter_service_worker.js \
+  push-service-worker.js \
   flutter.js \
   main.dart.js \
   manifest.json \
@@ -90,8 +91,10 @@ PATH="$mock_bin:$PATH" \
 grep -F -- "flutter build web --release --no-web-resources-cdn --output $mock_build --dart-define=API_BASE_URL=https://api.example.com --dart-define=GOOGLE_SIGN_IN_ENABLED=true" "$mock_log" >/dev/null
 grep -F -- "s3 sync $mock_build/ s3://life-production-web-123456789012/ --delete" "$mock_log" >/dev/null
 grep -F -- "--exclude index.html" "$mock_log" >/dev/null
+grep -F -- "--exclude push-service-worker.js" "$mock_log" >/dev/null
 grep -F -- "--exclude main.dart.js" "$mock_log" >/dev/null
 grep -F -- "main.dart.js s3://life-production-web-123456789012/main.dart.js --cache-control public,max-age=0,must-revalidate,s-maxage=3600" "$mock_log" >/dev/null
+grep -F -- "push-service-worker.js s3://life-production-web-123456789012/push-service-worker.js --cache-control no-cache,no-store,max-age=0,must-revalidate --content-type application/javascript" "$mock_log" >/dev/null
 grep -F -- "assets/AssetManifest.bin s3://life-production-web-123456789012/assets/AssetManifest.bin --cache-control public,max-age=0,must-revalidate,s-maxage=3600" "$mock_log" >/dev/null
 grep -F -- "canvaskit/canvaskit.js s3://life-production-web-123456789012/canvaskit/canvaskit.js --cache-control public,max-age=0,must-revalidate,s-maxage=3600 --content-type application/javascript" "$mock_log" >/dev/null
 grep -F -- "canvaskit/canvaskit.wasm s3://life-production-web-123456789012/canvaskit/canvaskit.wasm" "$mock_log" >/dev/null

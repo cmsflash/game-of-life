@@ -27,6 +27,10 @@ from .models import (
     MessageResponse,
     MoveHistoryResponse,
     MoveRequest,
+    PushNotificationConfig,
+    PushSubscriptionDocument,
+    PushSubscriptionListResponse,
+    PushSubscriptionRequest,
     QuickMatchRequest,
     QuickMatchResponse,
     RefreshRequest,
@@ -39,6 +43,7 @@ from .models import (
     User,
     UsernameRequest,
 )
+from .notifications import PushSubscriptionService
 from .oauth import GoogleOAuthService
 from .repository import Repository, build_repository
 from .service import MatchService
@@ -62,6 +67,7 @@ class AppServices:
         self.engine = engine
         self.oauth = GoogleOAuthService(settings, identity, repository)
         self.matches = MatchService(repository, engine)
+        self.notifications = PushSubscriptionService(repository, settings)
 
 
 def current_services(request: Request) -> AppServices:
@@ -298,6 +304,57 @@ def create_app(
     ) -> Response:
         services.matches.delete_account_data(user)
         services.identity.delete_account(authorization.removeprefix("Bearer ").strip())
+        return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+    @app.get(
+        "/v1/notifications/config",
+        response_model=PushNotificationConfig,
+        tags=["notifications"],
+    )
+    def notification_config(services: Services) -> PushNotificationConfig:
+        return services.notifications.config()
+
+    @app.post(
+        "/v1/notifications/subscriptions",
+        response_model=PushSubscriptionDocument,
+        tags=["notifications"],
+    )
+    def register_push_subscription(
+        request: PushSubscriptionRequest,
+        user: CurrentUser,
+        services: Services,
+    ) -> PushSubscriptionDocument:
+        return services.notifications.register(user, request)
+
+    @app.get(
+        "/v1/notifications/subscriptions",
+        response_model=PushSubscriptionListResponse,
+        tags=["notifications"],
+    )
+    def list_push_subscriptions(
+        user: CurrentUser,
+        services: Services,
+    ) -> PushSubscriptionListResponse:
+        return PushSubscriptionListResponse(items=services.notifications.list(user))
+
+    @app.delete(
+        "/v1/notifications/subscriptions/{installation_id}",
+        status_code=status.HTTP_204_NO_CONTENT,
+        tags=["notifications"],
+    )
+    def delete_push_subscription(
+        installation_id: Annotated[
+            str,
+            Path(
+                min_length=16,
+                max_length=128,
+                pattern=r"^[A-Za-z0-9_.-]+$",
+            ),
+        ],
+        user: CurrentUser,
+        services: Services,
+    ) -> Response:
+        services.notifications.delete(user, installation_id)
         return Response(status_code=status.HTTP_204_NO_CONTENT)
 
     @app.post(

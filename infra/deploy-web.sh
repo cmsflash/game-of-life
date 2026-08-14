@@ -178,6 +178,7 @@ required_build_files=(
   index.html
   flutter_bootstrap.js
   main.dart.js
+  push-service-worker.js
   version.json
 )
 for relative_path in "${required_build_files[@]}"; do
@@ -205,6 +206,7 @@ no_cache_files=(
   "index.html|text/html; charset=utf-8"
   "flutter_bootstrap.js|application/javascript"
   "flutter_service_worker.js|application/javascript"
+  "push-service-worker.js|application/javascript"
   "manifest.json|application/manifest+json"
   "version.json|application/json"
 )

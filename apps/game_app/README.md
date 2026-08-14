@@ -15,6 +15,7 @@ iOS, web, macOS, Windows, and Linux and uses the shared pure-Dart
 - In-app privacy, Terms, open-source license, and permanent account deletion
 - Quick matchmaking, private match creation, join by code, match list, online
   board polling, move submission, stale-revision recovery, and resignation
+- Opt-in turn alerts on web, Android, and iOS with direct links back to a match
 - Server board decoding for the canonical state JSON and packed 2-bit format
 
 Username/password authentication never contacts Google and remains available
@@ -56,6 +57,62 @@ code.
 Android, iOS, and macOS register the reverse-domain callback scheme. Windows
 and Linux builds gracefully direct players to password login until their
 installers register a callback protocol.
+
+## Turn notifications
+
+Notification support is provider-neutral at the application/API boundary. Web
+uses the standard Web Push protocol, while Android and iOS use Firebase Cloud
+Messaging. Builds without notification configuration remain valid; the Profile
+screen explains that notifications are unavailable instead of prompting the
+player.
+
+Web builds load the public VAPID key from `GET /v1/notifications/config`. This
+keeps the key used for browser subscriptions paired with the backend's private
+key. Keep the VAPID private key only in the backend's secret store. Web Push
+requires HTTPS except on localhost. The client registers
+`push-service-worker.js` under the narrow `/push/` scope so it does not replace
+Flutter's application service worker. Production hosting should serve that
+stable script with `Cache-Control: no-cache`.
+
+Native builds initialize Firebase from build-time values, so no
+`google-services.json` or `GoogleService-Info.plist` is checked in:
+
+```sh
+# Shared values
+--dart-define=FIREBASE_PROJECT_ID=PROJECT_ID
+--dart-define=FIREBASE_MESSAGING_SENDER_ID=SENDER_ID
+
+# Android
+--dart-define=FIREBASE_ANDROID_API_KEY=ANDROID_API_KEY
+--dart-define=FIREBASE_ANDROID_APP_ID=ANDROID_APP_ID
+
+# iOS
+--dart-define=FIREBASE_IOS_API_KEY=IOS_API_KEY
+--dart-define=FIREBASE_IOS_APP_ID=IOS_APP_ID
+--dart-define=FIREBASE_IOS_BUNDLE_ID=com.cmsflash.gameoflife
+```
+
+`FIREBASE_API_KEY` and `FIREBASE_APP_ID` can replace the platform-specific
+values when a build targets only one native platform. These identifiers are
+not server credentials. FCM service-account credentials and the Apple APNs
+authentication key remain backend/Firebase secrets. Before distributing iOS,
+enable Push Notifications for the App ID and provisioning profile and upload
+an APNs authentication key to Firebase. Android 13+ and iOS ask the player for
+permission only after they turn the Profile preference on.
+
+The authenticated client contract is:
+
+- `GET /v1/notifications/config` is public and returns enabled providers plus
+  the public Web Push key
+- `GET /v1/notifications/subscriptions`
+- `POST /v1/notifications/subscriptions` to upsert the current installation
+- `DELETE /v1/notifications/subscriptions/{installationId}`
+
+The server sends an immediate turn alert and reminders after 8, 24, and 72
+hours while the same turn remains pending. Both Web Push and FCM payloads should
+include `data.matchId` (or `data.path`) so tapping an alert opens
+`/online/match/{id}`. Web notification payloads may additionally include a
+`notification` object with `title` and `body`.
 
 For a Play Store bundle, copy `android/key.properties.example` to
 `android/key.properties`, point it at the private upload keystore, and replace

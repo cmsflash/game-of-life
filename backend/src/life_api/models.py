@@ -1,9 +1,13 @@
 from __future__ import annotations
 
+import base64
+import binascii
 from datetime import UTC, datetime
 from enum import StrEnum
 from typing import Annotated, Any, Literal
+from urllib.parse import urlsplit
 
+from cryptography.hazmat.primitives.asymmetric import ec
 from pydantic import (
     AfterValidator,
     BaseModel,
@@ -120,6 +124,109 @@ class ExchangeRequest(StrictModel):
 
 class MessageResponse(StrictModel):
     message: str
+
+
+class PushPlatform(StrEnum):
+    web = "web"
+    android = "android"
+    ios = "ios"
+
+
+class PushProviderName(StrEnum):
+    web_push = "webPush"
+    firebase = "firebase"
+
+
+class WebPushSubscriptionRequest(StrictModel):
+    installation_id: str = Field(
+        alias="installationId",
+        min_length=16,
+        max_length=128,
+        pattern=r"^[A-Za-z0-9_.-]+$",
+    )
+    platform: Literal[PushPlatform.web] = PushPlatform.web
+    provider: Literal[PushProviderName.web_push] = PushProviderName.web_push
+    endpoint: str = Field(min_length=16, max_length=2048, repr=False)
+    p256dh: str = Field(min_length=40, max_length=256, repr=False)
+    auth: str = Field(min_length=8, max_length=128, repr=False)
+    locale: str | None = Field(default=None, min_length=2, max_length=32)
+    time_zone: str | None = Field(default=None, alias="timeZone", min_length=1, max_length=64)
+
+    @field_validator("endpoint")
+    @classmethod
+    def validate_endpoint(cls, value: str) -> str:
+        parts = urlsplit(value)
+        if (
+            parts.scheme.casefold() != "https"
+            or not parts.netloc
+            or parts.hostname is None
+            or parts.username is not None
+            or parts.password is not None
+            or parts.fragment
+        ):
+            raise ValueError("endpoint must be an HTTPS push-service URL")
+        return value
+
+    @field_validator("p256dh")
+    @classmethod
+    def validate_p256dh(cls, value: str) -> str:
+        decoded = _decode_urlsafe_base64(value, "p256dh")
+        if len(decoded) != 65 or decoded[0] != 4:
+            raise ValueError("p256dh must be an uncompressed P-256 public key")
+        try:
+            ec.EllipticCurvePublicKey.from_encoded_point(ec.SECP256R1(), decoded)
+        except ValueError as error:
+            raise ValueError("p256dh must contain a valid P-256 point") from error
+        return value
+
+    @field_validator("auth")
+    @classmethod
+    def validate_auth_secret(cls, value: str) -> str:
+        if len(_decode_urlsafe_base64(value, "auth")) != 16:
+            raise ValueError("auth must decode to 16 bytes")
+        return value
+
+
+class FirebasePushSubscriptionRequest(StrictModel):
+    installation_id: str = Field(
+        alias="installationId",
+        min_length=16,
+        max_length=128,
+        pattern=r"^[A-Za-z0-9_.-]+$",
+    )
+    platform: Literal[PushPlatform.android, PushPlatform.ios]
+    provider: Literal[PushProviderName.firebase] = PushProviderName.firebase
+    token: str = Field(min_length=20, max_length=4096, repr=False)
+    locale: str | None = Field(default=None, min_length=2, max_length=32)
+    time_zone: str | None = Field(default=None, alias="timeZone", min_length=1, max_length=64)
+
+
+PushSubscriptionRequest = Annotated[
+    WebPushSubscriptionRequest | FirebasePushSubscriptionRequest,
+    Field(discriminator="provider"),
+]
+
+
+class PushSubscriptionDocument(StrictModel):
+    installation_id: str = Field(alias="installationId")
+    platform: PushPlatform
+    provider: PushProviderName
+    locale: str | None = None
+    time_zone: str | None = Field(default=None, alias="timeZone")
+    created_at: UtcDateTime = Field(alias="createdAt")
+    updated_at: UtcDateTime = Field(alias="updatedAt")
+
+
+class PushSubscriptionListResponse(StrictModel):
+    items: list[PushSubscriptionDocument]
+
+
+class PushNotificationConfig(StrictModel):
+    providers: list[PushProviderName]
+    web_push_vapid_public_key: str | None = Field(
+        default=None,
+        alias="webPushVapidPublicKey",
+    )
 
 
 class VictoryMode(StrEnum):
@@ -314,6 +421,47 @@ class StoredMatch(StrictModel):
         return None
 
 
+class StoredPushSubscription(StrictModel):
+    user_id: str = Field(alias="userId")
+    installation_id: str = Field(alias="installationId")
+    platform: PushPlatform
+    provider: PushProviderName
+    token: str | None = Field(default=None, repr=False)
+    endpoint: str | None = Field(default=None, repr=False)
+    p256dh: str | None = Field(default=None, repr=False)
+    auth: str | None = Field(default=None, repr=False)
+    locale: str | None = None
+    time_zone: str | None = Field(default=None, alias="timeZone")
+    created_at: UtcDateTime = Field(
+        default_factory=lambda: datetime.now(UTC),
+        alias="createdAt",
+    )
+    updated_at: UtcDateTime = Field(
+        default_factory=lambda: datetime.now(UTC),
+        alias="updatedAt",
+    )
+
+    def document(self) -> PushSubscriptionDocument:
+        return PushSubscriptionDocument(
+            installation_id=self.installation_id,
+            platform=self.platform,
+            provider=self.provider,
+            locale=self.locale,
+            time_zone=self.time_zone,
+            created_at=self.created_at,
+            updated_at=self.updated_at,
+        )
+
+
+class TurnNotificationJob(StrictModel):
+    kind: Literal["turnNotification"] = "turnNotification"
+    match_id: str = Field(alias="matchId")
+    revision: int = Field(ge=0)
+    recipient_user_id: str = Field(alias="recipientUserId")
+    reminder_hours: Literal[0, 8, 24, 72] = Field(alias="reminderHours")
+    turn_started_at: UtcDateTime = Field(alias="turnStartedAt")
+
+
 class StoredExchange(StrictModel):
     code: str
     tokens: TokenSet
@@ -325,3 +473,14 @@ class StoredOAuthTransaction(StrictModel):
     verifier: str
     return_to: str = Field(alias="returnTo")
     expires_at: UtcDateTime = Field(alias="expiresAt")
+
+
+def _decode_urlsafe_base64(value: str, field_name: str) -> bytes:
+    try:
+        return base64.b64decode(
+            value + "=" * (-len(value) % 4),
+            altchars=b"-_",
+            validate=True,
+        )
+    except (binascii.Error, ValueError) as error:
+        raise ValueError(f"{field_name} must be URL-safe base64") from error

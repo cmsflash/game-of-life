@@ -28,6 +28,18 @@ jobs:
       - name: Engine tests
         run: dart test
         working-directory: packages/game_engine
+      - name: AI dependencies
+        run: dart pub get
+        working-directory: packages/game_ai
+      - name: AI format
+        run: dart format --output=none --set-exit-if-changed .
+        working-directory: packages/game_ai
+      - name: AI analysis
+        run: dart analyze --fatal-infos
+        working-directory: packages/game_ai
+      - name: AI tests
+        run: dart test
+        working-directory: packages/game_ai
       - name: CLI dependencies
         run: dart pub get
         working-directory: tools/game_cli

@@ -83,6 +83,58 @@ flutter run \
 
 Do not add a trailing slash to `API_BASE_URL`.
 
+## Turn push notifications
+
+`PushNotificationMode` defaults to `disabled`. In that mode the existing API
+stack remains deployable without any push credentials, no notification Lambda
+or reminder schedules are created, and `/v1/notifications/config` returns an
+empty provider list.
+
+The supported modes are:
+
+- `webpush` for standards-based browser Push API delivery using VAPID;
+- `firebase` for Android and iOS through Firebase Cloud Messaging HTTP v1;
+- `hybrid` for both.
+
+For Web Push, generate a P-256 VAPID keypair using a maintained Web Push tool.
+Store the private key as the entire `SecretString` of a Secrets Manager secret
+in the API region. Pass its ARN as `WebPushVapidPrivateKeySecretArn`, pass the
+URL-safe base64 public key as `WebPushVapidPublicKey`, and set
+`WebPushVapidSubject` to an operator contact such as
+`mailto:operations@example.com`. The private key must never enter source,
+`samconfig.toml`, Flutter defines, or CloudFormation outputs; the public key is
+intentionally returned as `WebPushVapidPublicKey`.
+
+For native push, create a Firebase service account permitted to send FCM
+messages for the application project. Store the entire service-account JSON as
+a Secrets Manager `SecretString` and pass only its ARN as
+`FirebaseServiceAccountSecretArn`. Configure APNs credentials in the Firebase
+project before expecting iOS delivery.
+
+Then deploy with the chosen mode and its required parameters. The worker role
+is restricted to exactly the configured secret ARNs. For example:
+
+```text
+PushNotificationMode=hybrid
+WebPushVapidPrivateKeySecretArn=arn:aws:secretsmanager:REGION:ACCOUNT:secret:NAME
+WebPushVapidPublicKey=PUBLIC-VAPID-KEY
+WebPushVapidSubject=mailto:operations@example.com
+FirebaseServiceAccountSecretArn=arn:aws:secretsmanager:REGION:ACCOUNT:secret:NAME
+```
+
+The API stack enables `NEW_AND_OLD_IMAGES` on the game table stream, creates a
+separate notification image Lambda, an EventBridge Scheduler group, and an
+encrypted SQS dead-letter queue. The worker sends the immediate notification
+from match-only filtered stream events. Its one-time Scheduler invocations carry only match ID,
+revision, recipient ID, turn-start time, and reminder offset; they never carry
+provider tokens. Every invocation rereads DynamoDB before sending.
+
+The default browser push hostname allowlist covers current Google, Mozilla,
+Apple, and Microsoft push-service suffixes. Add a suffix through
+`WebPushAllowedHostSuffixes` only after verifying that it is a real browser
+push service; this allowlist is an SSRF control, not merely compatibility
+configuration.
+
 ## Flutter web hosting
 
 Deploy the web infrastructure in `us-east-1`. The stack works with the default
@@ -150,7 +202,9 @@ infra/deploy-web.sh \
 
 Add `--profile PROFILE` when using a named AWS CLI profile. Google sign-in is
 hidden in release builds unless the API stack is configured for Google and the
-web release is built with `--google-sign-in-enabled true`. The script:
+web release is built with `--google-sign-in-enabled true`. The web client always
+loads the public Web Push key from `/v1/notifications/config`, keeping the API
+stack's VAPID keypair as the single source of truth. The script:
 
 1. resolves the private bucket and distribution from CloudFormation outputs;
 2. runs a release Flutter build with `API_BASE_URL`, the explicit Google
@@ -160,8 +214,9 @@ web release is built with `--google-sign-in-enabled true`. The script:
    prior startup shell, then replaces the startup files and stable JavaScript
    bundles only after their dependencies are present;
 4. assigns one-hour cache headers to ordinary assets, no-cache headers to
-   startup metadata, and browser revalidation with one-hour shared-edge
-   caching to stable JavaScript, CanvasKit, WebAssembly, and manifest files;
+   startup metadata and `push-service-worker.js`, and browser revalidation with
+   one-hour shared-edge caching to stable JavaScript, CanvasKit, WebAssembly,
+   and manifest files;
 5. creates a `/*` invalidation and waits until CloudFront reports it complete.
 
 The deployer needs read access to the stack, object list/write/delete access to

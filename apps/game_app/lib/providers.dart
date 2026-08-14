@@ -9,6 +9,10 @@ import 'features/auth/presentation/auth_controller.dart';
 import 'features/game/data/game_view_settings_store.dart';
 import 'features/game/domain/game_session.dart';
 import 'features/game/domain/game_view_settings.dart';
+import 'features/notifications/data/turn_notification_repository.dart';
+import 'features/notifications/platform/turn_notification_gateway.dart';
+import 'features/notifications/platform/turn_notification_gateway_factory.dart';
+import 'features/notifications/presentation/turn_notification_controller.dart';
 import 'features/online/data/online_repository.dart';
 
 final sessionStoreProvider = Provider<SessionStore>(
@@ -31,7 +35,12 @@ final authRepositoryProvider = Provider<AuthRepository>(
 
 final authControllerProvider = StateNotifierProvider<AuthController, AuthState>(
   (ref) {
-    final controller = AuthController(ref.watch(authRepositoryProvider));
+    final controller = AuthController(
+      ref.watch(authRepositoryProvider),
+      beforeSessionEnd: () => ref
+          .read(turnNotificationControllerProvider.notifier)
+          .disconnectAccount(),
+    );
     final expirationSubscription = ref
         .watch(apiClientProvider)
         .sessionExpired
@@ -45,6 +54,23 @@ final authControllerProvider = StateNotifierProvider<AuthController, AuthState>(
 final onlineRepositoryProvider = Provider<OnlineRepository>(
   (ref) => ApiOnlineRepository(ref.watch(apiClientProvider)),
 );
+
+final turnNotificationRepositoryProvider = Provider<TurnNotificationRepository>(
+  (ref) => ApiTurnNotificationRepository(ref.watch(apiClientProvider)),
+);
+
+final turnNotificationGatewayProvider = Provider<TurnNotificationGateway>(
+  (ref) => createTurnNotificationGateway(),
+);
+
+final turnNotificationControllerProvider =
+    StateNotifierProvider<TurnNotificationController, TurnNotificationState>(
+      (ref) => TurnNotificationController(
+        repository: ref.watch(turnNotificationRepositoryProvider),
+        gateway: ref.watch(turnNotificationGatewayProvider),
+        sessionStore: ref.watch(sessionStoreProvider),
+      ),
+    );
 
 final localGameProvider =
     StateNotifierProvider<LocalGameController, LocalGameSession?>(

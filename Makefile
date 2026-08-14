@@ -1,10 +1,11 @@
 SHELL := /bin/bash
 PYTHON ?= python3.12
 
-.PHONY: bootstrap format analyze test test-engine test-app test-backend run-app run-backend build-web docker-backend
+.PHONY: bootstrap format analyze test test-engine test-ai test-app test-backend run-app run-backend build-web docker-backend
 
 bootstrap:
 	cd packages/game_engine && dart pub get
+	cd packages/game_ai && dart pub get
 	cd tools/game_cli && dart pub get
 	cd apps/game_app && flutter pub get
 	$(PYTHON) -m venv .venv
@@ -12,21 +13,25 @@ bootstrap:
 	.venv/bin/python -m pip install -e 'backend[dev]'
 
 format:
-	dart format packages/game_engine tools/game_cli apps/game_app
+	dart format packages/game_engine packages/game_ai tools/game_cli apps/game_app
 	.venv/bin/ruff format backend
 
 analyze:
 	cd packages/game_engine && dart analyze --fatal-infos
+	cd packages/game_ai && dart analyze --fatal-infos
 	cd tools/game_cli && dart analyze --fatal-infos
 	cd apps/game_app && flutter analyze --fatal-infos
 	.venv/bin/ruff check backend
 	cd backend && ../.venv/bin/mypy src
 
-test: test-engine test-backend test-app
+test: test-engine test-ai test-backend test-app
 
 test-engine:
 	cd packages/game_engine && dart test
 	cd tools/game_cli && dart test
+
+test-ai:
+	cd packages/game_ai && dart test
 
 test-app:
 	cd apps/game_app && flutter test

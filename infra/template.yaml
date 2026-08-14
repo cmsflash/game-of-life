@@ -4,6 +4,17 @@ Description: >-
   Production AWS stack for The Game of Life: container Lambda API, HTTP API,
   DynamoDB, Cognito, operational logging, and alarms.
 
+Mappings:
+  PushProviderModes:
+    disabled:
+      Providers: ""
+    webpush:
+      Providers: "webPush"
+    firebase:
+      Providers: "firebase"
+    hybrid:
+      Providers: "webPush,firebase"
+
 Parameters:
   EnvironmentName:
     Type: String
@@ -104,6 +115,44 @@ Parameters:
     Default: ""
     AllowedPattern: '^$|^[^@\s]+@[^@\s]+\.[^@\s]+$'
     Description: Optional email subscription for alarm notifications; confirmation is required.
+  PushNotificationMode:
+    Type: String
+    Default: disabled
+    AllowedValues: [disabled, webpush, firebase, hybrid]
+    Description: >-
+      Push delivery providers to enable. The safe default creates no notification
+      worker or schedules until provider credentials are supplied.
+  FirebaseServiceAccountSecretArn:
+    Type: String
+    Default: "arn:aws:secretsmanager:us-east-1:000000000000:secret:disabled"
+    AllowedPattern: '^arn:aws[a-zA-Z-]*:secretsmanager:[a-z0-9-]+:\d{12}:secret:.+$'
+    Description: >-
+      Secrets Manager ARN whose entire SecretString is a Firebase service-account
+      JSON document. Required for firebase or hybrid mode.
+  WebPushVapidPrivateKeySecretArn:
+    Type: String
+    Default: "arn:aws:secretsmanager:us-east-1:000000000000:secret:disabled"
+    AllowedPattern: '^arn:aws[a-zA-Z-]*:secretsmanager:[a-z0-9-]+:\d{12}:secret:.+$'
+    Description: >-
+      Secrets Manager ARN whose entire SecretString is the VAPID private key.
+      Required for webpush or hybrid mode; never expose this value to clients.
+  WebPushVapidPublicKey:
+    Type: String
+    Default: ""
+    NoEcho: false
+    Description: Public URL-safe base64 VAPID key embedded in the web client.
+  WebPushVapidSubject:
+    Type: String
+    Default: ""
+    AllowedPattern: '^$|^(mailto:[^@\s]+@[^@\s]+\.[^@\s]+|https://.+)$'
+    Description: VAPID contact URI, for example mailto:operations@example.com.
+  WebPushAllowedHostSuffixes:
+    Type: CommaDelimitedList
+    Default: >-
+      fcm.googleapis.com,push.services.mozilla.com,push.apple.com,notify.windows.com
+    Description: >-
+      Browser push-service hostname suffix allowlist. This prevents authenticated
+      subscription registration from becoming a server-side request forgery path.
 
 Rules:
   GoogleCredentialsArePaired:
@@ -149,6 +198,33 @@ Rules:
             - Fn::Not: [{Fn::Equals: [{Ref: ApiCertificateArn}, ""]}]
             - Fn::Not: [{Fn::Equals: [{Ref: Route53HostedZoneId}, ""]}]
         AssertDescription: DNS records require the custom domain, certificate, and hosted zone parameters.
+  FirebasePushConfigurationRequired:
+    RuleCondition:
+      Fn::Or:
+        - Fn::Equals: [{Ref: PushNotificationMode}, firebase]
+        - Fn::Equals: [{Ref: PushNotificationMode}, hybrid]
+    Assertions:
+      - Assert:
+          Fn::Not:
+            - Fn::Equals:
+                - {Ref: FirebaseServiceAccountSecretArn}
+                - "arn:aws:secretsmanager:us-east-1:000000000000:secret:disabled"
+        AssertDescription: FirebaseServiceAccountSecretArn is required for firebase or hybrid mode.
+  WebPushConfigurationRequired:
+    RuleCondition:
+      Fn::Or:
+        - Fn::Equals: [{Ref: PushNotificationMode}, webpush]
+        - Fn::Equals: [{Ref: PushNotificationMode}, hybrid]
+    Assertions:
+      - Assert:
+          Fn::And:
+            - Fn::Not:
+                - Fn::Equals:
+                    - {Ref: WebPushVapidPrivateKeySecretArn}
+                    - "arn:aws:secretsmanager:us-east-1:000000000000:secret:disabled"
+            - Fn::Not: [{Fn::Equals: [{Ref: WebPushVapidPublicKey}, ""]}]
+            - Fn::Not: [{Fn::Equals: [{Ref: WebPushVapidSubject}, ""]}]
+        AssertDescription: Web Push mode requires the VAPID private secret, public key, and subject.
 
 Conditions:
   HasGoogleIdentityProvider: !Not [!Equals [!Ref GoogleClientId, ""]]
@@ -161,6 +237,13 @@ Conditions:
   ShouldCreateAlarmEmailSubscription: !Not [!Equals [!Ref AlarmNotificationEmail, ""]]
   UseDeletionProtection: !Equals [!Ref EnableDeletionProtection, "true"]
   HasLambdaReservedConcurrency: !Not [!Equals [!Ref LambdaReservedConcurrency, "0"]]
+  PushNotificationsEnabled: !Not [!Equals [!Ref PushNotificationMode, disabled]]
+  HasFirebasePush: !Or
+    - !Equals [!Ref PushNotificationMode, firebase]
+    - !Equals [!Ref PushNotificationMode, hybrid]
+  HasWebPush: !Or
+    - !Equals [!Ref PushNotificationMode, webpush]
+    - !Equals [!Ref PushNotificationMode, hybrid]
 
 Globals:
   Function:
@@ -199,6 +282,8 @@ Resources:
       TimeToLiveSpecification:
         AttributeName: expiresAt
         Enabled: true
+      StreamSpecification:
+        StreamViewType: NEW_AND_OLD_IMAGES
       Tags:
         - Key: Application
           Value: the-game-of-life
@@ -389,6 +474,31 @@ Resources:
           LOCAL_TOKEN_SECRET: !Sub "{{resolve:secretsmanager:${LocalTokenSecret}}}"
           OAUTH_STATE_SECRET: !Sub "{{resolve:secretsmanager:${OAuthStateSecret}}}"
           GOOGLE_LOGIN_ENABLED: !If [HasGoogleIdentityProvider, "true", "false"]
+          PUSH_PROVIDERS: !FindInMap
+            - PushProviderModes
+            - !Ref PushNotificationMode
+            - Providers
+          FIREBASE_SERVICE_ACCOUNT_SECRET_ARN: !Ref FirebaseServiceAccountSecretArn
+          WEB_PUSH_VAPID_PRIVATE_KEY_SECRET_ARN: !Ref WebPushVapidPrivateKeySecretArn
+          WEB_PUSH_VAPID_PUBLIC_KEY: !Ref WebPushVapidPublicKey
+          WEB_PUSH_VAPID_SUBJECT: !Ref WebPushVapidSubject
+          WEB_PUSH_ALLOWED_HOST_SUFFIXES: !Join [",", !Ref WebPushAllowedHostSuffixes]
+          NOTIFICATION_FUNCTION_ARN: !If
+            - PushNotificationsEnabled
+            - !Sub "arn:${AWS::Partition}:lambda:${AWS::Region}:${AWS::AccountId}:function:life-${EnvironmentName}-notifications"
+            - ""
+          NOTIFICATION_SCHEDULER_ROLE_ARN: !If
+            - PushNotificationsEnabled
+            - !GetAtt NotificationSchedulerInvokeRole.Arn
+            - ""
+          NOTIFICATION_SCHEDULE_GROUP_NAME: !If
+            - PushNotificationsEnabled
+            - !Sub "life-${EnvironmentName}-turn-reminders"
+            - ""
+          NOTIFICATION_DEAD_LETTER_QUEUE_ARN: !If
+            - PushNotificationsEnabled
+            - !GetAtt NotificationDeadLetterQueue.Arn
+            - ""
           LOG_LEVEL: INFO
       Policies:
         - Version: "2012-10-17"
@@ -404,6 +514,241 @@ Resources:
                 - dynamodb:UpdateItem
               Resource:
                 - !GetAtt GameTable.Arn
+
+  NotificationDeadLetterQueue:
+    Type: AWS::SQS::Queue
+    Condition: PushNotificationsEnabled
+    Properties:
+      QueueName: !Sub "life-${EnvironmentName}-notification-dlq"
+      MessageRetentionPeriod: 1209600
+      SqsManagedSseEnabled: true
+      Tags:
+        - Key: Application
+          Value: the-game-of-life
+        - Key: Environment
+          Value: !Ref EnvironmentName
+
+  NotificationScheduleGroup:
+    Type: AWS::Scheduler::ScheduleGroup
+    Condition: PushNotificationsEnabled
+    Properties:
+      Name: !Sub "life-${EnvironmentName}-turn-reminders"
+      Tags:
+        - Key: Application
+          Value: the-game-of-life
+        - Key: Environment
+          Value: !Ref EnvironmentName
+
+  NotificationSchedulerInvokeRole:
+    Type: AWS::IAM::Role
+    Condition: PushNotificationsEnabled
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: scheduler.amazonaws.com
+            Action: sts:AssumeRole
+            Condition:
+              StringEquals:
+                aws:SourceAccount: !Ref AWS::AccountId
+              ArnLike:
+                aws:SourceArn: !Sub >-
+                  arn:${AWS::Partition}:scheduler:${AWS::Region}:${AWS::AccountId}:schedule-group/life-${EnvironmentName}-turn-reminders
+      Policies:
+        - PolicyName: InvokeNotificationWorker
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Sid: InvokeNotificationWorker
+                Effect: Allow
+                Action: lambda:InvokeFunction
+                Resource: !Sub >-
+                  arn:${AWS::Partition}:lambda:${AWS::Region}:${AWS::AccountId}:function:life-${EnvironmentName}-notifications
+              - Sid: SendFailedReminderToDeadLetterQueue
+                Effect: Allow
+                Action: sqs:SendMessage
+                Resource: !GetAtt NotificationDeadLetterQueue.Arn
+      Tags:
+        - Key: Application
+          Value: the-game-of-life
+        - Key: Environment
+          Value: !Ref EnvironmentName
+
+  NotificationFunctionRole:
+    Type: AWS::IAM::Role
+    Condition: PushNotificationsEnabled
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: NotificationWorker
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Sid: WriteFunctionLogs
+                Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource: !Sub "arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:*"
+              - Sid: WriteXRayTrace
+                Effect: Allow
+                Action:
+                  - xray:PutTelemetryRecords
+                  - xray:PutTraceSegments
+                Resource: "*"
+              - Sid: ReadMatchStream
+                Effect: Allow
+                Action:
+                  - dynamodb:DescribeStream
+                  - dynamodb:GetRecords
+                  - dynamodb:GetShardIterator
+                Resource: !GetAtt GameTable.StreamArn
+              - Sid: ListMatchStreams
+                Effect: Allow
+                Action: dynamodb:ListStreams
+                Resource: "*"
+              - Sid: ReadNotificationState
+                Effect: Allow
+                Action:
+                  - dynamodb:GetItem
+                  - dynamodb:Query
+                Resource: !GetAtt GameTable.Arn
+                Condition:
+                  ForAllValues:StringLike:
+                    dynamodb:LeadingKeys:
+                      - "MATCH#*"
+                      - "USER#*"
+                      - "INSTALLATION#*"
+              - Sid: WriteNotificationState
+                Effect: Allow
+                Action:
+                  - dynamodb:DeleteItem
+                  - dynamodb:PutItem
+                  - dynamodb:TransactWriteItems
+                  - dynamodb:UpdateItem
+                Resource: !GetAtt GameTable.Arn
+                Condition:
+                  ForAllValues:StringLike:
+                    dynamodb:LeadingKeys:
+                      - "DELIVERY#*"
+                      - "USER#*"
+                      - "INSTALLATION#*"
+              - Sid: CreateTurnReminderSchedules
+                Effect: Allow
+                Action: scheduler:CreateSchedule
+                Resource: !Sub >-
+                  arn:${AWS::Partition}:scheduler:${AWS::Region}:${AWS::AccountId}:schedule/life-${EnvironmentName}-turn-reminders/*
+              - Sid: PassSchedulerInvokeRole
+                Effect: Allow
+                Action: iam:PassRole
+                Resource: !GetAtt NotificationSchedulerInvokeRole.Arn
+                Condition:
+                  StringEquals:
+                    iam:PassedToService: scheduler.amazonaws.com
+              - Sid: ReadPushProviderSecrets
+                Effect: Allow
+                Action: secretsmanager:GetSecretValue
+                Resource:
+                  - !If
+                    - HasWebPush
+                    - !Ref WebPushVapidPrivateKeySecretArn
+                    - !Ref AWS::NoValue
+                  - !If
+                    - HasFirebasePush
+                    - !Ref FirebaseServiceAccountSecretArn
+                    - !Ref AWS::NoValue
+              - Sid: SendNotificationFailuresToDeadLetterQueue
+                Effect: Allow
+                Action: sqs:SendMessage
+                Resource: !GetAtt NotificationDeadLetterQueue.Arn
+      Tags:
+        - Key: Application
+          Value: the-game-of-life
+        - Key: Environment
+          Value: !Ref EnvironmentName
+
+  NotificationFunction:
+    Type: AWS::Serverless::Function
+    Condition: PushNotificationsEnabled
+    DependsOn:
+      - NotificationFunctionLogGroup
+      - NotificationScheduleGroup
+    Metadata:
+      DockerContext: ..
+      Dockerfile: backend/Dockerfile
+      DockerTag: notifications-v1
+    Properties:
+      PackageType: Image
+      ImageConfig:
+        Command:
+          - life_api.notification_handler.handler
+      FunctionName: !Sub "life-${EnvironmentName}-notifications"
+      Description: Delivers revision-safe turn notifications and schedules bounded reminders.
+      Timeout: 120
+      Role: !GetAtt NotificationFunctionRole.Arn
+      Environment:
+        Variables:
+          APP_ENV: production
+          APP_COMPONENT: notifications
+          TABLE_NAME: !Ref GameTable
+          PUSH_PROVIDERS: !FindInMap
+            - PushProviderModes
+            - !Ref PushNotificationMode
+            - Providers
+          FIREBASE_SERVICE_ACCOUNT_SECRET_ARN: !Ref FirebaseServiceAccountSecretArn
+          WEB_PUSH_VAPID_PRIVATE_KEY_SECRET_ARN: !Ref WebPushVapidPrivateKeySecretArn
+          WEB_PUSH_VAPID_PUBLIC_KEY: !Ref WebPushVapidPublicKey
+          WEB_PUSH_VAPID_SUBJECT: !Ref WebPushVapidSubject
+          WEB_PUSH_ALLOWED_HOST_SUFFIXES: !Join [",", !Ref WebPushAllowedHostSuffixes]
+          NOTIFICATION_FUNCTION_ARN: !Sub >-
+            arn:${AWS::Partition}:lambda:${AWS::Region}:${AWS::AccountId}:function:life-${EnvironmentName}-notifications
+          NOTIFICATION_SCHEDULER_ROLE_ARN: !GetAtt NotificationSchedulerInvokeRole.Arn
+          NOTIFICATION_SCHEDULE_GROUP_NAME: !Sub "life-${EnvironmentName}-turn-reminders"
+          NOTIFICATION_DEAD_LETTER_QUEUE_ARN: !GetAtt NotificationDeadLetterQueue.Arn
+          LOG_LEVEL: INFO
+      Events:
+        MatchStateStream:
+          Type: DynamoDB
+          Properties:
+            Stream: !GetAtt GameTable.StreamArn
+            StartingPosition: LATEST
+            # A record may fan out to five provider calls. Keep records isolated
+            # so one slow provider cannot strand later match transitions.
+            BatchSize: 1
+            MaximumBatchingWindowInSeconds: 1
+            BisectBatchOnFunctionError: true
+            MaximumRetryAttempts: 5
+            FunctionResponseTypes:
+              - ReportBatchItemFailures
+            FilterCriteria:
+              Filters:
+                - Pattern: '{"dynamodb":{"NewImage":{"entity":{"S":["match"]}}}}'
+            DestinationConfig:
+              OnFailure:
+                Destination: !GetAtt NotificationDeadLetterQueue.Arn
+
+  NotificationFunctionLogGroup:
+    Type: AWS::Logs::LogGroup
+    Condition: PushNotificationsEnabled
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      LogGroupName: !Sub "/aws/lambda/life-${EnvironmentName}-notifications"
+      RetentionInDays: !Ref LogRetentionDays
+      Tags:
+        - Key: Application
+          Value: the-game-of-life
+        - Key: Environment
+          Value: !Ref EnvironmentName
 
   ApiFunctionLogGroup:
     Type: AWS::Logs::LogGroup
@@ -636,6 +981,60 @@ Resources:
         - Key: Environment
           Value: !Ref EnvironmentName
 
+  NotificationFunctionErrorAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Condition: PushNotificationsEnabled
+    Properties:
+      AlarmDescription: Turn-notification delivery or scheduling returned an error.
+      Namespace: AWS/Lambda
+      MetricName: Errors
+      Dimensions:
+        - Name: FunctionName
+          Value: !Ref NotificationFunction
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      DatapointsToAlarm: 1
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref AlarmTopic
+      OKActions:
+        - !Ref AlarmTopic
+      Tags:
+        - Key: Application
+          Value: the-game-of-life
+        - Key: Environment
+          Value: !Ref EnvironmentName
+
+  NotificationDeadLetterQueueAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Condition: PushNotificationsEnabled
+    Properties:
+      AlarmDescription: A turn notification or reminder exhausted its retries.
+      Namespace: AWS/SQS
+      MetricName: ApproximateNumberOfMessagesVisible
+      Dimensions:
+        - Name: QueueName
+          Value: !GetAtt NotificationDeadLetterQueue.QueueName
+      Statistic: Maximum
+      Period: 300
+      EvaluationPeriods: 1
+      DatapointsToAlarm: 1
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref AlarmTopic
+      OKActions:
+        - !Ref AlarmTopic
+      Tags:
+        - Key: Application
+          Value: the-game-of-life
+        - Key: Environment
+          Value: !Ref EnvironmentName
+
   HttpApiServerErrorAlarm:
     Type: AWS::CloudWatch::Alarm
     Properties:
@@ -736,3 +1135,15 @@ Outputs:
       - !Sub "https://${HttpApi}.execute-api.${AWS::Region}.${AWS::URLSuffix}/${StageName}/v1/auth/google/callback"
   AlarmTopicArn:
     Value: !Ref AlarmTopic
+  PushNotificationMode:
+    Value: !Ref PushNotificationMode
+  NotificationFunctionName:
+    Condition: PushNotificationsEnabled
+    Value: !Ref NotificationFunction
+  NotificationDeadLetterQueueUrl:
+    Condition: PushNotificationsEnabled
+    Value: !Ref NotificationDeadLetterQueue
+  WebPushVapidPublicKey:
+    Condition: HasWebPush
+    Description: Public VAPID key supplied to the Flutter web build.
+    Value: !Ref WebPushVapidPublicKey

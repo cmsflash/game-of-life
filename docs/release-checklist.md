@@ -16,6 +16,9 @@ on Android, iOS, macOS, and Linux is `com.cmsflash.gameoflife`.
   `https://cmsflash.github.io/contact/`.
 - [ ] Complete the Apple privacy answers and Google Play Data safety form
   against the behavior of the release candidate.
+- [ ] If turn notifications are enabled, verify the deployed push mode and
+  public VAPID key, provider credentials, iOS Push Notifications capability,
+  APNs/Firebase configuration, and browser service-worker scope.
 
 ## Signing and builds
 
@@ -44,6 +47,9 @@ on Android, iOS, macOS, and Linux is `com.cmsflash.gameoflife`.
 - [ ] Install each signed artifact on a clean device and smoke-test account
   creation, sign-in, password recovery, local play, online play, deep-link
   return, logout, and account deletion.
+- [ ] On every enabled push platform, verify one immediate turn alert, alert
+  navigation to the exact match, subscription removal on sign-out/account
+  deletion, and stale-reminder suppression after the turn changes.
 - [ ] Confirm Android backup and device transfer do not restore
   `FlutterSecureStorage.xml`.
 - [ ] Confirm production traffic uses HTTPS and no build contains test signing

@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:game_of_life/app.dart';
+import 'package:game_of_life/features/auth/data/session_store.dart';
+import 'package:game_of_life/features/notifications/domain/turn_notifications.dart';
 import 'package:game_of_life/providers.dart';
 
 import 'fakes.dart';
@@ -11,6 +13,8 @@ void main() {
     WidgetTester tester, {
     Size size = const Size(1200, 900),
     FakeAuthRepository? authRepository,
+    FakeTurnNotificationRepository? notificationRepository,
+    FakeTurnNotificationGateway? notificationGateway,
   }) async {
     tester.view.physicalSize = size;
     tester.view.devicePixelRatio = 1;
@@ -21,6 +25,13 @@ void main() {
         overrides: [
           authRepositoryProvider.overrideWithValue(
             authRepository ?? FakeAuthRepository(),
+          ),
+          sessionStoreProvider.overrideWithValue(MemorySessionStore()),
+          turnNotificationRepositoryProvider.overrideWithValue(
+            notificationRepository ?? FakeTurnNotificationRepository(),
+          ),
+          turnNotificationGatewayProvider.overrideWithValue(
+            notificationGateway ?? FakeTurnNotificationGateway(),
           ),
         ],
         child: const GameOfLifeApp(),
@@ -225,5 +236,47 @@ void main() {
 
     expect(repository.current, isNull);
     expect(find.text('Give life\na side.'), findsOneWidget);
+  });
+
+  testWidgets('signed-in player can opt into the reminder schedule', (
+    tester,
+  ) async {
+    final auth = FakeAuthRepository();
+    await auth.login(username: 'alice', password: 'password');
+    final repository = FakeTurnNotificationRepository();
+    final gateway = FakeTurnNotificationGateway()
+      ..capabilityValue = const TurnNotificationCapability(
+        configured: true,
+        supported: true,
+        permission: TurnNotificationPermission.granted,
+      )
+      ..endpoint = const TurnNotificationEndpoint.webPush(
+        endpoint: 'https://push.example.test/subscription',
+        p256dh: 'key',
+        auth: 'secret',
+      );
+    await pumpApp(
+      tester,
+      authRepository: auth,
+      notificationRepository: repository,
+      notificationGateway: gateway,
+    );
+
+    await tester.tap(find.text('Profile'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Turn notifications'), findsOneWidget);
+    expect(find.textContaining('8 hours'), findsOneWidget);
+    expect(find.textContaining('24 hours'), findsOneWidget);
+    expect(find.textContaining('72 hours'), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('turn-notifications-toggle')));
+    await tester.pumpAndSettle();
+
+    expect(repository.upserts, hasLength(1));
+    final toggle = tester.widget<SwitchListTile>(
+      find.byKey(const Key('turn-notifications-toggle')),
+    );
+    expect(toggle.value, isTrue);
   });
 }

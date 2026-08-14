@@ -49,9 +49,11 @@ class AuthState {
 }
 
 class AuthController extends StateNotifier<AuthState> {
-  AuthController(this._repository) : super(const AuthState.loading());
+  AuthController(this._repository, {this._beforeSessionEnd})
+    : super(const AuthState.loading());
 
   final AuthRepository _repository;
+  final Future<void> Function()? _beforeSessionEnd;
 
   Future<void> restore() async {
     try {
@@ -180,6 +182,7 @@ class AuthController extends StateNotifier<AuthState> {
   Future<void> logout() async {
     state = state.copyWith(busy: true, clearMessages: true);
     try {
+      await _runBeforeSessionEnd();
       await _repository.logout();
     } finally {
       state = const AuthState(status: AuthStatus.signedOut);
@@ -189,6 +192,7 @@ class AuthController extends StateNotifier<AuthState> {
   Future<bool> deleteAccount() async {
     state = state.copyWith(busy: true, clearMessages: true);
     try {
+      await _runBeforeSessionEnd();
       await _repository.deleteAccount();
       state = const AuthState(
         status: AuthStatus.signedOut,
@@ -209,6 +213,14 @@ class AuthController extends StateNotifier<AuthState> {
   }
 
   void clearMessages() => state = state.copyWith(clearMessages: true);
+
+  Future<void> _runBeforeSessionEnd() async {
+    try {
+      await _beforeSessionEnd?.call();
+    } catch (_) {
+      // A notification cleanup failure must never trap a player in a session.
+    }
+  }
 
   Future<bool> _runAuth(Future<AppUser> Function() action) async {
     state = state.copyWith(busy: true, clearMessages: true);

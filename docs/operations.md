@@ -5,6 +5,8 @@
 The CloudFormation stack is the ownership boundary. Its outputs identify the
 API, Lambda function, DynamoDB table, Cognito pool/client, Hosted UI, and SNS
 alarm topic. Use stack outputs instead of copying resource names into scripts.
+When push is enabled, outputs also identify the notification worker and its
+dead-letter queue.
 
 The API Gateway routes are deliberately broad (`ANY /` and
 `ANY /{proxy+}`), while FastAPI owns route-level authentication and validation.
@@ -32,29 +34,39 @@ Run these checks after every stack update from at least two networks:
    the old token is rejected, and a new account can reuse the username.
 7. Repeat the health, password-login, and move checks using the mainland
    carriers and times listed in [`mainland-validation.md`](mainland-validation.md).
+8. If push is enabled, register one clean browser or device installation, join
+   a match, and verify the player-to-move receives one immediate alert. Submit a
+   move before a test reminder fires and verify the old revision sends nothing.
+   Use an isolated short-delay operator test only for deployment validation;
+   production offsets remain 8, 24, and 72 hours.
 
 Do not treat a successful test from an overseas VPN or one mainland ISP as a
 reachability guarantee.
 
 ## Logs and alarms
 
-The stack retains two CloudWatch log groups for the configured retention
-period:
+The stack retains the API and access-log groups for the configured retention
+period, plus a notification-worker group when push is enabled:
 
 - `/aws/lambda/FUNCTION_NAME` for application/runtime logs;
 - `/aws/apigateway/STACK_NAME` for structured request access logs.
+- `/aws/lambda/life-ENVIRONMENT-notifications` for delivery and scheduling failures.
 
 The access log includes request ID, source IP, route, status, response size,
 and integration error, but not authorization headers or request bodies. The
 application must likewise never log access tokens, refresh tokens, passwords,
 confirmation codes, OAuth codes, or full game-auth responses.
 
-Four alarms publish to `AlarmTopicArn`:
+Four API alarms publish to `AlarmTopicArn`; push-enabled stacks add alarms for
+notification-worker errors and visible dead-lettered jobs:
 
 - five Lambda errors in five minutes;
 - any Lambda throttling in five minutes;
 - five API 5xx responses in five minutes;
 - API p99 latency above five seconds for three consecutive five-minute periods.
+- any notification-worker error in five minutes.
+- any notification or reminder that exhausts retries and reaches the
+  notification dead-letter queue.
 
 If `AlarmNotificationEmail` was supplied, confirm the SNS subscription email;
 unconfirmed subscriptions receive nothing. Production teams should also
@@ -118,6 +130,31 @@ idempotency key. Investigate only if a committed move lacks its matching event,
 because snapshots, move events, and idempotency records should be written in
 one DynamoDB transaction.
 
+### Turn-notification failures
+
+1. Check the notification Lambda error alarm and
+   `/aws/lambda/life-ENVIRONMENT-notifications` logs. Logs must identify the
+   provider and request class without printing endpoints, tokens, encryption
+   keys, or service-account content.
+2. Check the EventBridge Scheduler group for future one-time schedules and the
+   `NotificationDeadLetterQueueUrl` output for exhausted stream or scheduled
+   jobs. Redrive only after correcting credentials or provider availability;
+   revision checks make late jobs safe.
+   The queue-depth alarm is also the signal for partial DynamoDB stream failures,
+   because those are reported to Lambda as successful invocations with failed
+   item identifiers.
+3. Confirm each provider secret exists in the same region and matches the exact
+   ARN deployed in the function environment. Do not print `SecretString`
+   during diagnosis.
+4. For Web Push, verify the public/private VAPID pair and subject, then test a
+   newly registered browser endpoint. For Firebase, verify the service account
+   can send FCM HTTP v1 messages and that APNs is configured for iOS.
+5. A Web Push `404`/`410`, or a structured Firebase `UNREGISTERED` error,
+   removes that installation automatically. A generic Firebase `404` is treated
+   as a configuration/provider failure so it cannot erase valid tokens.
+   Repeated transient errors retain the subscription and retry through the
+   stream or schedule policy.
+
 ## Data protection and recovery
 
 The table uses on-demand capacity, AWS KMS encryption, TTL on `expiresAt`,
@@ -127,7 +164,8 @@ must reject an expired exchange or queue entry even before DynamoDB removes it.
 
 Account deletion removes the identity and matchmaking state, resigns active
 matches, and replaces the account identifier in retained match history with an
-anonymous participant identifier. Operational backups may retain the prior
+anonymous participant identifier. It also removes all push subscriptions and
+installation ownership records. Operational backups may retain the prior
 value until their documented recovery window expires; see
 [`privacy-policy.md`](privacy-policy.md).
 

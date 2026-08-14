@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../../providers.dart';
 import '../../../shared/async_message.dart';
 import '../../../shared/page_frame.dart';
+import '../../notifications/presentation/turn_notification_preference_card.dart';
 import 'auth_controller.dart';
 
 class ProfileScreen extends ConsumerWidget {
@@ -108,6 +109,8 @@ class ProfileScreen extends ConsumerWidget {
               ),
             ),
           ),
+          const SizedBox(height: 18),
+          const TurnNotificationPreferenceCard(),
           const SizedBox(height: 18),
           Card(
             child: Column(

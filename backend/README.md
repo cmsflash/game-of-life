@@ -22,6 +22,13 @@ Interactive API documentation is available at `http://localhost:8080/docs`.
 The stable route and payload contract is documented in
 [`docs/api.md`](../docs/api.md).
 
+Push delivery is disabled by default. Production can enable standard Web
+Push/VAPID, Firebase mobile push, or both without changing the subscription API.
+Match table stream events drive immediate turn alerts; one-time EventBridge
+Scheduler jobs provide the 8-, 24-, and 72-hour reminders. Provider credential
+and CloudFormation requirements are documented in
+[`docs/deployment.md`](../docs/deployment.md#turn-push-notifications).
+
 ## Authoritative engine
 
 During local development the API runs the Dart CLI using the installed SDK. The

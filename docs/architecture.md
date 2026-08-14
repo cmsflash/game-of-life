@@ -27,6 +27,13 @@ Python Lambda container ---- Cognito User Pool
       +---- compiled Dart engine executable
       |
       +---- DynamoDB (users, sessions, queues, matches, moves)
+                 |
+                 +---- state stream ---- notification Lambda
+                                           |          |
+                                           |          +---- Web Push / Firebase
+                                           v
+                                    EventBridge Scheduler
+                                     (8h / 24h / 72h)
 ```
 
 The Lambda container compiles the same Dart engine package used by Flutter into
@@ -73,6 +80,35 @@ has an `ETag` derived from a match-level version that changes for moves,
 resignation, and other metadata mutations; `If-None-Match` avoids transferring
 an unchanged board. WebSocket notifications can be added later but are never
 the authoritative delivery channel.
+
+Push notifications are likewise advisory rather than authoritative. Activating
+a match or committing a move updates the match snapshot first. DynamoDB Streams
+then invokes a separate notification worker, which sends the immediate alert
+and creates three one-time EventBridge schedules. Each delivery performs a
+strongly consistent match read and requires the same active status, engine
+revision, player-to-move, and recipient ID captured at turn start. A move,
+resignation, or completed game therefore invalidates all earlier reminders
+without requiring schedule cancellation.
+
+Provider messages use zero-second retention and one collapse identifier per
+match. Push services therefore cannot retain alerts for an offline device or
+later release an accumulated burst after that turn has become stale.
+
+Delivery claims are stored per match revision, reminder offset, and
+installation. Retries normally send once; an unavoidable crash between a push
+provider accepting a message and recording completion can still produce a
+duplicate, so provider collapse identifiers are deterministic. Expired device
+tokens are removed. Failed stream records and exhausted scheduled jobs enter an
+encrypted dead-letter queue, whose visible-message alarm covers partial stream
+failures that do not increment the Lambda error metric.
+
+Browser endpoints are accepted only for an operator-configured push-service
+hostname allowlist, preventing the delivery worker from becoming an SSRF path.
+Push provider credentials remain in Secrets Manager. The API stores the
+encrypted subscription record but returns only token-free installation
+metadata. The stream consumer filters before invocation to match records only,
+and its table permissions allow reads only for match/subscription state and
+writes only for delivery claims or subscription cleanup.
 
 Quick matchmaking uses a client-generated ticket identifier. Polling and
 cancellation always name that exact ticket, and waiting records expire after a

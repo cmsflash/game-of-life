@@ -20,6 +20,7 @@ from .models import (
     StoredExchange,
     StoredMatch,
     StoredOAuthTransaction,
+    StoredPushSubscription,
 )
 from .settings import Settings
 
@@ -117,6 +118,20 @@ class Repository(Protocol):
 
     def consume_oauth_transaction(self, transaction_id: str) -> StoredOAuthTransaction | None: ...
 
+    def upsert_push_subscription(
+        self, subscription: StoredPushSubscription
+    ) -> StoredPushSubscription: ...
+
+    def list_push_subscriptions(self, user_id: str) -> list[StoredPushSubscription]: ...
+
+    def delete_push_subscription(self, user_id: str, installation_id: str) -> None: ...
+
+    def claim_notification_delivery(self, delivery_id: str) -> str | None: ...
+
+    def complete_notification_delivery(self, delivery_id: str, claim_token: str) -> None: ...
+
+    def release_notification_delivery(self, delivery_id: str, claim_token: str) -> None: ...
+
     def delete_user_data(self, user_id: str) -> None: ...
 
 
@@ -132,6 +147,10 @@ class InMemoryRepository:
         self._matchmaking_records: dict[tuple[str, str], MatchmakingRecord] = {}
         self._exchanges: dict[str, StoredExchange] = {}
         self._oauth_transactions: dict[str, StoredOAuthTransaction] = {}
+        self._push_subscriptions: dict[tuple[str, str], StoredPushSubscription] = {}
+        self._installation_owners: dict[str, str] = {}
+        self._notification_deliveries: dict[str, tuple[str, datetime, str]] = {}
+        self._deleted_users: set[str] = set()
         self._matchmaking_locks: dict[str, str] = {}
         self._lock = threading.RLock()
 
@@ -490,6 +509,82 @@ class InMemoryRepository:
                 return None
             return transaction
 
+    def upsert_push_subscription(
+        self, subscription: StoredPushSubscription
+    ) -> StoredPushSubscription:
+        with self._lock:
+            if subscription.user_id in self._deleted_users:
+                raise ApiError(
+                    "pushSubscriptionConflict",
+                    "That account can no longer register notifications.",
+                    status_code=409,
+                )
+            previous_owner = self._installation_owners.get(subscription.installation_id)
+            if previous_owner is not None and previous_owner != subscription.user_id:
+                self._push_subscriptions.pop(
+                    (previous_owner, subscription.installation_id),
+                    None,
+                )
+            existing = self._push_subscriptions.get(
+                (subscription.user_id, subscription.installation_id)
+            )
+            stored = subscription.model_copy(
+                update={"created_at": existing.created_at if existing else subscription.created_at}
+            )
+            self._push_subscriptions[(subscription.user_id, subscription.installation_id)] = (
+                stored.model_copy(deep=True)
+            )
+            self._installation_owners[subscription.installation_id] = subscription.user_id
+            return stored.model_copy(deep=True)
+
+    def list_push_subscriptions(self, user_id: str) -> list[StoredPushSubscription]:
+        with self._lock:
+            subscriptions = [
+                subscription.model_copy(deep=True)
+                for (owner_id, _), subscription in self._push_subscriptions.items()
+                if owner_id == user_id
+            ]
+        return sorted(subscriptions, key=lambda value: value.created_at)
+
+    def delete_push_subscription(self, user_id: str, installation_id: str) -> None:
+        with self._lock:
+            self._push_subscriptions.pop((user_id, installation_id), None)
+            if self._installation_owners.get(installation_id) == user_id:
+                self._installation_owners.pop(installation_id, None)
+
+    def claim_notification_delivery(self, delivery_id: str) -> str | None:
+        with self._lock:
+            now = datetime.now(UTC)
+            existing = self._notification_deliveries.get(delivery_id)
+            if existing is not None:
+                state, lease_expires_at, _ = existing
+                if state == "delivered" or lease_expires_at > now:
+                    return None
+            claim_token = secrets.token_urlsafe(18)
+            self._notification_deliveries[delivery_id] = (
+                "sending",
+                now + timedelta(minutes=5),
+                claim_token,
+            )
+            return claim_token
+
+    def complete_notification_delivery(self, delivery_id: str, claim_token: str) -> None:
+        with self._lock:
+            current = self._notification_deliveries.get(delivery_id)
+            if current is None or current[2] != claim_token:
+                return
+            self._notification_deliveries[delivery_id] = (
+                "delivered",
+                datetime.now(UTC) + timedelta(days=7),
+                claim_token,
+            )
+
+    def release_notification_delivery(self, delivery_id: str, claim_token: str) -> None:
+        with self._lock:
+            current = self._notification_deliveries.get(delivery_id)
+            if current is not None and current[0] == "sending" and current[2] == claim_token:
+                self._notification_deliveries.pop(delivery_id, None)
+
     def delete_user_data(self, user_id: str) -> None:
         with self._lock:
             matches = [
@@ -503,6 +598,8 @@ class InMemoryRepository:
                     "All active matches must end before account data can be deleted.",
                     status_code=409,
                 )
+
+            self._deleted_users.add(user_id)
 
             for match in matches:
                 anonymous_id = f"deleted-{uuid4()}"
@@ -524,6 +621,15 @@ class InMemoryRepository:
                 key: value for key, value in self._matchmaking_records.items() if key[0] != user_id
             }
             self._matchmaking_locks.pop(user_id, None)
+            installation_ids = [
+                installation_id
+                for owner_id, installation_id in self._push_subscriptions
+                if owner_id == user_id
+            ]
+            for installation_id in installation_ids:
+                self._push_subscriptions.pop((user_id, installation_id), None)
+                if self._installation_owners.get(installation_id) == user_id:
+                    self._installation_owners.pop(installation_id, None)
 
 
 class DynamoRepository:
@@ -1567,6 +1673,220 @@ class DynamoRepository:
         transaction = StoredOAuthTransaction.model_validate_json(item["document"])
         return transaction if transaction.expires_at > datetime.now(UTC) else None
 
+    def upsert_push_subscription(
+        self, subscription: StoredPushSubscription
+    ) -> StoredPushSubscription:
+        subscription_key = {
+            "PK": f"USER#{subscription.user_id}",
+            "SK": f"PUSH#{subscription.installation_id}",
+        }
+        existing_item = self._table.get_item(
+            Key=subscription_key,
+            ConsistentRead=True,
+        ).get("Item")
+        existing = (
+            StoredPushSubscription.model_validate_json(existing_item["document"])
+            if existing_item
+            else None
+        )
+        stored = subscription.model_copy(
+            update={"created_at": existing.created_at if existing else subscription.created_at}
+        )
+        owner_key = {
+            "PK": f"INSTALLATION#{subscription.installation_id}",
+            "SK": "OWNER",
+        }
+        previous_owner = self._table.get_item(
+            Key=owner_key,
+            ConsistentRead=True,
+        ).get("Item")
+        owner_condition = "attribute_not_exists(PK)"
+        owner_values: dict[str, Any] = {}
+        if previous_owner is not None:
+            owner_condition = "userId = :previousUser AND installationId = :installationId"
+            owner_values = {
+                ":previousUser": str(previous_owner["userId"]),
+                ":installationId": subscription.installation_id,
+            }
+
+        transaction: list[dict[str, Any]] = []
+        transaction.append(
+            {
+                "ConditionCheck": {
+                    "TableName": self._table_name,
+                    "Key": _serialize(
+                        {"PK": f"USER#{subscription.user_id}", "SK": "ACCOUNT_DELETED"}
+                    ),
+                    "ConditionExpression": "attribute_not_exists(PK)",
+                }
+            }
+        )
+        if previous_owner is not None and previous_owner["userId"] != subscription.user_id:
+            transaction.append(
+                {
+                    "Delete": {
+                        "TableName": self._table_name,
+                        "Key": _serialize(
+                            {
+                                "PK": f"USER#{previous_owner['userId']}",
+                                "SK": f"PUSH#{subscription.installation_id}",
+                            }
+                        ),
+                    }
+                }
+            )
+        transaction.extend(
+            [
+                {
+                    "Put": {
+                        "TableName": self._table_name,
+                        "Item": _serialize(
+                            {
+                                **subscription_key,
+                                "entity": "pushSubscription",
+                                "userId": subscription.user_id,
+                                "installationId": subscription.installation_id,
+                                "document": stored.model_dump_json(by_alias=True),
+                            }
+                        ),
+                    }
+                },
+                {
+                    "Put": {
+                        "TableName": self._table_name,
+                        "Item": _serialize(
+                            {
+                                **owner_key,
+                                "entity": "pushInstallationOwner",
+                                "userId": subscription.user_id,
+                                "installationId": subscription.installation_id,
+                            }
+                        ),
+                        "ConditionExpression": owner_condition,
+                        **(
+                            {"ExpressionAttributeValues": _serialize_values(owner_values)}
+                            if owner_values
+                            else {}
+                        ),
+                    }
+                },
+            ]
+        )
+        try:
+            self._client.transact_write_items(TransactItems=transaction)
+        except ClientError as error:
+            if error.response["Error"]["Code"] == "TransactionCanceledException":
+                raise ApiError(
+                    "pushSubscriptionConflict",
+                    "The push subscription changed during registration. Try again.",
+                    status_code=409,
+                ) from error
+            raise
+        return stored
+
+    def list_push_subscriptions(self, user_id: str) -> list[StoredPushSubscription]:
+        items = self._partition_items(f"USER#{user_id}", sk_prefix="PUSH#")
+        subscriptions = [
+            StoredPushSubscription.model_validate_json(item["document"]) for item in items
+        ]
+        return sorted(subscriptions, key=lambda value: value.created_at)
+
+    def delete_push_subscription(self, user_id: str, installation_id: str) -> None:
+        subscription_key = {"PK": f"USER#{user_id}", "SK": f"PUSH#{installation_id}"}
+        owner_key = {"PK": f"INSTALLATION#{installation_id}", "SK": "OWNER"}
+        owner = self._table.get_item(Key=owner_key, ConsistentRead=True).get("Item")
+        if owner is None or owner.get("userId") != user_id:
+            self._table.delete_item(Key=subscription_key)
+            return
+        try:
+            self._client.transact_write_items(
+                TransactItems=[
+                    {
+                        "Delete": {
+                            "TableName": self._table_name,
+                            "Key": _serialize(subscription_key),
+                        }
+                    },
+                    {
+                        "Delete": {
+                            "TableName": self._table_name,
+                            "Key": _serialize(owner_key),
+                            "ConditionExpression": (
+                                "userId = :userId AND installationId = :installationId"
+                            ),
+                            "ExpressionAttributeValues": _serialize_values(
+                                {":userId": user_id, ":installationId": installation_id}
+                            ),
+                        }
+                    },
+                ]
+            )
+        except ClientError as error:
+            if error.response["Error"]["Code"] == "TransactionCanceledException":
+                return
+            raise
+
+    def claim_notification_delivery(self, delivery_id: str) -> str | None:
+        now = datetime.now(UTC)
+        claim_token = secrets.token_urlsafe(18)
+        try:
+            self._table.put_item(
+                Item={
+                    "PK": f"DELIVERY#{delivery_id}",
+                    "SK": "STATE",
+                    "entity": "notificationDelivery",
+                    "status": "sending",
+                    "claimToken": claim_token,
+                    "leaseExpiresAt": int((now + timedelta(minutes=5)).timestamp()),
+                    "expiresAt": int((now + timedelta(days=7)).timestamp()),
+                },
+                ConditionExpression=(
+                    "attribute_not_exists(PK) OR (#status = :sending AND leaseExpiresAt < :now)"
+                ),
+                ExpressionAttributeNames={"#status": "status"},
+                ExpressionAttributeValues={":sending": "sending", ":now": int(now.timestamp())},
+            )
+        except ClientError as error:
+            if error.response["Error"]["Code"] == "ConditionalCheckFailedException":
+                return None
+            raise
+        return claim_token
+
+    def complete_notification_delivery(self, delivery_id: str, claim_token: str) -> None:
+        try:
+            self._table.update_item(
+                Key={"PK": f"DELIVERY#{delivery_id}", "SK": "STATE"},
+                UpdateExpression=(
+                    "SET #status = :delivered, expiresAt = :expiresAt REMOVE leaseExpiresAt"
+                ),
+                ConditionExpression="#status = :sending AND claimToken = :claimToken",
+                ExpressionAttributeNames={"#status": "status"},
+                ExpressionAttributeValues={
+                    ":delivered": "delivered",
+                    ":sending": "sending",
+                    ":claimToken": claim_token,
+                    ":expiresAt": int((datetime.now(UTC) + timedelta(days=7)).timestamp()),
+                },
+            )
+        except ClientError as error:
+            if error.response["Error"]["Code"] != "ConditionalCheckFailedException":
+                raise
+
+    def release_notification_delivery(self, delivery_id: str, claim_token: str) -> None:
+        try:
+            self._table.delete_item(
+                Key={"PK": f"DELIVERY#{delivery_id}", "SK": "STATE"},
+                ConditionExpression="#status = :sending AND claimToken = :claimToken",
+                ExpressionAttributeNames={"#status": "status"},
+                ExpressionAttributeValues={
+                    ":sending": "sending",
+                    ":claimToken": claim_token,
+                },
+            )
+        except ClientError as error:
+            if error.response["Error"]["Code"] != "ConditionalCheckFailedException":
+                raise
+
     def delete_user_data(self, user_id: str) -> None:
         user_items = self._partition_items(f"USER#{user_id}")
         matches = [
@@ -1581,6 +1901,19 @@ class DynamoRepository:
                 "All active matches must end before account data can be deleted.",
                 status_code=409,
             )
+
+        # Fence new notification registrations before the final consistent
+        # sweep. The registration transaction condition-checks this item, so a
+        # request racing deletion either commits before the fence and is swept,
+        # or fails after it. DynamoDB removes the minimal guard after its TTL.
+        deletion_guard = {
+            "PK": f"USER#{user_id}",
+            "SK": "ACCOUNT_DELETED",
+            "entity": "accountDeletionGuard",
+            "expiresAt": int((datetime.now(UTC) + timedelta(days=1)).timestamp()),
+        }
+        self._table.put_item(Item=deletion_guard)
+        user_items = self._partition_items(f"USER#{user_id}")
 
         for match in matches:
             anonymous_id = f"deleted-{uuid4()}"
@@ -1610,8 +1943,24 @@ class DynamoRepository:
                 }
             )
 
+        for subscription_item in (
+            item for item in user_items if item.get("entity") == "pushSubscription"
+        ):
+            try:
+                self._table.delete_item(
+                    Key={
+                        "PK": f"INSTALLATION#{subscription_item['installationId']}",
+                        "SK": "OWNER",
+                    },
+                    ConditionExpression="userId = :userId",
+                    ExpressionAttributeValues={":userId": user_id},
+                )
+            except ClientError as error:
+                if error.response["Error"]["Code"] != "ConditionalCheckFailedException":
+                    raise
+
         self._delete_items(self._partition_items(f"IDEMP#{user_id}"))
-        self._delete_items(user_items)
+        self._delete_items([item for item in user_items if item.get("SK") != "ACCOUNT_DELETED"])
 
     def _partition_items(
         self,
