@@ -36,6 +36,25 @@ class EmptyTable:
         return {}
 
 
+class LegacyQueueTable(EmptyTable):
+    def query(self, **kwargs: Any) -> dict[str, Any]:
+        del kwargs
+        return {
+            "Items": [
+                {
+                    "PK": "QUEUE#rules-hash",
+                    "SK": "2026-08-14T00:00:00+00:00#legacy-user",
+                    "entity": "queue",
+                    "userId": "legacy-user",
+                    "ticketId": "ticket-legacy-00001",
+                    "status": "waiting",
+                    "rules": '{"mode":"elimination"}',
+                    "expiresAt": int((datetime.now(UTC) + timedelta(minutes=5)).timestamp()),
+                }
+            ]
+        }
+
+
 class TableResource:
     def __init__(self, table: EmptyTable) -> None:
         self.table = table
@@ -71,7 +90,7 @@ def test_dynamo_transactions_use_the_low_level_client(
     assert transaction[2]["Put"]["Item"]["PK"] == {"S": "JOIN#ABC123"}
 
 
-def test_matchmaking_queue_stores_only_user_id_and_utc_epoch_ttls(
+def test_matchmaking_queue_stores_public_name_only_on_candidate_and_utc_epoch_ttls(
     monkeypatch,
     settings: Settings,
 ) -> None:
@@ -84,6 +103,7 @@ def test_matchmaking_queue_stores_only_user_id_and_utc_epoch_ttls(
     repository.enqueue(
         "rules-hash",
         "user-1",
+        "Alice Example",
         {"mode": "elimination"},
         "ticket-alice-000001",
     )
@@ -92,12 +112,13 @@ def test_matchmaking_queue_stores_only_user_id_and_utc_epoch_ttls(
     transaction = client.transactions[0]["TransactItems"]
     queue_item = transaction[0]["Put"]["Item"]
     assert queue_item["userId"] == {"S": "user-1"}
+    assert queue_item["displayName"] == {"S": "Alice Example"}
     assert "user" not in queue_item
     assert "email" not in queue_item
     assert "username" not in queue_item
 
     assert len(transaction) == 3
-    assert all("displayName" not in operation["Put"]["Item"] for operation in transaction)
+    assert all("displayName" not in operation["Put"]["Item"] for operation in transaction[1:])
 
     expires_at = int(queue_item["expiresAt"]["N"])
     assert int(before.timestamp()) <= expires_at <= int(after.timestamp())
@@ -106,6 +127,20 @@ def test_matchmaking_queue_stores_only_user_id_and_utc_epoch_ttls(
         for item in transaction
         if "expiresAt" in item["Put"]["Item"]
     } == {expires_at}
+
+
+def test_matchmaking_skips_legacy_queue_rows_without_a_display_name(
+    monkeypatch,
+    settings: Settings,
+) -> None:
+    client = RecordingClient()
+    table = LegacyQueueTable()
+    monkeypatch.setattr(boto3, "resource", lambda *args, **kwargs: TableResource(table))
+    monkeypatch.setattr(boto3, "client", lambda *args, **kwargs: client)
+    repository = DynamoRepository(settings)
+
+    assert repository.pop_opponent("rules-hash", "new-user") is None
+    assert client.transactions == []
 
 
 def test_push_subscription_transaction_keeps_credentials_in_user_record(

@@ -82,13 +82,14 @@ class Repository(Protocol):
         self,
         rules_hash: str,
         user_id: str,
+        display_name: str,
         rules: dict[str, Any],
         ticket_id: str,
     ) -> None: ...
 
     def pop_opponent(
         self, rules_hash: str, user_id: str
-    ) -> tuple[str, dict[str, Any], str] | None: ...
+    ) -> tuple[str, str, dict[str, Any], str] | None: ...
 
     def active_matchmaking(self, user_id: str) -> MatchmakingRecord | None: ...
 
@@ -150,7 +151,10 @@ class InMemoryRepository:
         self._memberships: dict[str, set[str]] = {}
         self._moves: dict[str, list[MoveEvent]] = {}
         self._idempotency: dict[tuple[str, str], tuple[str, StoredMatch]] = {}
-        self._queues: dict[str, list[tuple[str, dict[str, Any], str, datetime]]] = {}
+        self._queues: dict[
+            str,
+            list[tuple[str, str, dict[str, Any], str, datetime]],
+        ] = {}
         self._active_ticket_by_user: dict[str, str] = {}
         self._matchmaking_records: dict[tuple[str, str], MatchmakingRecord] = {}
         self._exchanges: dict[str, StoredExchange] = {}
@@ -314,6 +318,7 @@ class InMemoryRepository:
         self,
         rules_hash: str,
         user_id: str,
+        display_name: str,
         rules: dict[str, Any],
         ticket_id: str,
     ) -> None:
@@ -329,7 +334,9 @@ class InMemoryRepository:
                     details={"ticketId": active.ticket_id},
                 )
             expires_at = datetime.now(UTC) + _MATCHMAKING_WAIT_TTL
-            self._queues.setdefault(rules_hash, []).append((user_id, rules, ticket_id, expires_at))
+            self._queues.setdefault(rules_hash, []).append(
+                (user_id, display_name, rules, ticket_id, expires_at)
+            )
             self._active_ticket_by_user[user_id] = ticket_id
             self._matchmaking_records[(user_id, ticket_id)] = MatchmakingRecord(
                 ticket_id=ticket_id,
@@ -340,7 +347,9 @@ class InMemoryRepository:
                 expires_at=expires_at,
             )
 
-    def pop_opponent(self, rules_hash: str, user_id: str) -> tuple[str, dict[str, Any], str] | None:
+    def pop_opponent(
+        self, rules_hash: str, user_id: str
+    ) -> tuple[str, str, dict[str, Any], str] | None:
         with self._lock:
             queue = self._queues.setdefault(rules_hash, [])
             now = datetime.now(UTC)
@@ -348,7 +357,7 @@ class InMemoryRepository:
                 candidate for candidate in queue if self._keep_live_candidate(candidate, now)
             ]
             for candidate in queue:
-                opponent_id, opponent_rules, ticket_id, _ = candidate
+                opponent_id, opponent_name, opponent_rules, ticket_id, _ = candidate
                 record = self._matchmaking_records.get((opponent_id, ticket_id))
                 if opponent_id != user_id and record is not None and record.status == "waiting":
                     self._matchmaking_records[(opponent_id, ticket_id)] = MatchmakingRecord(
@@ -359,15 +368,15 @@ class InMemoryRepository:
                         match_id=None,
                         expires_at=now + _MATCHMAKING_WAIT_TTL,
                     )
-                    return opponent_id, opponent_rules, ticket_id
+                    return opponent_id, opponent_name, opponent_rules, ticket_id
             return None
 
     def _keep_live_candidate(
         self,
-        candidate: tuple[str, dict[str, Any], str, datetime],
+        candidate: tuple[str, str, dict[str, Any], str, datetime],
         now: datetime,
     ) -> bool:
-        user_id, _, ticket_id, expires_at = candidate
+        user_id, _, _, ticket_id, expires_at = candidate
         if expires_at > now:
             return True
         if self._active_ticket_by_user.get(user_id) == ticket_id:
@@ -421,7 +430,7 @@ class InMemoryRepository:
                 self._queues[claimed.rules_hash] = [
                     entry
                     for entry in self._queues.get(claimed.rules_hash, [])
-                    if not (entry[0] == opponent_id and entry[2] == opponent_ticket_id)
+                    if not (entry[0] == opponent_id and entry[3] == opponent_ticket_id)
                 ]
             if self._active_ticket_by_user.get(opponent_id) == opponent_ticket_id:
                 self._active_ticket_by_user.pop(opponent_id, None)
@@ -460,8 +469,8 @@ class InMemoryRepository:
             if current.rules_hash is not None:
                 queue = self._queues.get(current.rules_hash, [])
                 for index, entry in enumerate(queue):
-                    if entry[0] == user_id and entry[2] == ticket_id:
-                        queue[index] = (entry[0], entry[1], entry[2], expires_at)
+                    if entry[0] == user_id and entry[3] == ticket_id:
+                        queue[index] = (*entry[:4], expires_at)
                         break
 
     def remove_from_queue(self, user_id: str, ticket_id: str) -> bool:
@@ -477,7 +486,7 @@ class InMemoryRepository:
                 self._queues[rules_hash] = [
                     entry
                     for entry in self._queues.get(rules_hash, [])
-                    if not (entry[0] == user_id and entry[2] == ticket_id)
+                    if not (entry[0] == user_id and entry[3] == ticket_id)
                 ]
             self._matchmaking_records.pop((user_id, ticket_id), None)
             return True
@@ -1008,6 +1017,7 @@ class DynamoRepository:
         self,
         rules_hash: str,
         user_id: str,
+        display_name: str,
         rules: dict[str, Any],
         ticket_id: str,
     ) -> None:
@@ -1026,6 +1036,7 @@ class DynamoRepository:
                                     "SK": queue_sk,
                                     "entity": "queue",
                                     "userId": user_id,
+                                    "displayName": display_name,
                                     "ticketId": ticket_id,
                                     "status": "waiting",
                                     "rules": json.dumps(
@@ -1087,7 +1098,9 @@ class DynamoRepository:
                 ) from error
             raise
 
-    def pop_opponent(self, rules_hash: str, user_id: str) -> tuple[str, dict[str, Any], str] | None:
+    def pop_opponent(
+        self, rules_hash: str, user_id: str
+    ) -> tuple[str, str, dict[str, Any], str] | None:
         query: dict[str, Any] = {
             "KeyConditionExpression": Key("PK").eq(f"QUEUE#{rules_hash}"),
             "ConsistentRead": True,
@@ -1099,6 +1112,8 @@ class DynamoRepository:
             for item in response.get("Items", []):
                 if (
                     item["userId"] == user_id
+                    or not isinstance(item.get("displayName"), str)
+                    or not item["displayName"].strip()
                     or item.get("status") != "waiting"
                     or int(item.get("expiresAt", 0)) <= now
                 ):
@@ -1187,6 +1202,7 @@ class DynamoRepository:
                     )
                     return (
                         str(item["userId"]),
+                        str(item["displayName"]),
                         json.loads(item["rules"]),
                         ticket_id,
                     )

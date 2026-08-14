@@ -30,6 +30,7 @@ void main() {
 
       expect(tester.takeException(), isNull);
       expect(find.text('MOVE 1'), findsOneWidget);
+      expect(find.text('vs Mika'), findsOneWidget);
       expect(find.byKey(const Key('game-view-settings')), findsOneWidget);
       expectGameLayoutGeometry(
         tester,
@@ -108,13 +109,13 @@ OnlineMatch _activeMatch() {
     OnlinePlayer(
       id: 'black',
       username: 'black',
-      displayName: 'Black player',
+      displayName: 'Nora',
       color: engine.Player.black,
     ),
     OnlinePlayer(
       id: 'white',
       username: 'white',
-      displayName: 'White player',
+      displayName: 'Mika',
       color: engine.Player.white,
     ),
   ];

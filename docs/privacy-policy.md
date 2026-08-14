@@ -22,8 +22,10 @@ service does not store plaintext passwords. Google account data is processed
 only when optional Google sign-in is enabled and the player chooses it.
 
 The online service stores match rules, board states, moves, results, internal
-player identifiers, and short-lived matchmaking records. User-entered names
-are not shown to opponents.
+player identifiers, public display-name snapshots, and short-lived matchmaking
+records. A player's chosen display name is shown to online opponents and
+retained with match history; login usernames and email addresses are not
+included in match documents.
 
 If a player enables turn notifications, the service stores a random
 installation identifier and either a browser push endpoint with its
@@ -40,15 +42,17 @@ exchange codes are not intentionally logged.
 ## Purposes and sharing
 
 Information is used to provide accounts, recovery, matchmaking, online play,
-replays, abuse prevention, security, and service operations. It is disclosed
-only to infrastructure and identity providers needed for those functions, or
-when legally required. It is not sold and is not used for targeted advertising.
+replays, abuse prevention, security, and service operations. Public display
+names are disclosed to matched opponents. Other information is disclosed only
+to infrastructure and identity providers needed for those functions, or when
+legally required. It is not sold and is not used for targeted advertising.
 
 ## Retention and deletion
 
 - Account information is kept while the account exists.
 - Waiting matchmaking entries expire after about 10 minutes and result entries
-  after about one hour.
+  after about one hour. A waiting candidate includes the public display-name
+  snapshot used to form a match.
 - One-time login exchanges expire after about five minutes; the backing
   records are eligible for automatic removal.
 - Command-deduplication records expire after about 24 hours.
@@ -64,8 +68,8 @@ when legally required. It is not sold and is not used for targeted advertising.
 A signed-in player can permanently delete an account from **Player → Delete
 account**. Deletion removes the identity account and recovery email, cancels
 waiting matches, treats active matches as resignations, removes short-lived
-player records and push subscriptions, and anonymizes player labels and move
-identifiers in retained match history. Limited operational logs and encrypted
+player records and push subscriptions, and anonymizes stored display names and
+move identifiers in retained match history. Limited operational logs and encrypted
 backups age out under the periods above. Encrypted DynamoDB stream copies of
 recently changed records expire after about 24 hours; only match changes pass
 the notification consumer's invocation filter.

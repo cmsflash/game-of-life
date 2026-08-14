@@ -176,6 +176,38 @@ Before a schema or repository change:
 3. Deploy code capable of reading both old and new records before backfilling.
 4. Use small, resumable batches and measure throttling.
 
+### Legacy match display-name migration
+
+The backend writes public display-name snapshots into all new private and quick
+matches. Records created before that behavior can be backfilled with the
+dry-run-first migration command below. It resolves each stored Cognito subject
+to the same trimmed `name` (or Cognito username fallback) used by
+authentication, skips already named and deleted participants, and never prints
+resolved names or account IDs.
+
+From an activated backend environment installed with the `[dev]` extra (which
+includes the AWS login-profile credential provider), inspect one match first:
+
+```bash
+python -m life_api.migrate_match_display_names \
+  --stack-name the-game-of-life-production \
+  --region ap-east-1 \
+  --profile game-of-life \
+  --match-id MATCH_UUID
+```
+
+Omit `--match-id` for a read-only full-table dry run. After confirming point-in-
+time recovery, counts, and the target stack, repeat the same command with
+`--apply`; then rerun the dry run and require `eligible=0`, `unresolved=0`,
+`conflicts=0`, and `invalid=0`. A conditional write compares both the complete
+stored document and its prior match version, so a concurrent move wins safely
+and appears as `conflicts`; rerun those records after gameplay settles.
+
+Each applied repair increments the match version so ETag-based clients refetch,
+but deliberately preserves `updatedAt`, engine revision, and player-to-move.
+History ordering and reminder timing therefore remain unchanged, and the
+notification stream does not classify the repair as a new turn.
+
 A DynamoDB point-in-time restore always creates a new table. Restore to a new
 name, validate record counts and representative matches, then deploy a reviewed
 configuration change that points the application at the recovered table. Do

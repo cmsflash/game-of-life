@@ -58,8 +58,9 @@ provider is implemented.
 
 The client includes in-app privacy, Terms, open-source license, and account
 deletion surfaces. The API deletes the identity account, resolves outstanding
-matches, and anonymizes retained history. Opponent-authored names are not
-exposed in the release protocol.
+matches, and anonymizes retained history. Online opponents see each player's
+chosen public display name, while login usernames and email addresses stay out
+of match documents.
 
 Before submitting a binary, complete the operator-specific values, store
 assets, reviewer package, signing, and clean-device checks in

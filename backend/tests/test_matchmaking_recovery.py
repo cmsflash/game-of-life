@@ -60,7 +60,7 @@ def test_claimed_ticket_remains_active_until_released() -> None:
         email_verified=True,
     )
     ticket = "ticket-alice-000001"
-    repository.enqueue("rules-hash", alice.id, {"rules": 1}, ticket)
+    repository.enqueue("rules-hash", alice.id, alice.display_name, {"rules": 1}, ticket)
 
     opponent = repository.pop_opponent("rules-hash", "bob-id")
 
@@ -72,9 +72,11 @@ def test_claimed_ticket_remains_active_until_released() -> None:
     released = repository.active_matchmaking(alice.id)
     assert released is not None
     assert released.status == "waiting"
+    reclaimed = repository.pop_opponent("rules-hash", "carol-id")
+    assert reclaimed == (alice.id, alice.display_name, {"rules": 1}, ticket)
 
 
-def test_match_documents_expose_only_color_labels() -> None:
+def test_match_documents_preserve_player_display_names() -> None:
     repository = InMemoryRepository()
     engine = StubEngine()
     alice = User(
@@ -106,6 +108,6 @@ def test_match_documents_expose_only_color_labels() -> None:
     document = MatchService(repository, engine).get(alice, match.id)
 
     assert document.black_player is not None
-    assert document.black_player.display_name == "Black player"
+    assert document.black_player.display_name == "Alice's custom name"
     assert document.white_player is not None
-    assert document.white_player.display_name == "White player"
+    assert document.white_player.display_name == "Bob's custom name"

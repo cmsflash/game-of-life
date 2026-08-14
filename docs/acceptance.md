@@ -53,8 +53,10 @@
 - Both players can load the same replay and independently reproduce its final
   state hash.
 - Resignation produces a terminal outcome and prevents future moves.
-- Opponents receive color labels rather than user-authored usernames or display
-  names.
+- Both players' public display names map to their randomly assigned colors in
+  private and quick matches. Match documents contain neither login usernames
+  nor email addresses, and account deletion replaces the departed player's
+  stored name and identifier with `Deleted player`.
 
 ## Operational quality
 

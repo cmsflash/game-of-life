@@ -158,6 +158,10 @@ void main() {
       AutofillHints.newUsername,
     ]);
     expect(displayName.autofillHints, const [AutofillHints.nickname]);
+    expect(
+      displayName.decoration?.helperText,
+      'Shown to players you are matched with',
+    );
     expect(email.autofillHints, const [AutofillHints.email]);
     expect(email.keyboardType, TextInputType.emailAddress);
     expect(password.autofillHints, const [AutofillHints.newPassword]);
@@ -214,6 +218,27 @@ void main() {
     expect(find.text('Privacy Policy'), findsOneWidget);
     expect(find.text('Terms of Use'), findsOneWidget);
     expect(find.text('Account deletion'), findsOneWidget);
+  });
+
+  testWidgets('privacy policy discloses opponent display names', (
+    tester,
+  ) async {
+    await pumpApp(tester);
+
+    await tester.tap(find.text('Player'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Privacy Policy'));
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('Effective August 14, 2026'), findsOneWidget);
+    expect(
+      find.textContaining('Your display name is shown to players'),
+      findsOneWidget,
+    );
+    expect(
+      find.textContaining('Display names are shared with matched opponents'),
+      findsOneWidget,
+    );
   });
 
   testWidgets('mobile layout reaches and starts a local match', (tester) async {

@@ -122,14 +122,19 @@ def client(settings: Settings) -> Iterator[TestClient]:
         yield value
 
 
-def register_and_login(client: TestClient, username: str) -> tuple[dict[str, Any], str]:
+def register_and_login(
+    client: TestClient,
+    username: str,
+    *,
+    display_name: str | None = None,
+) -> tuple[dict[str, Any], str]:
     registration = client.post(
         "/v1/auth/register",
         json={
             "username": username,
             "email": f"{username}@example.com",
             "password": "correct horse battery staple 1",
-            "displayName": username.title(),
+            "displayName": display_name or username.title(),
         },
     )
     assert registration.status_code == 201

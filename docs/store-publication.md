@@ -44,8 +44,13 @@ placeholders in a store record.
 - A disposable reviewer account when the store review process permits one.
 - Completed Apple privacy nutrition labels and Google Play Data Safety form
   consistent with [`privacy-policy.md`](privacy-policy.md).
-- Age rating answers reflecting online interaction without opponent-authored
-  text or names.
+- Age-rating, privacy, and user-generated-content answers reflecting that an
+  online opponent sees each player's user-authored display name.
+- A reviewed store-compliance plan for display-name moderation, reporting,
+  blocking, and abuse response. The current backend snapshot change does not
+  add those product controls; treat any controls required by the target store
+  as a publication blocker rather than answering that no shared user-authored
+  content exists.
 
 ## Verification
 

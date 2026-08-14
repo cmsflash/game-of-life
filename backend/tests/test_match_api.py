@@ -9,8 +9,16 @@ from fastapi.testclient import TestClient
 def _create_active_match(
     client: TestClient,
 ) -> tuple[dict[str, Any], dict[str, str], dict[str, str]]:
-    _, alice_auth = register_and_login(client, "alice")
-    _, bob_auth = register_and_login(client, "bob")
+    _, alice_auth = register_and_login(
+        client,
+        "alice",
+        display_name="Alice Strategist",
+    )
+    _, bob_auth = register_and_login(
+        client,
+        "bob",
+        display_name="Bob Builder",
+    )
     alice_headers = {"Authorization": alice_auth}
     bob_headers = {"Authorization": bob_auth}
     created = client.post("/v1/matches", json={}, headers=alice_headers)
@@ -25,12 +33,14 @@ def _create_active_match(
     assert joined.status_code == 200
     assert joined.headers["etag"] == '"1"'
     document = joined.json()
-    assert document["blackPlayer"]["displayName"] == "Black player"
-    assert document["whitePlayer"]["displayName"] == "White player"
     assert {
         document["blackPlayer"]["displayName"],
         document["whitePlayer"]["displayName"],
-    }.isdisjoint({"Alice", "Bob"})
+    } == {"Alice Strategist", "Bob Builder"}
+    assert "email" not in document["blackPlayer"]
+    assert "username" not in document["blackPlayer"]
+    assert "email" not in document["whitePlayer"]
+    assert "username" not in document["whitePlayer"]
     return document, alice_headers, bob_headers
 
 
@@ -177,8 +187,16 @@ def test_stale_revision_and_match_authorization(client: TestClient) -> None:
 
 
 def test_quick_match_pairs_compatible_players(client: TestClient) -> None:
-    _, alice_auth = register_and_login(client, "alice")
-    _, bob_auth = register_and_login(client, "bob")
+    _, alice_auth = register_and_login(
+        client,
+        "alice",
+        display_name="Alice Strategist",
+    )
+    _, bob_auth = register_and_login(
+        client,
+        "bob",
+        display_name="Bob Builder",
+    )
     alice_headers = {"Authorization": alice_auth}
     bob_headers = {"Authorization": bob_auth}
 
@@ -208,8 +226,10 @@ def test_quick_match_pairs_compatible_players(client: TestClient) -> None:
         f"/v1/matches/{matched.json()['matchId']}",
         headers=bob_headers,
     ).json()
-    assert quick_match["blackPlayer"]["displayName"] == "Black player"
-    assert quick_match["whitePlayer"]["displayName"] == "White player"
+    assert {
+        quick_match["blackPlayer"]["displayName"],
+        quick_match["whitePlayer"]["displayName"],
+    } == {"Alice Strategist", "Bob Builder"}
     alice_status = client.get(
         "/v1/matchmaking",
         params={"ticketId": alice_ticket},

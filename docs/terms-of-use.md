@@ -1,6 +1,6 @@
 # Terms of Use
 
-Effective July 28, 2026.
+Effective August 14, 2026.
 
 These terms apply to online accounts and the online game service. Mandatory
 consumer rights in a player's jurisdiction are not limited by these terms.
@@ -16,8 +16,10 @@ service safeguards.
 
 Players may not automate abusive traffic, exploit defects, interfere with
 other players, probe accounts, or attempt to manipulate server-authoritative
-match results. Usernames and display names are private account metadata and are
-not presented to opponents in the current release.
+match results. A player's chosen display name is presented to online opponents;
+login usernames and email addresses remain private account metadata. Display
+names may not impersonate others, contain sensitive personal information, or
+be abusive, hateful, threatening, or otherwise unlawful.
 
 ## Availability and records
 

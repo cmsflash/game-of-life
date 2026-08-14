@@ -27,7 +27,7 @@ class LegalScreen extends ConsumerWidget {
         eyebrow: 'Legal',
         title: 'Privacy Policy',
         introduction:
-            'Effective July 28, 2026. This policy explains what The Game of '
+            'Effective August 14, 2026. This policy explains what The Game of '
             'Life processes when you play locally or use an online account.',
         sections: _privacySections,
       ),
@@ -35,7 +35,7 @@ class LegalScreen extends ConsumerWidget {
         eyebrow: 'Legal',
         title: 'Terms of Use',
         introduction:
-            'Effective July 28, 2026. These terms apply when you create an '
+            'Effective August 14, 2026. These terms apply when you create an '
             'account or use the online game service.',
         sections: _termsSections,
       ),
@@ -295,17 +295,20 @@ const _privacySections = [
   _LegalSectionData(
     'Game and service data',
     'The service stores match rules, board states, moves, results, internal '
-        'player identifiers, and matchmaking records so it can run and verify '
-        'online games. User-entered names are not shown to opponents. Security '
-        'and reliability logs may include time, route, status, request ID, '
-        'source IP address, and device or platform category; request bodies '
-        'and authentication secrets are not intentionally logged.',
+        'player identifiers, display names, and matchmaking records so it can '
+        'run and verify online games. Your display name is shown to players '
+        'you are matched with; your username and email address are not. '
+        'Security and reliability logs may include time, route, status, '
+        'request ID, source IP address, and device or platform category; '
+        'request bodies and authentication secrets are not intentionally '
+        'logged.',
   ),
   _LegalSectionData(
     'Use and sharing',
     'Data is used to provide accounts, matchmaking, online play, recovery, '
-        'abuse prevention, security, and service operations. It is shared only '
-        'with infrastructure and identity providers needed to operate those '
+        'abuse prevention, security, and service operations. Display names are '
+        'shared with matched opponents. Other data is shared only with '
+        'infrastructure and identity providers needed to operate those '
         'functions, or when legally required. It is not sold and is not used '
         'for targeted advertising.',
   ),
@@ -341,8 +344,9 @@ const _termsSections = [
     'Fair play',
     'Do not automate abusive traffic, exploit defects, interfere with other '
         'players, probe accounts, or attempt to manipulate server-authoritative '
-        'match results. Usernames and display names are account metadata and '
-        'are not presented to opponents in the current release.',
+        'match results. Your display name is shown to matched opponents, so it '
+        'must not impersonate, threaten, harass, or contain abusive content. '
+        'Your username and email address are not presented to opponents.',
   ),
   _LegalSectionData(
     'Service availability',

@@ -242,6 +242,8 @@ def test_delete_account_ends_games_anonymizes_history_and_revokes_local_identity
     assert deleted_player["displayName"] == "Deleted player"
     assert deleted_player["id"].startswith("deleted-")
     assert deleted_player["id"] != deleted_user_id
+    assert match_document["whitePlayer"]["displayName"] == opponent_username.title()
+    assert tokens[black_username]["user"]["displayName"] not in str(match_document)
 
     history = client.get(
         f"/v1/matches/{joined['id']}/moves",

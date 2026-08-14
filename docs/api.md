@@ -46,11 +46,11 @@ callback and exchange shape with an explicitly marked development account.
 
 Account deletion first cancels waiting games and matchmaking requests and
 resigns every active game. Completed game records remain available to the
-opponent, but the deleted player's identifier and generic color label are replaced
-with an unlinkable `Deleted player` identity in both match state and move
-history. The deleted player's memberships, matchmaking records, idempotency
-records, push subscriptions, and identity-provider account are then removed. Existing access and
-refresh tokens no longer authenticate.
+opponent, but the deleted player's identifier and stored display name are
+replaced with an unlinkable `Deleted player` identity in both match state and
+move history. The deleted player's memberships, matchmaking records,
+idempotency records, push subscriptions, and identity-provider account are then
+removed. Existing access and refresh tokens no longer authenticate.
 
 ## Turn notifications
 
@@ -116,9 +116,11 @@ Each account can keep up to five active installations.
 
 Match path IDs use canonical 36-character UUID syntax. Other values are
 rejected before a repository lookup.
-Player summaries deliberately use only the generic labels `Black player` and
-`White player`; profile display names are never copied into a match or shown to
-an opponent.
+Player summaries contain each participant's public `displayName`, snapshotted
+when the match is formed and associated with the randomly assigned color.
+Login usernames and email addresses are never included in match documents.
+Deleting an account replaces that participant's stored name and identifier
+with an unlinkable `Deleted player` identity in retained history.
 
 Move body:
 
@@ -153,9 +155,11 @@ Queue entries, pointers, and candidate claims use conditional DynamoDB
 transactions. A short per-player lock prevents concurrent requests from
 matching the same player twice. Tickets are scoped to one request and expire;
 status never falls back to an unrelated match from the player's history.
-Queue rows store only the player's opaque ID, never a display name, serialized
-profile, username, or email. No secondary matchmaking profile record is
-created.
+The bounded-TTL candidate row stores the player's opaque ID and public display-
+name snapshot alongside rules and ticket metadata so the eventual match can
+retain the queued player's name. Pointer and ticket rows do not duplicate the
+name, and no queue record contains a username, email address, token, or
+serialized profile. No secondary matchmaking profile record is created.
 If a match wins the race with cancellation, the API returns
 `409 matchAlreadyFound` with that ticket's `matchId`; the client opens the
 already-committed match.

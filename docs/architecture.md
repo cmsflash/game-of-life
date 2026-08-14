@@ -120,6 +120,15 @@ Opponent reservation, match creation, both memberships, and ticket completion
 commit atomically; a pre-commit failure releases the reservation back to the
 queue.
 
+Private-room creation retains the creator's authenticated public display name,
+and joining snapshots the second player's display name into the activated
+match. A quick-match candidate carries the same public snapshot in its bounded-
+TTL queue row so the atomic match commit can associate both names with their
+randomly assigned colors without a second profile service. Login usernames,
+email addresses, and tokens never enter match documents or queue rows. Account
+deletion replaces only the departing participant's stored name and identifier
+with an unlinkable `Deleted player` identity.
+
 ## Portability
 
 The deployment region is a parameter. Hong Kong, Tokyo, and Singapore can run

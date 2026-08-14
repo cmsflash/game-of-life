@@ -210,7 +210,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                     : null,
                 decoration: const InputDecoration(
                   labelText: 'Display name',
-                  helperText: 'Shown only on your own profile',
+                  helperText: 'Shown to players you are matched with',
                   prefixIcon: Icon(Icons.badge_outlined),
                 ),
               ),
