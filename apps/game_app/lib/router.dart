@@ -10,6 +10,7 @@ import 'features/game/presentation/local_setup_screen.dart';
 import 'features/home/home_screen.dart';
 import 'features/legal/legal_screens.dart';
 import 'features/online/presentation/online_match_screen.dart';
+import 'features/social/presentation/social_screen.dart';
 import 'providers.dart';
 import 'shared/app_shell.dart';
 
@@ -60,6 +61,10 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: '/online',
             pageBuilder: (context, state) => _page(state, const HomeScreen()),
+          ),
+          GoRoute(
+            path: '/social',
+            pageBuilder: (context, state) => _page(state, const SocialScreen()),
           ),
           GoRoute(
             path: '/player',

@@ -14,6 +14,8 @@ from .models import (
     CreateMatchRequest,
     LastMove,
     MatchDocument,
+    MatchMetricsLedger,
+    MatchOrigin,
     MatchRulesRequest,
     MatchStatus,
     MoveEvent,
@@ -26,6 +28,7 @@ from .models import (
     StoredMatch,
     User,
 )
+from .ratings import accumulated_kills, build_metrics_ledger, deaths_by_credit
 from .repository import Repository
 
 
@@ -48,6 +51,9 @@ class MatchService:
             creator_id=user.id,
             creator_name=user.display_name,
             status=MatchStatus.waiting,
+            origin=MatchOrigin.private,
+            rated=True,
+            kill_counts_complete=True,
         )
         self.repository.create_match(match)
         return self.document(match, user.id)
@@ -62,6 +68,12 @@ class MatchService:
             )
         if match.status != MatchStatus.waiting:
             raise ApiError("matchUnavailable", "The match is no longer waiting.", status_code=409)
+        if match.origin == MatchOrigin.friend_challenge:
+            raise ApiError(
+                "challengeJoinForbidden",
+                "Friend challenges must be accepted through the challenge endpoint.",
+                status_code=403,
+            )
         black, white = self._assign_colors(
             PlayerSummary(id=match.creator_id, display_name=match.creator_name),
             PlayerSummary(id=user.id, display_name=user.display_name),
@@ -142,6 +154,9 @@ class MatchService:
                 white_player=white,
                 status=MatchStatus.active,
                 version=1,
+                origin=MatchOrigin.quick,
+                rated=True,
+                kill_counts_complete=True,
             )
             self.repository.commit_quick_match(
                 active_match,
@@ -181,6 +196,12 @@ class MatchService:
             )
 
     def delete_account_data(self, user: User) -> None:
+        if self.repository.get_metrics_control().state.value != "ready":
+            raise ApiError(
+                "metricsBackfillInProgress",
+                "Account deletion is temporarily paused during rating migration.",
+                status_code=503,
+            )
         lock_token = self.repository.acquire_matchmaking_lock(user.id)
         if lock_token is None:
             raise ApiError(
@@ -189,22 +210,44 @@ class MatchService:
                 status_code=409,
             )
         try:
+            self.repository.begin_user_deletion(user.id)
             active_request = self.repository.active_matchmaking(user.id)
             if active_request is not None:
                 self.repository.remove_from_queue(user.id, active_request.ticket_id)
 
             for match in self.repository.list_matches(user.id):
                 if match.status == MatchStatus.waiting:
-                    self.cancel_waiting(user, match.id)
-                elif match.status == MatchStatus.active:
-                    self.resign(
-                        user,
-                        match.id,
-                        ResignRequest(
-                            expected_revision=match.revision,
-                            idempotency_key=f"account-delete-{uuid4()}",
-                        ),
-                    )
+                    try:
+                        self.cancel_waiting(user, match.id)
+                        continue
+                    except ApiError as error:
+                        current = self.repository.get_match(match.id)
+                        if current is None or current.status == MatchStatus.completed:
+                            continue
+                        if error.code != "matchUnavailable" or current.status != MatchStatus.active:
+                            raise
+                        # The invited player joined between the deletion scan
+                        # and cancellation. Reconcile it as an active game.
+                        match = current
+                if match.status == MatchStatus.active:
+                    try:
+                        self.resign(
+                            user,
+                            match.id,
+                            ResignRequest(
+                                expected_revision=match.revision,
+                                idempotency_key=f"account-delete-{uuid4()}",
+                            ),
+                            deleting_user_id=user.id,
+                        )
+                    except ApiError as error:
+                        current = self.repository.get_match(match.id)
+                        if (
+                            error.code not in {"gameOver", "staleRevision"}
+                            or current is None
+                            or current.status != MatchStatus.completed
+                        ):
+                            raise
 
             self.repository.delete_user_data(user.id)
         finally:
@@ -248,6 +291,21 @@ class MatchService:
         self.repository.cancel_waiting_match(match, user.id)
 
     def move(self, user: User, match_id: str, request: MoveRequest) -> MatchDocument:
+        for attempt in range(3):
+            try:
+                return self._move_once(user, match_id, request)
+            except ApiError as error:
+                if error.code != "metricsConflict":
+                    raise
+                if attempt == 2:
+                    raise ApiError(
+                        "metricsBusy",
+                        "Rating state is busy. Retry the move.",
+                        status_code=503,
+                    ) from error
+        raise AssertionError("unreachable")
+
+    def _move_once(self, user: User, match_id: str, request: MoveRequest) -> MatchDocument:
         request_fingerprint = _stable_hash(
             {
                 "operation": "move",
@@ -291,6 +349,14 @@ class MatchService:
         state = turn["state"]
         outcome = state.get("outcome")
         now = datetime.now(UTC)
+        black_kills = match.black_kills
+        white_kills = match.white_kills
+        if not match.kill_counts_complete:
+            historical = [move.delta for move in self.repository.list_moves(match.id)]
+            black_kills, white_kills = accumulated_kills(historical)
+        turn_black_kills, turn_white_kills = deaths_by_credit(turn["delta"])
+        black_kills += turn_black_kills
+        white_kills += turn_white_kills
         updated = match.model_copy(
             update={
                 "state": state,
@@ -302,6 +368,10 @@ class MatchService:
                     column=request.column,
                 ),
                 "result": outcome,
+                "black_kills": black_kills,
+                "white_kills": white_kills,
+                "kill_counts_complete": True,
+                "completed_at": now if outcome else None,
                 "version": match.version + 1,
                 "updated_at": now,
             }
@@ -316,6 +386,12 @@ class MatchService:
             state_hash=str(state["stateHash"]),
             created_at=now,
         )
+        metrics, black_version, white_version, control_version = self._terminal_metrics(
+            updated,
+            now,
+        )
+        if metrics is not None:
+            updated = updated.model_copy(update={"stats_finalized": True})
         self.repository.commit_move(
             match=updated,
             expected_version=match.version,
@@ -323,6 +399,10 @@ class MatchService:
             user_id=user.id,
             idempotency_key=request.idempotency_key,
             request_fingerprint=request_fingerprint,
+            metrics=metrics,
+            black_stats_version=black_version,
+            white_stats_version=white_version,
+            control_version=control_version,
         )
         committed = self.repository.idempotent_result(
             user.id, request.idempotency_key, request_fingerprint
@@ -335,7 +415,41 @@ class MatchService:
             )
         return self.document(committed or updated, user.id)
 
-    def resign(self, user: User, match_id: str, request: ResignRequest) -> MatchDocument:
+    def resign(
+        self,
+        user: User,
+        match_id: str,
+        request: ResignRequest,
+        *,
+        deleting_user_id: str | None = None,
+    ) -> MatchDocument:
+        for attempt in range(3):
+            try:
+                return self._resign_once(
+                    user,
+                    match_id,
+                    request,
+                    deleting_user_id=deleting_user_id,
+                )
+            except ApiError as error:
+                if error.code != "metricsConflict":
+                    raise
+                if attempt == 2:
+                    raise ApiError(
+                        "metricsBusy",
+                        "Rating state is busy. Retry the resignation.",
+                        status_code=503,
+                    ) from error
+        raise AssertionError("unreachable")
+
+    def _resign_once(
+        self,
+        user: User,
+        match_id: str,
+        request: ResignRequest,
+        *,
+        deleting_user_id: str | None = None,
+    ) -> MatchDocument:
         request_fingerprint = _stable_hash(
             {
                 "operation": "resign",
@@ -368,20 +482,46 @@ class MatchService:
                 details={"currentRevision": match.revision},
             )
         winner = "white" if color == "black" else "black"
+        now = datetime.now(UTC)
+        black_kills = match.black_kills
+        white_kills = match.white_kills
+        if not match.kill_counts_complete:
+            historical = [move.delta for move in self.repository.list_moves(match.id)]
+            black_kills, white_kills = accumulated_kills(historical)
         updated = match.model_copy(
             update={
                 "status": MatchStatus.completed,
                 "result": {"type": "win", "winner": winner, "reason": "resignation"},
+                "black_kills": black_kills,
+                "white_kills": white_kills,
+                "kill_counts_complete": True,
+                "stats_finalized": True,
+                "completed_at": now,
                 "version": match.version + 1,
-                "updated_at": datetime.now(UTC),
+                "updated_at": now,
             }
         )
+        metrics, black_version, white_version, control_version = self._terminal_metrics(
+            updated, now
+        )
+        if (
+            metrics is None
+            or black_version is None
+            or white_version is None
+            or control_version is None
+        ):
+            raise AssertionError("resignation must finalize rated metrics")
         self.repository.commit_resignation(
             match=updated,
             expected_version=match.version,
             user_id=user.id,
             idempotency_key=request.idempotency_key,
             request_fingerprint=request_fingerprint,
+            metrics=metrics,
+            black_stats_version=black_version,
+            white_stats_version=white_version,
+            control_version=control_version,
+            deleting_user_id=deleting_user_id,
         )
         committed = self.repository.idempotent_result(
             user.id, request.idempotency_key, request_fingerprint
@@ -406,12 +546,15 @@ class MatchService:
             moves=moves,
             final_state=replay["state"],
             result=match.result,
+            origin=match.origin,
+            rated=match.rated,
+            completed_at=match.completed_at,
         )
 
     def document(self, match: StoredMatch, user_id: str) -> MatchDocument:
         return MatchDocument(
             id=match.id,
-            join_code=match.join_code,
+            join_code=(None if match.origin == MatchOrigin.friend_challenge else match.join_code),
             rules=match.rules,
             state=match.state,
             black_player=self._public_player(match.black_player),
@@ -421,6 +564,9 @@ class MatchService:
             version=match.version,
             last_move=match.last_move,
             result=match.result,
+            origin=match.origin,
+            rated=match.rated,
+            completed_at=match.completed_at,
             created_at=match.created_at,
             updated_at=match.updated_at,
         )
@@ -468,6 +614,33 @@ class MatchService:
         if player.id.startswith("deleted-"):
             return player.model_copy(update={"display_name": "Deleted player"})
         return player
+
+    def _terminal_metrics(
+        self,
+        match: StoredMatch,
+        completed_at: datetime,
+    ) -> tuple[MatchMetricsLedger | None, int | None, int | None, int | None]:
+        if match.status != MatchStatus.completed:
+            return None, None, None, None
+        if not match.rated:
+            raise ApiError("unratedRemoteMatch", "Remote matches must be rated.", status_code=500)
+        if match.black_player is None or match.white_player is None:
+            raise ApiError("invalidMatch", "A rated match requires two players.", status_code=500)
+        control = self.repository.get_metrics_control()
+        if control.state.value != "ready":
+            raise ApiError(
+                "metricsBackfillInProgress",
+                "Rated results are temporarily paused.",
+                status_code=503,
+            )
+        black_stats = self.repository.get_player_stats(match.black_player.id)
+        white_stats = self.repository.get_player_stats(match.white_player.id)
+        return (
+            build_metrics_ledger(match, black_stats, white_stats, control, completed_at),
+            black_stats.version,
+            white_stats.version,
+            control.global_version,
+        )
 
 
 def _stable_hash(value: dict[str, Any]) -> str:

@@ -39,6 +39,10 @@ Run these checks after every stack update from at least two networks:
    move before a test reminder fires and verify the old revision sends nothing.
    Use an isolated short-delay operator test only for deployment validation;
    production offsets remain 8, 24, and 72 hours.
+9. With two opted-in disposable accounts, verify normalized prefix search, send
+   and accept a friend request, create and accept a direct challenge, and confirm
+   a lost-response retry returns the same match ID. Complete it and verify both
+   stats records changed once and their rating deltas sum to zero.
 
 Do not treat a successful test from an overseas VPN or one mainland ISP as a
 reachability guarantee.
@@ -143,6 +147,11 @@ one DynamoDB transaction.
    The queue-depth alarm is also the signal for partial DynamoDB stream failures,
    because those are reported to Lambda as successful invocations with failed
    item identifiers.
+   Current schedules contain no player identity; the worker resolves the current
+   recipient from the authoritative match at invocation. Do not add a synchronous
+   account-deletion scan of the shared schedule group. Legacy recipient-bearing
+   schedules from the notification rollout fail closed for deleted accounts and
+   self-delete after their scheduled run, within 72 hours.
 3. Confirm each provider secret exists in the same region and matches the exact
    ARN deployed in the function environment. Do not print `SecretString`
    during diagnosis.
@@ -165,7 +174,10 @@ must reject an expired exchange or queue entry even before DynamoDB removes it.
 Account deletion removes the identity and matchmaking state, resigns active
 matches, and replaces the account identifier in retained match history with an
 anonymous participant identifier. It also removes all push subscriptions and
-installation ownership records. Operational backups may retain the prior
+installation ownership records, directory/search rows, Social edges, challenges,
+and player stats. A durable SHA-256-keyed state tombstone prevents identity-provider
+deletion failures from recreating the account without retaining the raw subject;
+the rolling raw-sub guard expires after one day. Operational backups may retain the prior
 value until their documented recovery window expires; see
 [`privacy-policy.md`](privacy-policy.md).
 
@@ -207,6 +219,57 @@ Each applied repair increments the match version so ETag-based clients refetch,
 but deliberately preserves `updatedAt`, engine revision, and player-to-move.
 History ordering and reminder timing therefore remain unchanged, and the
 notification stream does not classify the repair as a new turn.
+
+### Initial Social, stats, and Elo cutover
+
+The rating migration is deliberately fenced and dry-run first. Use an activated
+backend virtual environment installed with the `[dev]` extra so the AWS login
+profile provider (`botocore[crt]`) is available. Confirm point-in-time recovery,
+deploy the compatible backend, then wait longer than the old API Lambda's maximum
+29-second invocation time before starting the fence. Until `CONTROL#METRICS` is
+`ready`, new code fails closed for terminal results, Social/rating reads, and all
+account deletion; nonterminal moves can continue.
+
+Run each phase without `--apply` first, inspect the JSON report, then repeat with
+`--apply` only when `invalid=0` and `conflicts=0`:
+
+```bash
+python -m life_api.migrate_ratings plan \
+  --stack-name the-game-of-life-production --region ap-east-1 \
+  --profile game-of-life
+python -m life_api.migrate_ratings begin \
+  --stack-name the-game-of-life-production --region ap-east-1 \
+  --profile game-of-life --apply
+python -m life_api.migrate_ratings apply \
+  --stack-name the-game-of-life-production --region ap-east-1 \
+  --profile game-of-life
+python -m life_api.migrate_ratings apply \
+  --stack-name the-game-of-life-production --region ap-east-1 \
+  --profile game-of-life --apply
+python -m life_api.migrate_ratings finish \
+  --stack-name the-game-of-life-production --region ap-east-1 \
+  --profile game-of-life
+python -m life_api.migrate_ratings finish \
+  --stack-name the-game-of-life-production --region ap-east-1 \
+  --profile game-of-life --apply
+```
+
+`plan` also reports missing confirmed-user public profiles; `apply` creates them
+with `discoverable=false`. Completed matches are globally ordered by authoritative
+terminal time and match ID. Each attributable match conditionally writes one
+contiguous `ratingSequence`, both exact stats transitions, reconstructed kills,
+and a participant-free ledger. Legacy histories whose participants were already
+anonymized cannot be attributed: the migration reports `excluded_legacy`, marks
+them `rated=false`, increments their match version for ETag invalidation, and
+preserves state, result, `createdAt`, and `updatedAt`.
+
+Before `finish --apply`, require `eligible=0`, `would_apply=0`, no orphan or
+malformed ledgers, exact stats/ledger replay, contiguous `globalVersion`, and a
+hidden public profile for every confirmed active Cognito user. The command exits
+nonzero if finish is incomplete. After ready, verify `/v1/stats/me`, `/v1/social`,
+and a rated terminal result before deploying the matching web release. Never apply
+historical Elo after live rated completions; the control fence is what guarantees
+chronological determinism.
 
 A DynamoDB point-in-time restore always creates a new table. Restore to a new
 name, validate record counts and representative matches, then deploy a reviewed

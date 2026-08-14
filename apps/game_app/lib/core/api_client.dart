@@ -109,9 +109,12 @@ class ApiClient {
     Map<String, String?> query = const {},
     bool authenticated = true,
     bool idempotent = false,
+    String? idempotencyKey,
     Map<String, String> headers = const {},
     bool retryAuthentication = true,
   }) async {
+    final operationIdempotencyKey =
+        idempotencyKey ?? (idempotent ? newRequestId() : null);
     final uri = _uri(path, query);
     final requestHeaders = <String, String>{
       'Accept': 'application/json',
@@ -124,7 +127,9 @@ class ApiClient {
         requestHeaders['Authorization'] = 'Bearer ${session!.accessToken}';
       }
     }
-    if (idempotent) requestHeaders['Idempotency-Key'] = newRequestId();
+    if (operationIdempotencyKey != null) {
+      requestHeaders['Idempotency-Key'] = operationIdempotencyKey;
+    }
 
     final response = await _send(method, uri, requestHeaders, body);
     if (response.statusCode == 401 && authenticated) {
@@ -136,6 +141,7 @@ class ApiClient {
           query: query,
           authenticated: authenticated,
           idempotent: idempotent,
+          idempotencyKey: operationIdempotencyKey,
           headers: headers,
           retryAuthentication: false,
         );

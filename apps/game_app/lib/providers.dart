@@ -16,6 +16,10 @@ import 'features/notifications/platform/turn_notification_gateway_factory.dart';
 import 'features/notifications/presentation/turn_notification_controller.dart';
 import 'features/online/data/online_repository.dart';
 import 'features/online/presentation/lobby_controller.dart';
+import 'features/social/data/social_repository.dart';
+import 'features/social/presentation/social_controller.dart';
+import 'features/stats/data/player_stats_repository.dart';
+import 'features/stats/presentation/player_stats_controller.dart';
 
 final sessionStoreProvider = Provider<SessionStore>(
   (ref) => SecureSessionStore(),
@@ -40,6 +44,8 @@ final authControllerProvider = StateNotifierProvider<AuthController, AuthState>(
     final controller = AuthController(
       ref.watch(authRepositoryProvider),
       beforeSessionEnd: () async {
+        ref.read(socialControllerProvider.notifier).disconnectAccount();
+        ref.read(playerStatsControllerProvider.notifier).disconnectAccount();
         await Future.wait([
           ref.read(lobbyControllerProvider.notifier).disconnectAccount(),
           ref
@@ -53,6 +59,8 @@ final authControllerProvider = StateNotifierProvider<AuthController, AuthState>(
         .sessionExpired
         .listen((_) {
           ref.read(lobbyControllerProvider.notifier).sessionEnded();
+          ref.read(socialControllerProvider.notifier).disconnectAccount();
+          ref.read(playerStatsControllerProvider.notifier).disconnectAccount();
           controller.sessionExpired();
         });
     ref.onDispose(expirationSubscription.cancel);
@@ -68,6 +76,24 @@ final onlineRepositoryProvider = Provider<OnlineRepository>(
 final lobbyControllerProvider =
     StateNotifierProvider<LobbyController, LobbyState>(
       (ref) => LobbyController(ref.watch(onlineRepositoryProvider)),
+    );
+
+final socialRepositoryProvider = Provider<SocialRepository>(
+  (ref) => ApiSocialRepository(ref.watch(apiClientProvider)),
+);
+
+final socialControllerProvider =
+    StateNotifierProvider<SocialController, SocialState>(
+      (ref) => SocialController(ref.watch(socialRepositoryProvider)),
+    );
+
+final playerStatsRepositoryProvider = Provider<PlayerStatsRepository>(
+  (ref) => ApiPlayerStatsRepository(ref.watch(apiClientProvider)),
+);
+
+final playerStatsControllerProvider =
+    StateNotifierProvider<PlayerStatsController, PlayerStatsState>(
+      (ref) => PlayerStatsController(ref.watch(playerStatsRepositoryProvider)),
     );
 
 final turnNotificationRepositoryProvider = Provider<TurnNotificationRepository>(

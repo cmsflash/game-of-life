@@ -192,8 +192,8 @@ class AuthController extends StateNotifier<AuthState> {
   Future<bool> deleteAccount() async {
     state = state.copyWith(busy: true, clearMessages: true);
     try {
-      await _runBeforeSessionEnd();
       await _repository.deleteAccount();
+      await _runBeforeSessionEnd();
       state = const AuthState(
         status: AuthStatus.signedOut,
         notice: 'Your account was deleted.',

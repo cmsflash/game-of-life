@@ -35,7 +35,8 @@
   removed on logout.
 - A signed-in user can permanently delete the account in the app. Waiting
   matches are cancelled, active matches are resigned, identity data is
-  deleted, and retained history is anonymized.
+  deleted, Social/search/stats records are removed, and retained history is
+  anonymized without changing the opponent's historical aggregate result.
 - Privacy Policy, Terms of Use, open-source licenses, and account-deletion
   guidance are reachable in the app without an online match.
 
@@ -57,6 +58,20 @@
   private and quick matches. Match documents contain neither login usernames
   nor email addresses, and account deletion replaces the departed player's
   stored name and identifier with `Deleted player`.
+- Player search is case-insensitive prefix search over public display names only,
+  requires explicit opt-in (default off), is capped, and never returns a username
+  or email. Opting out atomically blocks new requests from stale search results.
+- Friend requests are race-safe and idempotent; either friend can unfriend. A
+  direct challenge is visible only to the two friends, expires after seven days,
+  has no join code, and retrying acceptance returns the same active match ID.
+- Every private, quick, and accepted friend-challenge match is rated. Local games
+  are neither uploaded nor rated. A terminal result updates both ratings and
+  games/wins/losses/draws/kills exactly once; rating deltas sum to zero.
+- Each Black-cell death credits White and each White-cell death credits Black,
+  regardless of mover or prior contribution.
+- After OS/browser permission is granted, sign-in automatically registers turn
+  notifications. Scheduled reminders contain no player identity, stale jobs send
+  nothing, and sign-out/account deletion unregister the installation.
 
 ## Operational quality
 

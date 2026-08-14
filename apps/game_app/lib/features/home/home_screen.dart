@@ -15,6 +15,7 @@ import '../game/presentation/local_games_controller.dart';
 import '../online/data/online_models.dart';
 import '../online/presentation/lobby_controller.dart';
 import '../online/presentation/lobby_screen.dart';
+import '../stats/presentation/player_metrics_panel.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -83,14 +84,18 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               key: const Key('create-public-room'),
               leading: const Icon(Icons.public),
               title: const Text('Public room'),
-              subtitle: const Text('Wait for any available player.'),
+              subtitle: const Text(
+                'Wait for any available player. The match is rated.',
+              ),
               onTap: () => Navigator.pop(context, _RoomAccess.public),
             ),
             ListTile(
               key: const Key('create-private-room'),
               leading: const Icon(Icons.lock_outline),
               title: const Text('Private room'),
-              subtitle: const Text('Invite someone with a join code.'),
+              subtitle: const Text(
+                'Invite someone with a join code. The match is rated.',
+              ),
               onTap: () => Navigator.pop(context, _RoomAccess.private),
             ),
           ],
@@ -217,6 +222,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   .closePrivateLobby(),
             ),
           ],
+          if (auth.status == AuthStatus.signedIn) ...[
+            const SizedBox(height: 36),
+            const PlayerMetricsPanel(),
+          ],
           const SizedBox(height: 48),
           _CurrentGamesSection(
             onlineMatches: auth.status == AuthStatus.signedIn
@@ -273,7 +282,7 @@ class _HomeActions extends ConsumerWidget {
         key: const Key('find-opponent'),
         icon: Icons.travel_explore,
         title: 'Find opponent',
-        description: 'Search for the next available online player now.',
+        description: 'Search for an available player in a rated online game.',
         buttonLabel: 'Start search',
         onPressed: busy ? null : onFindOpponent,
         emphasized: true,
@@ -282,7 +291,8 @@ class _HomeActions extends ConsumerWidget {
         key: const Key('create-room'),
         icon: Icons.add_home_work_outlined,
         title: 'Create room',
-        description: 'Open a public room or share a private join code.',
+        description:
+            'Open a public room or share a private code for a rated match.',
         buttonLabel: 'Choose room',
         onPressed: busy ? null : onCreateRoom,
       ),
@@ -290,7 +300,7 @@ class _HomeActions extends ConsumerWidget {
         key: const Key('join-by-code'),
         icon: Icons.dialpad_outlined,
         title: 'Join by code',
-        description: 'Enter the code from a private room invitation.',
+        description: 'Enter a private-room code to join a rated match.',
         buttonLabel: 'Enter code',
         onPressed: busy ? null : onJoinByCode,
       ),
@@ -421,8 +431,8 @@ class _MatchmakingStatusCard extends StatelessWidget {
                 ),
                 Text(
                   publicRoom
-                      ? 'Waiting for any player to join…'
-                      : 'Looking for the next available player…',
+                      ? 'Waiting for any player to join this rated match…'
+                      : 'Looking for the next player for a rated match…',
                 ),
               ],
             ),
@@ -459,7 +469,7 @@ class _PrivateRoomStatusCard extends StatelessWidget {
                 'Private room open',
                 style: Theme.of(context).textTheme.titleLarge,
               ),
-              const Text('Share this join code:'),
+              const Text('Rated match · Share this join code:'),
             ],
           ),
           SelectionArea(
@@ -651,7 +661,7 @@ class _CurrentGameItem {
     return _CurrentGameItem(
       id: 'local-${summary.id}',
       title: summary.title,
-      status: 'Local · $status',
+      status: 'Local · Unrated · $status',
       route: '/local/game/${summary.id}',
       updatedAt: summary.updatedAt,
       icon: Icons.devices_outlined,
@@ -668,8 +678,8 @@ class _CurrentGameItem {
         ? 'Private room'
         : 'vs ${match.opponentName}',
     status: match.status == 'waiting' && match.joinCode != null
-        ? 'Online · Private room waiting'
-        : 'Online · ${onlineMatchStatus(match)}',
+        ? 'Online · Rated · Private room waiting'
+        : 'Online · Rated · ${onlineMatchStatus(match)}',
     route: '/online/match/${match.id}',
     updatedAt:
         match.updatedAt ?? DateTime.fromMillisecondsSinceEpoch(0, isUtc: true),

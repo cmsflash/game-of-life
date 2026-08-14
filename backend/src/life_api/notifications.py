@@ -19,6 +19,7 @@ from pywebpush import WebPushException, webpush
 
 from .errors import ApiError
 from .models import (
+    AccountState,
     FirebasePushSubscriptionRequest,
     MatchStatus,
     PushNotificationConfig,
@@ -278,7 +279,10 @@ class AwsReminderScheduler:
         self._dead_letter_queue_arn = settings.notification_dead_letter_queue_arn
 
     def schedule(self, job: TurnNotificationJob, deliver_at: datetime) -> None:
-        canonical = job.model_dump_json(by_alias=True)
+        canonical = job.model_copy(update={"recipient_user_id": None}).model_dump_json(
+            by_alias=True,
+            exclude_none=True,
+        )
         digest = hashlib.sha256(canonical.encode()).hexdigest()[:40]
         try:
             target: dict[str, Any] = {
@@ -420,12 +424,13 @@ class TurnNotificationService:
     scheduler: ReminderScheduler
 
     def process_turn_start(self, job: TurnNotificationJob) -> None:
-        match = self._current_match(job)
-        if match is None:
+        current = self._current_turn(job)
+        if current is None:
             return
+        _, recipient_user_id = current
         delivery_error: Exception | None = None
         try:
-            self._deliver(job)
+            self._deliver(job, recipient_user_id)
         except Exception as error:  # schedules must survive a provider outage
             delivery_error = error
         now = datetime.now(UTC)
@@ -434,17 +439,18 @@ class TurnNotificationService:
             if deliver_at <= now:
                 continue
             self.scheduler.schedule(
-                job.model_copy(update={"reminder_hours": hours}),
+                job.model_copy(update={"recipient_user_id": None, "reminder_hours": hours}),
                 deliver_at,
             )
         if delivery_error is not None:
             raise delivery_error
 
     def process_reminder(self, job: TurnNotificationJob) -> None:
-        if self._current_match(job) is not None:
-            self._deliver(job)
+        current = self._current_turn(job)
+        if current is not None:
+            self._deliver(job, current[1])
 
-    def _current_match(self, job: TurnNotificationJob) -> StoredMatch | None:
+    def _current_turn(self, job: TurnNotificationJob) -> tuple[StoredMatch, str] | None:
         match = self.repository.get_match(job.match_id)
         if match is None or match.status != MatchStatus.active or match.revision != job.revision:
             return None
@@ -452,23 +458,31 @@ class TurnNotificationService:
         if to_move not in {"black", "white"}:
             return None
         player = match.black_player if to_move == "black" else match.white_player
-        if player is None or player.id != job.recipient_user_id:
+        if player is None or player.id.startswith("deleted-"):
             return None
-        return match
+        # Existing schedules may still include the old recipient field during
+        # a rolling deployment. Treat it only as a stale-job guard; never use
+        # it as the authoritative recipient.
+        if job.recipient_user_id is not None and player.id != job.recipient_user_id:
+            return None
+        if self.repository.account_state(player.id) != AccountState.active:
+            return None
+        return match, player.id
 
-    def _deliver(self, job: TurnNotificationJob) -> None:
+    def _deliver(self, job: TurnNotificationJob, recipient_user_id: str) -> None:
         message = _message(job)
-        subscriptions = self.repository.list_push_subscriptions(job.recipient_user_id)
+        subscriptions = self.repository.list_push_subscriptions(recipient_user_id)
         first_error: Exception | None = None
         for snapshot in subscriptions[:_MAX_SUBSCRIPTIONS_PER_USER]:
-            delivery_id = _delivery_id(job, snapshot.installation_id)
+            delivery_id = _delivery_id(job, snapshot.installation_id, recipient_user_id)
             claim_token = self.repository.claim_notification_delivery(delivery_id)
             if claim_token is None:
                 continue
             # Close the stream/scheduler-to-provider race as tightly as
             # possible. External push acceptance cannot share a transaction
             # with DynamoDB, so this is the final authoritative read.
-            if self._current_match(job) is None:
+            current = self._current_turn(job)
+            if current is None or current[1] != recipient_user_id:
                 self.repository.complete_notification_delivery(delivery_id, claim_token)
                 return
             subscription = self.repository.get_push_subscription(
@@ -544,7 +558,6 @@ def turn_job_for_match(match: StoredMatch) -> TurnNotificationJob | None:
     return TurnNotificationJob(
         match_id=match.id,
         revision=match.revision,
-        recipient_user_id=player.id,
         reminder_hours=0,
         turn_started_at=match.updated_at,
     )
@@ -586,10 +599,14 @@ def _message(job: TurnNotificationJob) -> NotificationMessage:
     )
 
 
-def _delivery_id(job: TurnNotificationJob, installation_id: str) -> str:
+def _delivery_id(
+    job: TurnNotificationJob,
+    installation_id: str,
+    recipient_user_id: str | None = None,
+) -> str:
+    resolved_recipient = recipient_user_id or job.recipient_user_id or "authoritative"
     canonical = (
-        f"{job.match_id}:{job.revision}:{job.recipient_user_id}:"
-        f"{job.reminder_hours}:{installation_id}"
+        f"{job.match_id}:{job.revision}:{resolved_recipient}:{job.reminder_hours}:{installation_id}"
     )
     return hashlib.sha256(canonical.encode()).hexdigest()
 

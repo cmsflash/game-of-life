@@ -55,6 +55,14 @@ class RegisterRequest(StrictModel):
     password: str = Field(min_length=10, max_length=256)
     display_name: str = Field(min_length=1, max_length=48, alias="displayName")
 
+    @field_validator("display_name")
+    @classmethod
+    def normalize_display_name(cls, value: str) -> str:
+        normalized = " ".join(value.split())
+        if not normalized:
+            raise ValueError("displayName must contain a visible character")
+        return normalized
+
     @field_validator("password")
     @classmethod
     def validate_password_complexity(cls, value: str) -> str:
@@ -323,10 +331,194 @@ class PlayerSummary(StrictModel):
     display_name: str = Field(alias="displayName")
 
 
+class PublicPlayerDocument(PlayerSummary):
+    rating: int
+
+
+class PlayerSearchResponse(StrictModel):
+    items: list[PublicPlayerDocument]
+
+
+class PlayerIdRequest(StrictModel):
+    player_id: str = Field(
+        alias="playerId",
+        min_length=1,
+        max_length=128,
+        pattern=r"^[A-Za-z0-9_.:-]+$",
+    )
+
+
+class OpponentIdRequest(StrictModel):
+    opponent_id: str = Field(
+        alias="opponentId",
+        min_length=1,
+        max_length=128,
+        pattern=r"^[A-Za-z0-9_.:-]+$",
+    )
+
+
+class FriendRequestDocument(StrictModel):
+    id: str
+    player: PublicPlayerDocument
+    created_at: UtcDateTime = Field(alias="createdAt")
+
+
+class FriendListResponse(StrictModel):
+    items: list[PublicPlayerDocument]
+
+
+class FriendRequestListResponse(StrictModel):
+    incoming: list[FriendRequestDocument]
+    outgoing: list[FriendRequestDocument]
+
+
+class ChallengeDocument(StrictModel):
+    id: str
+    challenger: PublicPlayerDocument
+    opponent: PublicPlayerDocument
+    created_at: UtcDateTime = Field(alias="createdAt")
+    expires_at: UtcDateTime = Field(alias="expiresAt")
+
+
+class ChallengeListResponse(StrictModel):
+    incoming: list[ChallengeDocument]
+    outgoing: list[ChallengeDocument]
+
+
+class ChallengeAcceptResponse(StrictModel):
+    match_id: str = Field(alias="matchId")
+
+
+class DiscoverabilityRequest(StrictModel):
+    discoverable: bool
+
+
+class DiscoverabilityDocument(StrictModel):
+    discoverable: bool
+    version: int = Field(ge=0)
+
+
+class StoredChallenge(StrictModel):
+    id: str
+    challenger: PlayerSummary
+    opponent: PlayerSummary
+    created_at: UtcDateTime = Field(
+        default_factory=lambda: datetime.now(UTC),
+        alias="createdAt",
+    )
+    expires_at: UtcDateTime = Field(alias="expiresAt")
+
+
+class PlayerStatsDocument(StrictModel):
+    rating: int
+    games: int = Field(ge=0)
+    wins: int = Field(ge=0)
+    losses: int = Field(ge=0)
+    draws: int = Field(ge=0)
+    kills: int = Field(ge=0)
+
+
+class SocialSnapshot(StrictModel):
+    version: int = Field(ge=0)
+    discoverable: bool = False
+    friends: list[PublicPlayerDocument]
+    incoming_friend_requests: list[FriendRequestDocument] = Field(alias="incomingFriendRequests")
+    outgoing_friend_requests: list[FriendRequestDocument] = Field(alias="outgoingFriendRequests")
+    incoming_challenges: list[ChallengeDocument] = Field(alias="incomingChallenges")
+    outgoing_challenges: list[ChallengeDocument] = Field(alias="outgoingChallenges")
+
+
+class StoredPublicPlayer(StrictModel):
+    id: str
+    display_name: str = Field(alias="displayName")
+    normalized_display_name: str = Field(alias="normalizedDisplayName")
+    discoverable: bool = False
+    discoverability_updated_at: UtcDateTime | None = Field(
+        default=None,
+        alias="discoverabilityUpdatedAt",
+    )
+    version: int = Field(default=0, ge=0)
+
+
+class AccountState(StrEnum):
+    active = "active"
+    deleting = "deleting"
+
+
+class StoredPlayerStats(PlayerStatsDocument):
+    player_id: str = Field(alias="playerId")
+    version: int = Field(default=0, ge=0)
+
+
+class SocialRelationStatus(StrEnum):
+    pending = "pending"
+    friends = "friends"
+
+
+class StoredSocialRelation(StrictModel):
+    id: str
+    first_player_id: str = Field(alias="firstPlayerId")
+    second_player_id: str = Field(alias="secondPlayerId")
+    requester_id: str = Field(alias="requesterId")
+    status: SocialRelationStatus
+    version: int = Field(default=0, ge=0)
+    created_at: UtcDateTime = Field(
+        default_factory=lambda: datetime.now(UTC),
+        alias="createdAt",
+    )
+    updated_at: UtcDateTime = Field(
+        default_factory=lambda: datetime.now(UTC),
+        alias="updatedAt",
+    )
+
+    def includes(self, player_id: str) -> bool:
+        return player_id in {self.first_player_id, self.second_player_id}
+
+    def other(self, player_id: str) -> str:
+        if player_id == self.first_player_id:
+            return self.second_player_id
+        if player_id == self.second_player_id:
+            return self.first_player_id
+        raise ValueError("player is not part of this social relation")
+
+
+class MetricsControlState(StrEnum):
+    backfilling = "backfilling"
+    ready = "ready"
+
+
+class MetricsControl(StrictModel):
+    state: MetricsControlState
+    epoch: int = Field(ge=1)
+    global_version: int = Field(default=0, ge=0, alias="globalVersion")
+
+
+class MatchMetricsLedger(StrictModel):
+    match_id: str = Field(alias="matchId")
+    epoch: int = Field(ge=1)
+    rating_sequence: int = Field(ge=1, alias="ratingSequence")
+    completed_at: UtcDateTime = Field(alias="completedAt")
+    black_kills: int = Field(ge=0, alias="blackKills")
+    white_kills: int = Field(ge=0, alias="whiteKills")
+    black_rating_before: int = Field(alias="blackRatingBefore")
+    white_rating_before: int = Field(alias="whiteRatingBefore")
+    black_rating_after: int = Field(alias="blackRatingAfter")
+    white_rating_after: int = Field(alias="whiteRatingAfter")
+    black_rating_delta: int = Field(alias="blackRatingDelta")
+    white_rating_delta: int = Field(alias="whiteRatingDelta")
+    black_score: float = Field(alias="blackScore", ge=0, le=1)
+
+
 class MatchStatus(StrEnum):
     waiting = "waiting"
     active = "active"
     completed = "completed"
+
+
+class MatchOrigin(StrEnum):
+    private = "private"
+    quick = "quick"
+    friend_challenge = "friendChallenge"
 
 
 class LastMove(StrictModel):
@@ -348,6 +540,9 @@ class MatchDocument(StrictModel):
     version: int = Field(ge=0)
     last_move: LastMove | None = Field(default=None, alias="lastMove")
     result: dict[str, Any] | None = None
+    origin: MatchOrigin = MatchOrigin.private
+    rated: bool = True
+    completed_at: UtcDateTime | None = Field(default=None, alias="completedAt")
     created_at: UtcDateTime = Field(alias="createdAt")
     updated_at: UtcDateTime = Field(alias="updatedAt")
 
@@ -385,6 +580,9 @@ class ReplayResponse(StrictModel):
     moves: list[MoveEvent]
     final_state: dict[str, Any] = Field(alias="finalState")
     result: dict[str, Any] | None = None
+    origin: MatchOrigin = MatchOrigin.private
+    rated: bool = True
+    completed_at: UtcDateTime | None = Field(default=None, alias="completedAt")
 
 
 class StoredMatch(StrictModel):
@@ -400,6 +598,15 @@ class StoredMatch(StrictModel):
     version: int = Field(default=0, ge=0)
     last_move: LastMove | None = Field(default=None, alias="lastMove")
     result: dict[str, Any] | None = None
+    origin: MatchOrigin = MatchOrigin.private
+    rated: bool = True
+    invited_player: PlayerSummary | None = Field(default=None, alias="invitedPlayer")
+    challenge_expires_at: UtcDateTime | None = Field(default=None, alias="challengeExpiresAt")
+    black_kills: int = Field(default=0, ge=0, alias="blackKills")
+    white_kills: int = Field(default=0, ge=0, alias="whiteKills")
+    kill_counts_complete: bool = Field(default=False, alias="killCountsComplete")
+    stats_finalized: bool = Field(default=False, alias="statsFinalized")
+    completed_at: UtcDateTime | None = Field(default=None, alias="completedAt")
     created_at: UtcDateTime = Field(
         default_factory=lambda: datetime.now(UTC),
         alias="createdAt",
@@ -457,7 +664,10 @@ class TurnNotificationJob(StrictModel):
     kind: Literal["turnNotification"] = "turnNotification"
     match_id: str = Field(alias="matchId")
     revision: int = Field(ge=0)
-    recipient_user_id: str = Field(alias="recipientUserId")
+    # Legacy scheduled jobs included the Cognito subject. New jobs deliberately
+    # omit it and resolve the recipient from the authoritative match at run
+    # time, so EventBridge Scheduler never persists a player's identity.
+    recipient_user_id: str | None = Field(default=None, alias="recipientUserId")
     reminder_hours: Literal[0, 8, 24, 72] = Field(alias="reminderHours")
     turn_started_at: UtcDateTime = Field(alias="turnStartedAt")
 

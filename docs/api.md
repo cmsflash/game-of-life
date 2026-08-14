@@ -48,9 +48,57 @@ Account deletion first cancels waiting games and matchmaking requests and
 resigns every active game. Completed game records remain available to the
 opponent, but the deleted player's identifier and stored display name are
 replaced with an unlinkable `Deleted player` identity in both match state and
-move history. The deleted player's memberships, matchmaking records,
-idempotency records, push subscriptions, and identity-provider account are then
-removed. Existing access and refresh tokens no longer authenticate.
+move history. Friend relationships, requests, pending challenges, searchable
+profile, stats record, memberships, matchmaking records, idempotency records,
+push subscriptions, and identity-provider account are then removed. Rating
+ledgers contain match aggregates but no player IDs. Existing access and refresh
+tokens no longer authenticate.
+
+## Players, friends, challenges, and stats
+
+All routes below require authentication. Player lookup uses only opted-in public
+display names: the server applies NFKC normalization, case folding, and whitespace
+normalization, requires 3–48 characters, returns at most 20 prefix matches, omits
+the caller, and never searches or returns login usernames or email addresses.
+
+| Method | Path | Purpose |
+| --- | --- | --- |
+| `GET` | `/players/search?q=…` | Return `{items:[{id,displayName,rating}]}` for discoverable active players. |
+| `GET` | `/social` | Coherent `{version,discoverable,friends,incomingFriendRequests,outgoingFriendRequests,incomingChallenges,outgoingChallenges}` snapshot. |
+| `PATCH` | `/social/discoverability` | Set `{discoverable}` and return `{discoverable,version}`. Default is `false`. |
+| `GET` | `/friends` | List accepted friends. |
+| `POST` | `/friends/requests` | Send `{playerId}`; returns the stable request document. |
+| `POST` | `/friends/requests/{id}/accept` | Recipient accepts; returns `204`. |
+| `DELETE` | `/friends/requests/{id}` | Recipient declines or sender cancels; returns `204`. |
+| `DELETE` | `/friends/{playerId}` | Either participant removes the friendship; returns `204`. |
+| `GET` | `/challenges` | List incoming and outgoing pending friend challenges. |
+| `POST` | `/challenges` | Challenge a current friend with `{opponentId}`. |
+| `POST` | `/challenges/{id}/accept` | Invited friend accepts; returns `{matchId}`. |
+| `DELETE` | `/challenges/{id}` | Invited friend declines or challenger cancels; returns `204`. |
+| `GET` | `/stats/me` | Return `{rating,games,wins,losses,draws,kills}`. |
+
+Friendship is one canonical unordered pair, so crossed or retried requests cannot
+create duplicate edges. The target must still be active and discoverable when a
+new request commits; opting out does not hide a display name already shared with
+friends or match opponents. Accounts are limited to 100 friends, 100 pending
+requests, and 20 pending challenges.
+
+A challenge document is `{id,challenger,opponent,createdAt,expiresAt}`. It is
+available only to its two participants, expires functionally after seven days,
+and does not appear as a waiting room or expose a join code. Acceptance rechecks
+the friendship and creates exactly one randomly colored active match. Retrying a
+successful acceptance returns the same `matchId`, including after a lost response.
+Expired storage is removed asynchronously by DynamoDB TTL and is also reconciled
+on the next Social access; account deletion removes it immediately.
+
+Every authenticated remote match—private room, quick match, or accepted friend
+challenge—is rated. Local device games are never uploaded, globally scored, or
+rated. Ratings start at 1200 and use standard Elo with K=32, unbounded signed
+integers, symmetric half-away-from-zero rounding, and one zero-sum transfer.
+Terminal moves and resignations update both players' rating and counters exactly
+once in the same transaction as the result ledger. A death of a Black cell credits
+White with one kill, and a death of a White cell credits Black, regardless of who
+moved or contributed to that cell.
 
 ## Turn notifications
 
@@ -95,9 +143,15 @@ Android and iOS registration uses a Firebase registration token:
 
 The response and list endpoint never return the endpoint, token, encryption
 keys, or auth secret. Registering the same installation under a new account
-atomically removes its old account association. The server sends at turn start
-and after 8, 24, and 72 hours. Every delivery rechecks the match ID, revision,
-status, next-player ID, and player-to-move; a stale reminder sends nothing.
+atomically removes its old account association. After a player grants browser/
+OS permission and signs in, the client automatically registers or refreshes the
+installation; delivery is disabled through browser/system settings rather than a
+separate account preference. Sign-out and account deletion unregister it. The
+server sends at turn start and after 8, 24, and 72 hours. Scheduled payloads
+contain only match ID, revision, turn-start time, and reminder offset; the worker
+derives the current recipient from the authoritative match. Every delivery
+rechecks status, revision, account state, and player-to-move, so stale jobs send
+nothing.
 Each account can keep up to five active installations.
 
 ## Matches
@@ -142,6 +196,9 @@ by ETags and DynamoDB conditional writes.
 Match documents include an optional `lastMove` object with `revision`,
 `player`, `row`, and `column`. It is written atomically with a successful move
 and remains present if that placed cell dies during the resulting evolution.
+They also expose `origin` (`private`, `quick`, or `friendChallenge`), `rated`, and
+`completedAt` for terminal matches. Pending friend challenges remain separate
+Social records and never appear in `/matches` until accepted.
 
 ## Matchmaking
 

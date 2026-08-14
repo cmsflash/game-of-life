@@ -483,22 +483,6 @@ Resources:
           WEB_PUSH_VAPID_PUBLIC_KEY: !Ref WebPushVapidPublicKey
           WEB_PUSH_VAPID_SUBJECT: !Ref WebPushVapidSubject
           WEB_PUSH_ALLOWED_HOST_SUFFIXES: !Join [",", !Ref WebPushAllowedHostSuffixes]
-          NOTIFICATION_FUNCTION_ARN: !If
-            - PushNotificationsEnabled
-            - !Sub "arn:${AWS::Partition}:lambda:${AWS::Region}:${AWS::AccountId}:function:life-${EnvironmentName}-notifications"
-            - ""
-          NOTIFICATION_SCHEDULER_ROLE_ARN: !If
-            - PushNotificationsEnabled
-            - !GetAtt NotificationSchedulerInvokeRole.Arn
-            - ""
-          NOTIFICATION_SCHEDULE_GROUP_NAME: !If
-            - PushNotificationsEnabled
-            - !Sub "life-${EnvironmentName}-turn-reminders"
-            - ""
-          NOTIFICATION_DEAD_LETTER_QUEUE_ARN: !If
-            - PushNotificationsEnabled
-            - !GetAtt NotificationDeadLetterQueue.Arn
-            - ""
           LOG_LEVEL: INFO
       Policies:
         - Version: "2012-10-17"
@@ -506,6 +490,7 @@ Resources:
             - Sid: GameTableReadWrite
               Effect: Allow
               Action:
+                - dynamodb:ConditionCheckItem
                 - dynamodb:DeleteItem
                 - dynamodb:GetItem
                 - dynamodb:PutItem
@@ -514,7 +499,6 @@ Resources:
                 - dynamodb:UpdateItem
               Resource:
                 - !GetAtt GameTable.Arn
-
   NotificationDeadLetterQueue:
     Type: AWS::SQS::Queue
     Condition: PushNotificationsEnabled
@@ -628,6 +612,7 @@ Resources:
                       - "MATCH#*"
                       - "USER#*"
                       - "INSTALLATION#*"
+                      - "ACCOUNT#*"
               - Sid: WriteNotificationState
                 Effect: Allow
                 Action:

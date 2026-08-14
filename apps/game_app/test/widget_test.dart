@@ -9,6 +9,10 @@ import 'package:game_of_life/features/game/domain/game_session.dart';
 import 'package:game_of_life/features/notifications/domain/turn_notifications.dart';
 import 'package:game_of_life/features/online/data/online_models.dart';
 import 'package:game_of_life/features/online/presentation/online_match_screen.dart';
+import 'package:game_of_life/features/social/data/social_models.dart';
+import 'package:game_of_life/features/social/data/social_repository.dart';
+import 'package:game_of_life/features/stats/data/player_stats.dart';
+import 'package:game_of_life/features/stats/data/player_stats_repository.dart';
 import 'package:game_of_life/providers.dart';
 
 import 'fakes.dart';
@@ -22,6 +26,8 @@ void main() {
     FakeTurnNotificationGateway? notificationGateway,
     LocalGameStore? localGameStore,
     FakeOnlineRepository? onlineRepository,
+    SocialRepository? socialRepository,
+    PlayerStatsRepository? playerStatsRepository,
   }) async {
     tester.view.physicalSize = size;
     tester.view.devicePixelRatio = 1;
@@ -39,6 +45,12 @@ void main() {
           ),
           onlineRepositoryProvider.overrideWithValue(
             onlineRepository ?? FakeOnlineRepository(),
+          ),
+          socialRepositoryProvider.overrideWithValue(
+            socialRepository ?? FakeSocialRepository(),
+          ),
+          playerStatsRepositoryProvider.overrideWithValue(
+            playerStatsRepository ?? FakePlayerStatsRepository(),
           ),
           turnNotificationRepositoryProvider.overrideWithValue(
             notificationRepository ?? FakeTurnNotificationRepository(),
@@ -160,7 +172,7 @@ void main() {
     expect(displayName.autofillHints, const [AutofillHints.nickname]);
     expect(
       displayName.decoration?.helperText,
-      'Shown to players you are matched with',
+      'Shown to friends and opponents; player search is a separate opt-in',
     );
     expect(email.autofillHints, const [AutofillHints.email]);
     expect(email.keyboardType, TextInputType.emailAddress);
@@ -220,7 +232,7 @@ void main() {
     expect(find.text('Account deletion'), findsOneWidget);
   });
 
-  testWidgets('privacy policy discloses opponent display names', (
+  testWidgets('privacy policy discloses Social and automatic notifications', (
     tester,
   ) async {
     await pumpApp(tester);
@@ -232,12 +244,22 @@ void main() {
 
     expect(find.textContaining('Effective August 14, 2026'), findsOneWidget);
     expect(
-      find.textContaining('Your display name is shown to players'),
+      find.textContaining('display name and current Elo rating are searchable'),
       findsOneWidget,
     );
     expect(
-      find.textContaining('Display names are shared with matched opponents'),
+      find.textContaining('display names and ratings are shared'),
       findsOneWidget,
+    );
+    expect(
+      find.textContaining(
+        'automatically registers and refreshes a push endpoint',
+      ),
+      findsOneWidget,
+    );
+    expect(
+      find.textContaining('browser or system settings'),
+      findsAtLeastNWidgets(1),
     );
   });
 
@@ -262,7 +284,19 @@ void main() {
   ) async {
     final repository = FakeAuthRepository();
     await repository.login(username: 'alice', password: 'password');
-    await pumpApp(tester, authRepository: repository);
+    final notifications = FakeTurnNotificationRepository();
+    final gateway = FakeTurnNotificationGateway()
+      ..capabilityValue = const TurnNotificationCapability(
+        configured: true,
+        supported: true,
+        permission: TurnNotificationPermission.prompt,
+      );
+    await pumpApp(
+      tester,
+      authRepository: repository,
+      notificationRepository: notifications,
+      notificationGateway: gateway,
+    );
 
     await tester.tap(find.text('Player'));
     await tester.pumpAndSettle();
@@ -275,10 +309,12 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(repository.current, isNull);
+    expect(notifications.deletedInstallationIds, ['test-device']);
+    expect(gateway.deactivateCalls, 1);
     expect(find.text('Choose your next game'), findsOneWidget);
   });
 
-  testWidgets('signed-in player can opt into the reminder schedule', (
+  testWidgets('signed-in player automatically receives granted turn alerts', (
     tester,
   ) async {
     final auth = FakeAuthRepository();
@@ -305,28 +341,142 @@ void main() {
     await tester.tap(find.text('Player'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Turn notifications'), findsOneWidget);
+    expect(find.text('Turn alerts'), findsOneWidget);
     expect(find.textContaining('8 hours'), findsOneWidget);
     expect(find.textContaining('24 hours'), findsOneWidget);
     expect(find.textContaining('72 hours'), findsOneWidget);
+    expect(find.byKey(const Key('turn-notifications-toggle')), findsNothing);
+    expect(find.byKey(const Key('allow-turn-notifications')), findsNothing);
+    expect(find.text('Active for this browser or device.'), findsOneWidget);
+    expect(repository.upserts, hasLength(1));
+  });
 
-    await tester.tap(find.byKey(const Key('turn-notifications-toggle')));
+  testWidgets(
+    'notification permission is requested only from an allow action',
+    (tester) async {
+      final auth = FakeAuthRepository();
+      await auth.login(username: 'alice', password: 'password');
+      final repository = FakeTurnNotificationRepository();
+      final gateway = FakeTurnNotificationGateway()
+        ..capabilityValue = const TurnNotificationCapability(
+          configured: true,
+          supported: true,
+          permission: TurnNotificationPermission.prompt,
+        )
+        ..capabilityAfterRequest = const TurnNotificationCapability(
+          configured: true,
+          supported: true,
+          permission: TurnNotificationPermission.granted,
+        )
+        ..endpoint = const TurnNotificationEndpoint.webPush(
+          endpoint: 'https://push.example.test/subscription',
+          p256dh: 'key',
+          auth: 'secret',
+        );
+      await pumpApp(
+        tester,
+        size: const Size(390, 844),
+        authRepository: auth,
+        notificationRepository: repository,
+        notificationGateway: gateway,
+      );
+
+      expect(gateway.requestCalls, 0);
+      await tester.tap(find.text('Player'));
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(
+        find.byKey(const Key('allow-turn-notifications')),
+      );
+
+      await tester.tap(find.byKey(const Key('allow-turn-notifications')));
+      await tester.pumpAndSettle();
+
+      expect(gateway.requestCalls, 1);
+      expect(repository.upserts, hasLength(1));
+      expect(find.text('Active for this browser or device.'), findsOneWidget);
+    },
+  );
+
+  testWidgets('blocked notifications offer settings help without a toggle', (
+    tester,
+  ) async {
+    final auth = FakeAuthRepository();
+    await auth.login(username: 'alice', password: 'password');
+    final gateway = FakeTurnNotificationGateway()
+      ..capabilityValue = const TurnNotificationCapability(
+        configured: true,
+        supported: true,
+        permission: TurnNotificationPermission.denied,
+      );
+    await pumpApp(
+      tester,
+      size: const Size(390, 844),
+      authRepository: auth,
+      notificationGateway: gateway,
+    );
+
+    await tester.tap(find.text('Player'));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(
+      find.byKey(const Key('notification-settings-help')),
+    );
+    await tester.tap(find.byKey(const Key('notification-settings-help')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Allow notifications in settings'), findsOneWidget);
+    expect(find.byKey(const Key('turn-notifications-toggle')), findsNothing);
+    expect(
+      find.byKey(const Key('check-notification-permission')),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('app resume reconciles permission granted in system settings', (
+    tester,
+  ) async {
+    final auth = FakeAuthRepository();
+    await auth.login(username: 'alice', password: 'password');
+    final repository = FakeTurnNotificationRepository();
+    final gateway = FakeTurnNotificationGateway()
+      ..capabilityValue = const TurnNotificationCapability(
+        configured: true,
+        supported: true,
+        permission: TurnNotificationPermission.prompt,
+      );
+    await pumpApp(
+      tester,
+      authRepository: auth,
+      notificationRepository: repository,
+      notificationGateway: gateway,
+    );
+    expect(repository.upserts, isEmpty);
+
+    gateway
+      ..capabilityValue = const TurnNotificationCapability(
+        configured: true,
+        supported: true,
+        permission: TurnNotificationPermission.granted,
+      )
+      ..endpoint = const TurnNotificationEndpoint.firebase(
+        platform: 'ios',
+        token: 'settings-token',
+      );
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
     await tester.pumpAndSettle();
 
     expect(repository.upserts, hasLength(1));
-    final toggle = tester.widget<SwitchListTile>(
-      find.byKey(const Key('turn-notifications-toggle')),
-    );
-    expect(toggle.value, isTrue);
+    expect(repository.upserts.single.token, 'settings-token');
   });
 
-  testWidgets('home has two destinations and four play choices', (
+  testWidgets('home has three destinations and four play choices', (
     tester,
   ) async {
     await pumpApp(tester, size: const Size(390, 844));
 
-    expect(find.byType(NavigationDestination), findsNWidgets(2));
+    expect(find.byType(NavigationDestination), findsNWidgets(3));
     expect(find.text('Home'), findsOneWidget);
+    expect(find.text('Social'), findsOneWidget);
     expect(find.text('Player'), findsOneWidget);
     expect(find.byKey(const Key('play-local')), findsOneWidget);
     expect(find.byKey(const Key('find-opponent')), findsOneWidget);
@@ -336,6 +486,262 @@ void main() {
     expect(find.text('Local'), findsNothing);
     expect(find.text('Online'), findsNothing);
     expect(find.text('Profile'), findsNothing);
+  });
+
+  testWidgets('mobile Home keeps primary play actions ahead of metrics', (
+    tester,
+  ) async {
+    final auth = FakeAuthRepository();
+    await auth.login(username: 'alice', password: 'password');
+    await pumpApp(tester, size: const Size(390, 844), authRepository: auth);
+
+    final playLocal = find.byKey(const Key('play-local'));
+    final joinByCode = find.byKey(const Key('join-by-code'));
+    final metrics = find.byKey(const Key('player-metrics'));
+    expect(tester.getBottomRight(playLocal).dy, lessThan(844));
+    expect(
+      tester.getBottomRight(joinByCode).dy,
+      lessThan(tester.getTopLeft(metrics).dy),
+    );
+  });
+
+  testWidgets('signed-out Social stays accessible with a concise sign-in CTA', (
+    tester,
+  ) async {
+    await pumpApp(tester, size: const Size(390, 844));
+
+    await tester.tap(find.text('Social'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Play with friends'), findsOneWidget);
+    expect(find.byKey(const Key('social-sign-in')), findsOneWidget);
+    expect(find.byKey(const Key('social-search')), findsNothing);
+    expect(find.byType(NavigationDestination), findsNWidgets(3));
+  });
+
+  testWidgets('signed-in Social exposes privacy-safe friend workflows', (
+    tester,
+  ) async {
+    final auth = FakeAuthRepository();
+    await auth.login(username: 'private_alice', password: 'password');
+    const friend = PublicPlayer(
+      id: 'friend-1',
+      displayName: 'Briar',
+      elo: 1312,
+    );
+    const searchResult = PublicPlayer(
+      id: 'search-1',
+      displayName: 'Cedar',
+      elo: -12,
+    );
+    const incomingPlayer = PublicPlayer(
+      id: 'incoming-1',
+      displayName: 'Dahlia',
+      elo: 1240,
+    );
+    const outgoingPlayer = PublicPlayer(
+      id: 'outgoing-1',
+      displayName: 'Elm',
+      elo: 1188,
+    );
+    final now = DateTime.utc(2026, 8, 14);
+    final social = FakeSocialRepository(
+      searchResults: const [searchResult],
+      overview: SocialOverview(
+        version: 4,
+        friends: const [friend],
+        incomingFriendRequests: [
+          FriendRequest(
+            id: 'request-in',
+            player: incomingPlayer,
+            createdAt: now,
+          ),
+        ],
+        outgoingFriendRequests: [
+          FriendRequest(
+            id: 'request-out',
+            player: outgoingPlayer,
+            createdAt: now,
+          ),
+        ],
+        incomingChallenges: [
+          PlayerChallenge(
+            id: 'challenge-in',
+            player: incomingPlayer,
+            status: 'pending',
+            createdAt: now,
+            expiresAt: DateTime.utc(2026, 8, 21),
+          ),
+        ],
+      ),
+    );
+    await pumpApp(
+      tester,
+      size: const Size(390, 844),
+      authRepository: auth,
+      socialRepository: social,
+    );
+
+    await tester.tap(find.text('Social'));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('friend-friend-1')), findsOneWidget);
+    expect(
+      find.byKey(const Key('incoming-friend-request-request-in')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const Key('outgoing-friend-request-request-out')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const Key('incoming-challenge-challenge-in')),
+      findsOneWidget,
+    );
+    expect(find.textContaining('Expires 8/20'), findsOneWidget);
+    expect(find.textContaining('private_alice'), findsNothing);
+
+    final visibility = tester.widget<SwitchListTile>(
+      find.byKey(const Key('social-discoverability')),
+    );
+    expect(visibility.value, isFalse);
+    await tester.tap(find.byKey(const Key('social-discoverability')));
+    await tester.pumpAndSettle();
+    expect(social.discoverabilityChanges, [true]);
+    expect(
+      tester
+          .widget<SwitchListTile>(
+            find.byKey(const Key('social-discoverability')),
+          )
+          .value,
+      isTrue,
+    );
+
+    await tester.enterText(find.byKey(const Key('social-search')), 'Ced');
+    await tester.pump(const Duration(milliseconds: 360));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('search-player-search-1')), findsOneWidget);
+    await tester.ensureVisible(find.byKey(const Key('add-friend-search-1')));
+    await tester.tap(find.byKey(const Key('add-friend-search-1')));
+    await tester.pumpAndSettle();
+    expect(social.sentFriendRequests, ['search-1']);
+
+    await tester.ensureVisible(find.byKey(const Key('play-friend-friend-1')));
+    await tester.tap(find.byKey(const Key('play-friend-friend-1')));
+    await tester.pumpAndSettle();
+    expect(social.createdChallenges, ['friend-1']);
+  });
+
+  testWidgets('accepting a friend challenge opens its rated match', (
+    tester,
+  ) async {
+    final auth = FakeAuthRepository();
+    await auth.login(username: 'alice', password: 'password');
+    const friend = PublicPlayer(
+      id: 'friend-1',
+      displayName: 'Briar',
+      elo: 1288,
+    );
+    final challenge = PlayerChallenge(
+      id: 'challenge-1',
+      player: friend,
+      status: 'pending',
+      createdAt: DateTime.utc(2026, 8, 14),
+      expiresAt: DateTime.utc(2026, 8, 21),
+    );
+    final social = FakeSocialRepository(
+      overview: SocialOverview(incomingChallenges: [challenge]),
+    )..acceptedMatchId = 'social-match-1';
+    final online = FakeOnlineRepository(
+      match: _activeOnlineMatch(id: 'social-match-1'),
+    );
+    await pumpApp(
+      tester,
+      authRepository: auth,
+      socialRepository: social,
+      onlineRepository: online,
+    );
+
+    await tester.tap(find.text('Social'));
+    await tester.pumpAndSettle();
+    final accept = find.byKey(const Key('accept-challenge-challenge-1'));
+    await tester.ensureVisible(accept);
+    await tester.tap(accept);
+    await tester.pumpAndSettle();
+
+    expect(social.acceptedChallenges, ['challenge-1']);
+    expect(find.byType(OnlineMatchScreen), findsOneWidget);
+    expect(find.text('vs Briar'), findsOneWidget);
+    expect(find.textContaining('RATED'), findsOneWidget);
+  });
+
+  testWidgets('Home and Player show authoritative rated metrics and refresh', (
+    tester,
+  ) async {
+    final auth = FakeAuthRepository();
+    await auth.login(username: 'alice', password: 'password');
+    final stats = FakePlayerStatsRepository(
+      stats: const PlayerStats(
+        elo: -24,
+        victories: 6,
+        totalGames: 10,
+        kills: 42,
+        losses: 3,
+        draws: 1,
+      ),
+    );
+    await pumpApp(tester, authRepository: auth, playerStatsRepository: stats);
+
+    expect(find.byKey(const Key('player-metrics')), findsOneWidget);
+    expect(find.text('-24'), findsOneWidget);
+    expect(find.text('60%'), findsOneWidget);
+    expect(find.text('42'), findsOneWidget);
+    expect(stats.calls, 1);
+    final metricsTop = tester
+        .getTopLeft(find.byKey(const Key('player-metrics')))
+        .dy;
+    for (final key in const [
+      Key('play-local'),
+      Key('find-opponent'),
+      Key('create-room'),
+      Key('join-by-code'),
+    ]) {
+      expect(tester.getTopLeft(find.byKey(key)).dy, lessThan(metricsTop));
+    }
+
+    await tester.tap(find.text('Player'));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('player-metrics')), findsOneWidget);
+    expect(stats.calls, 2);
+  });
+
+  testWidgets('rated metrics expose a retry and recover from a load failure', (
+    tester,
+  ) async {
+    final auth = FakeAuthRepository();
+    await auth.login(username: 'alice', password: 'password');
+    final stats = FakePlayerStatsRepository()..error = StateError('offline');
+    await pumpApp(tester, authRepository: auth, playerStatsRepository: stats);
+
+    expect(find.byKey(const Key('retry-player-metrics')), findsOneWidget);
+    expect(find.textContaining('could not be loaded'), findsOneWidget);
+
+    stats
+      ..error = null
+      ..stats = const PlayerStats(
+        elo: 1200,
+        victories: 0,
+        totalGames: 0,
+        kills: 0,
+        losses: 0,
+        draws: 0,
+      );
+    await tester.tap(find.byKey(const Key('retry-player-metrics')));
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('Your Elo starts at 1200.'), findsOneWidget);
+    expect(stats.calls, 2);
   });
 
   testWidgets('create room offers public and private choices', (tester) async {
@@ -408,8 +814,8 @@ void main() {
       onlineRepository: online,
     );
 
-    expect(find.text('Online · Your turn'), findsOneWidget);
-    expect(find.text('Online · Waiting for opponent'), findsOneWidget);
+    expect(find.text('Online · Rated · Your turn'), findsOneWidget);
+    expect(find.text('Online · Rated · Waiting for opponent'), findsOneWidget);
     expect(find.text('vs Past Player'), findsNothing);
     expect(find.byKey(const Key('finished-games')), findsOneWidget);
     expect(
@@ -421,7 +827,7 @@ void main() {
     await tester.tap(find.byKey(const Key('finished-games')));
     await tester.pumpAndSettle();
     expect(find.text('vs Past Player'), findsOneWidget);
-    expect(find.text('Online · Completed'), findsOneWidget);
+    expect(find.text('Online · Rated · Completed'), findsOneWidget);
   });
 
   testWidgets('signing out removes cached online games from Home', (
@@ -472,7 +878,7 @@ void main() {
     );
     await pumpApp(tester, authRepository: auth, onlineRepository: online);
 
-    expect(find.text('Online · Private room waiting'), findsOneWidget);
+    expect(find.text('Online · Rated · Private room waiting'), findsOneWidget);
     expect(find.byTooltip('Copy join code'), findsOneWidget);
     expect(
       find.byKey(const Key('find-opponent')).evaluate().single.widget,
@@ -494,6 +900,7 @@ void main() {
           .onPressed,
       isNull,
     );
+    await tester.ensureVisible(find.byTooltip('Private room actions'));
     await tester.tap(find.byTooltip('Private room actions'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Close private room'));
@@ -502,7 +909,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(online.closeLobbyCalls, 1);
-    expect(find.text('Online · Private room waiting'), findsNothing);
+    expect(find.text('Online · Rated · Private room waiting'), findsNothing);
   });
 
   testWidgets('failed local load can be retried from Home', (tester) async {
@@ -571,7 +978,7 @@ void main() {
     await pumpApp(tester, localGameStore: store);
 
     expect(find.text('Couch match'), findsOneWidget);
-    expect(find.text('Local · Black to move'), findsOneWidget);
+    expect(find.text('Local · Unrated · Black to move'), findsOneWidget);
     await tester.tap(find.byTooltip('Local game actions'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Delete local game'));
@@ -582,4 +989,33 @@ void main() {
     expect(find.text('Couch match'), findsNothing);
     expect(store.games, isEmpty);
   });
+}
+
+OnlineMatch _activeOnlineMatch({required String id}) {
+  final state = const engine.GameEngine().initialState();
+  return OnlineMatch(
+    id: id,
+    status: 'active',
+    revision: state.revision,
+    board: state.board,
+    rules: state.rules,
+    players: const [
+      OnlinePlayer(
+        id: 'user-1',
+        username: 'private_alice',
+        displayName: 'Alice',
+        color: engine.Player.black,
+      ),
+      OnlinePlayer(
+        id: 'friend-1',
+        username: 'private_briar',
+        displayName: 'Briar',
+        color: engine.Player.white,
+      ),
+    ],
+    blackPopulation: state.blackPopulation,
+    whitePopulation: state.whitePopulation,
+    yourColor: engine.Player.black,
+    nextPlayer: engine.Player.black,
+  );
 }

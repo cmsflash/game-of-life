@@ -6,6 +6,7 @@ import '../../../providers.dart';
 import '../../../shared/async_message.dart';
 import '../../../shared/page_frame.dart';
 import '../../notifications/presentation/turn_notification_preference_card.dart';
+import '../../stats/presentation/player_metrics_panel.dart';
 import 'auth_controller.dart';
 
 class PlayerScreen extends ConsumerWidget {
@@ -88,11 +89,6 @@ class PlayerScreen extends ConsumerWidget {
                             ],
                           ),
                         ),
-                        if (user.rating != null)
-                          Chip(
-                            avatar: const Icon(Icons.trending_up, size: 18),
-                            label: Text('${user.rating} rating'),
-                          ),
                       ],
                     ),
                     const SizedBox(height: 24),
@@ -117,6 +113,8 @@ class PlayerScreen extends ConsumerWidget {
                 ),
               ),
             ),
+            const SizedBox(height: 26),
+            const PlayerMetricsPanel(),
             const SizedBox(height: 18),
             const TurnNotificationPreferenceCard(),
           ],
@@ -213,7 +211,8 @@ class PlayerScreen extends ConsumerWidget {
                     const Text(
                       'Permanently remove your sign-in and recovery information. '
                       'Waiting matches are cancelled, active matches are resigned, '
-                      'and retained match history is anonymized.',
+                      'your Social profile, relationships, challenges, and player '
+                      'stats are removed, and retained match history is anonymized.',
                     ),
                     const SizedBox(height: 18),
                     FilledButton.icon(

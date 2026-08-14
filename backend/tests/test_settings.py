@@ -82,7 +82,7 @@ def test_production_return_urls_reject_insecure_values(
         ).validate()
 
 
-def test_push_providers_require_credentials_and_scheduler(settings: Settings) -> None:
+def test_push_providers_require_credentials(settings: Settings) -> None:
     with pytest.raises(RuntimeError, match="FIREBASE_SERVICE_ACCOUNT_SECRET_ARN"):
         replace(settings, push_providers=("firebase",)).validate()
 
@@ -102,6 +102,35 @@ def test_push_provider_configuration_accepts_hybrid_mode(settings: Settings) -> 
         notification_scheduler_role_arn="arn:aws:iam::1:role/scheduler",
         notification_schedule_group_name="turn-reminders",
     ).validate()
+
+
+def test_api_push_config_does_not_require_scheduler_access(settings: Settings) -> None:
+    replace(
+        settings,
+        app_component="api",
+        push_providers=("webPush",),
+        web_push_vapid_private_key_secret_arn="arn:aws:secretsmanager:test:1:secret:vapid",
+        web_push_vapid_public_key=_VAPID_PUBLIC_KEY,
+        web_push_vapid_subject="mailto:operations@example.com",
+        notification_function_arn=None,
+        notification_scheduler_role_arn=None,
+        notification_schedule_group_name=None,
+    ).validate()
+
+
+def test_notification_worker_requires_scheduler_configuration(settings: Settings) -> None:
+    with pytest.raises(RuntimeError, match="missing notification scheduler settings"):
+        replace(
+            settings,
+            app_component="notifications",
+            push_providers=("webPush",),
+            web_push_vapid_private_key_secret_arn=("arn:aws:secretsmanager:test:1:secret:vapid"),
+            web_push_vapid_public_key=_VAPID_PUBLIC_KEY,
+            web_push_vapid_subject="mailto:operations@example.com",
+            notification_function_arn=None,
+            notification_scheduler_role_arn=None,
+            notification_schedule_group_name=None,
+        ).validate()
 
 
 def test_production_notification_worker_does_not_require_api_auth_secrets(

@@ -12,13 +12,7 @@ class TurnNotificationPreferenceCard extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final state = ref.watch(turnNotificationControllerProvider);
     final controller = ref.read(turnNotificationControllerProvider.notifier);
-    final canChange =
-        !state.loading &&
-        !state.busy &&
-        state.configured &&
-        state.supported &&
-        (state.enabled ||
-            state.permission != TurnNotificationPermission.denied);
+    final canAct = !state.loading && !state.busy;
 
     return Card(
       child: Padding(
@@ -26,22 +20,53 @@ class TurnNotificationPreferenceCard extends ConsumerWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            SwitchListTile(
-              key: const Key('turn-notifications-toggle'),
+            ListTile(
+              key: const Key('turn-notifications-status'),
               contentPadding: const EdgeInsets.symmetric(horizontal: 16),
-              secondary: const Icon(Icons.notifications_active_outlined),
-              title: const Text('Turn notifications'),
+              leading: Icon(
+                state.enabled
+                    ? Icons.notifications_active
+                    : Icons.notifications_outlined,
+              ),
+              title: const Text('Turn alerts'),
               subtitle: Text(_subtitle(state)),
-              value: state.enabled,
-              onChanged: canChange
-                  ? (enabled) =>
-                        enabled ? controller.enable() : controller.disable()
-                  : null,
             ),
             if (state.busy)
               const Padding(
                 padding: EdgeInsets.symmetric(horizontal: 16),
                 child: LinearProgressIndicator(),
+              ),
+            if (state.permission == TurnNotificationPermission.prompt &&
+                state.configured &&
+                state.supported)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: FilledButton.icon(
+                    key: const Key('allow-turn-notifications'),
+                    onPressed: canAct ? controller.allow : null,
+                    icon: const Icon(Icons.notifications_active_outlined),
+                    label: const Text('Allow notifications'),
+                  ),
+                ),
+              ),
+            if (state.permission == TurnNotificationPermission.denied &&
+                state.configured &&
+                state.supported)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: OutlinedButton.icon(
+                    key: const Key('notification-settings-help'),
+                    onPressed: canAct
+                        ? () => _showSettingsHelp(context, controller)
+                        : null,
+                    icon: const Icon(Icons.settings_outlined),
+                    label: const Text('Notification settings'),
+                  ),
+                ),
               ),
             if (state.error != null)
               Padding(
@@ -89,12 +114,44 @@ class TurnNotificationPreferenceCard extends ConsumerWidget {
       return 'Notifications are not supported on this browser or device.';
     }
     if (state.permission == TurnNotificationPermission.denied) {
-      return state.enabled
-          ? 'Blocked by your browser or device. Turn this off or allow notifications in system settings.'
-          : 'Blocked by your browser or device settings.';
+      return 'Blocked by your browser or device settings.';
+    }
+    if (state.permission == TurnNotificationPermission.prompt) {
+      return 'Allow this browser or device to receive turn alerts.';
     }
     return state.enabled
-        ? 'On for this browser or device.'
-        : 'Know when an online match is waiting for you.';
+        ? 'Active for this browser or device.'
+        : 'Permission is allowed; reconnecting this device.';
+  }
+
+  Future<void> _showSettingsHelp(
+    BuildContext context,
+    TurnNotificationController controller,
+  ) async {
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Allow notifications in settings'),
+        content: const Text(
+          'Open this app or site in your browser or device notification '
+          'settings, choose Allow, then return here. Turn alerts connect '
+          'automatically after permission is granted.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('Close'),
+          ),
+          FilledButton(
+            key: const Key('check-notification-permission'),
+            onPressed: () {
+              Navigator.pop(dialogContext);
+              controller.refresh();
+            },
+            child: const Text('Check again'),
+          ),
+        ],
+      ),
+    );
   }
 }

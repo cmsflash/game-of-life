@@ -31,6 +31,7 @@ class _OnlineMatchScreenState extends ConsumerState<OnlineMatchScreen> {
   var _loading = true;
   var _submitting = false;
   var _requestInFlight = false;
+  var _completionRefreshSent = false;
 
   @override
   void initState() {
@@ -53,16 +54,19 @@ class _OnlineMatchScreenState extends ConsumerState<OnlineMatchScreen> {
           .read(onlineRepositoryProvider)
           .getMatch(widget.matchId, etag: force ? null : _match?.etag);
       if (!mounted) return;
+      var completedTransition = false;
       setState(() {
         final current = _match;
         if (updated != null &&
             (current == null || updated.revision >= current.revision)) {
+          completedTransition = _becameTerminal(current, updated);
           if (!_previewStillValid(updated)) _preview = null;
           _match = updated;
         }
         _loading = false;
         _error = null;
       });
+      if (completedTransition) _refreshRatedRecord();
     } catch (error) {
       if (!mounted) return;
       setState(() {
@@ -140,10 +144,12 @@ class _OnlineMatchScreenState extends ConsumerState<OnlineMatchScreen> {
             column: preview.coordinate.column,
           );
       if (mounted) {
+        final completedTransition = _becameTerminal(_match, updated);
         setState(() {
           _match = updated;
           _preview = null;
         });
+        if (completedTransition) _refreshRatedRecord();
       }
     } on ApiException catch (error) {
       if (error.code == 'staleRevision' || error.code == 'REVISION_MISMATCH') {
@@ -279,10 +285,26 @@ class _OnlineMatchScreenState extends ConsumerState<OnlineMatchScreen> {
       final updated = await ref
           .read(onlineRepositoryProvider)
           .resign(match.id, match.revision);
-      if (mounted) setState(() => _match = updated);
+      if (mounted) {
+        final completedTransition = _becameTerminal(_match, updated);
+        setState(() => _match = updated);
+        if (completedTransition) _refreshRatedRecord();
+      }
     } on ApiException catch (error) {
       if (mounted) setState(() => _error = error.message);
     }
+  }
+
+  bool _becameTerminal(OnlineMatch? current, OnlineMatch updated) =>
+      !updated.isActive &&
+      updated.status != 'waiting' &&
+      current?.isActive != false;
+
+  void _refreshRatedRecord() {
+    if (_completionRefreshSent) return;
+    _completionRefreshSent = true;
+    unawaited(ref.read(playerStatsControllerProvider.notifier).refresh());
+    unawaited(ref.read(socialControllerProvider.notifier).refresh());
   }
 }
 
@@ -335,10 +357,10 @@ class _OnlineGamePanel extends StatelessWidget {
               children: [
                 Text(
                   match.status == 'waiting'
-                      ? 'PRIVATE LOBBY'
+                      ? 'RATED · PRIVATE LOBBY'
                       : match.isActive
-                      ? 'MOVE ${match.revision + 1}'
-                      : 'MATCH COMPLETE',
+                      ? 'RATED · MOVE ${match.revision + 1}'
+                      : 'RATED · MATCH COMPLETE',
                   style: Theme.of(
                     context,
                   ).textTheme.labelMedium?.copyWith(letterSpacing: 1.4),

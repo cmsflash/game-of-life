@@ -27,7 +27,7 @@ void main() {
       await tester.pump();
 
       expect(tester.takeException(), isNull);
-      expect(find.text('TURN 1'), findsOneWidget);
+      expect(find.text('UNRATED · TURN 1'), findsOneWidget);
       expect(find.byKey(const Key('game-view-settings')), findsOneWidget);
       expect(find.byTooltip('Delete local game'), findsOneWidget);
       expectGameLayoutGeometry(

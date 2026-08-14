@@ -126,9 +126,11 @@ FirebaseServiceAccountSecretArn=arn:aws:secretsmanager:REGION:ACCOUNT:secret:NAM
 The API stack enables `NEW_AND_OLD_IMAGES` on the game table stream, creates a
 separate notification image Lambda, an EventBridge Scheduler group, and an
 encrypted SQS dead-letter queue. The worker sends the immediate notification
-from match-only filtered stream events. Its one-time Scheduler invocations carry only match ID,
-revision, recipient ID, turn-start time, and reminder offset; they never carry
-provider tokens. Every invocation rereads DynamoDB before sending.
+from match-only filtered stream events. Its one-time Scheduler invocations carry
+only match ID, revision, turn-start time, and reminder offset; they carry neither
+a player ID nor provider credentials. Every invocation strongly rereads the match,
+derives the current recipient, checks that account's durable state fence, and then
+reads the current subscription before sending.
 
 The default browser push hostname allowlist covers current Google, Mozilla,
 Apple, and Microsoft push-service suffixes. Add a suffix through

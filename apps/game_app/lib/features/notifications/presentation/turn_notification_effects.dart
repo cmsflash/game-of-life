@@ -25,18 +25,29 @@ class TurnNotificationEffects extends ConsumerStatefulWidget {
 }
 
 class _TurnNotificationEffectsState
-    extends ConsumerState<TurnNotificationEffects> {
+    extends ConsumerState<TurnNotificationEffects>
+    with WidgetsBindingObserver {
   StreamSubscription<TurnNotificationMessage>? _foregroundSubscription;
   StreamSubscription<TurnNotificationMessage>? _openedSubscription;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     final controller = ref.read(turnNotificationControllerProvider.notifier);
     _foregroundSubscription = controller.foregroundMessages.listen(
       _showForegroundMessage,
     );
     _openedSubscription = controller.openedMessages.listen(_openMessage);
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      unawaited(
+        ref.read(turnNotificationControllerProvider.notifier).refresh(),
+      );
+    }
   }
 
   void _showForegroundMessage(TurnNotificationMessage message) {
@@ -67,6 +78,7 @@ class _TurnNotificationEffectsState
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _foregroundSubscription?.cancel();
     _openedSubscription?.cancel();
     super.dispose();

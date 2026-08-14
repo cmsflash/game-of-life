@@ -28,13 +28,6 @@ class TurnNotificationState {
   final bool busy;
   final String? error;
 
-  bool get canEnable =>
-      !loading &&
-      !busy &&
-      configured &&
-      supported &&
-      permission != TurnNotificationPermission.denied;
-
   TurnNotificationState copyWith({
     bool? loading,
     bool? configured,
@@ -77,7 +70,9 @@ class TurnNotificationController extends StateNotifier<TurnNotificationState> {
   final SessionStore _sessionStore;
   StreamSubscription<TurnNotificationEndpoint>? _endpointSubscription;
   Future<void>? _initialization;
-  var _signedIn = false;
+  Future<void> _operationQueue = Future.value();
+  String? _accountId;
+  var _generation = 0;
   var _authStateKnown = false;
 
   Stream<TurnNotificationMessage> get foregroundMessages =>
@@ -85,21 +80,24 @@ class TurnNotificationController extends StateNotifier<TurnNotificationState> {
 
   Stream<TurnNotificationMessage> get openedMessages => _gateway.openedMessages;
 
-  Future<void> setSignedIn(bool signedIn) async {
-    if (_authStateKnown && _signedIn == signedIn) return;
+  Future<void> setAccount(String? accountId) async {
+    if (_authStateKnown && _accountId == accountId) return;
     _authStateKnown = true;
-    if (!signedIn) {
-      _signedIn = false;
-      try {
-        await _gateway.deactivate().timeout(_sessionCleanupTimeout);
-      } catch (_) {
-        // The server no longer has a usable session; local cleanup is best effort.
-      }
-      state = state.copyWith(enabled: false, busy: false, clearError: true);
-      return;
+    _accountId = accountId;
+    final generation = ++_generation;
+    state = state.copyWith(enabled: false, busy: false, clearError: true);
+    if (accountId == null) {
+      return _enqueue(() async {
+        try {
+          await _gateway.deactivate().timeout(_sessionCleanupTimeout);
+        } catch (_) {
+          // The server no longer has a usable session; local cleanup is best effort.
+        }
+        state = state.copyWith(enabled: false, busy: false, clearError: true);
+      });
     }
-    _signedIn = true;
     await initialize();
+    if (!_isCurrent(generation)) return;
     await refresh();
   }
 
@@ -146,14 +144,21 @@ class TurnNotificationController extends StateNotifier<TurnNotificationState> {
     }
   }
 
-  Future<void> refresh() async {
-    if (!_signedIn) return;
+  Future<void> refresh() => _enqueue(_refresh);
+
+  Future<void> _refresh() async {
+    if (_accountId == null) return;
+    final generation = _generation;
     await initialize();
-    final installationId = await _sessionStore.deviceId();
+    if (!_isCurrent(generation)) return;
     try {
+      final installationId = await _sessionStore.deviceId();
+      if (!_isCurrent(generation)) return;
       final capability = await _gateway.capability();
+      if (!_isCurrent(generation)) return;
       final subscriptions = await _repository.listSubscriptions();
-      final enabled = subscriptions.any(
+      if (!_isCurrent(generation)) return;
+      final hasServerSubscription = subscriptions.any(
         (subscription) => subscription.installationId == installationId,
       );
       state = state.copyWith(
@@ -161,38 +166,86 @@ class TurnNotificationController extends StateNotifier<TurnNotificationState> {
         configured: capability.configured,
         supported: capability.supported,
         permission: capability.permission,
-        enabled: enabled,
+        // A server row is not enough to call the device active. Keep the
+        // status disconnected until the current endpoint sync succeeds.
+        enabled: false,
         clearError: true,
       );
 
-      if (enabled &&
-          capability.permission == TurnNotificationPermission.granted) {
-        final endpoint = await _gateway.currentEndpoint();
+      if (!capability.configured || !capability.supported) {
+        state = state.copyWith(enabled: false);
+        if (hasServerSubscription) {
+          await _repository.deleteSubscription(installationId);
+          if (!_isCurrent(generation)) return;
+        }
+        await _gateway.deactivate();
+        return;
+      }
+
+      if (capability.permission == TurnNotificationPermission.granted) {
+        var endpoint = await _gateway.currentEndpoint();
+        if (!_isCurrent(generation)) return;
+        // Permission has already been granted, so creating a missing push
+        // endpoint here does not display an OS or browser permission prompt.
+        endpoint ??= await _gateway.requestEndpoint();
+        if (!_isCurrent(generation)) return;
         if (endpoint != null) {
           await _upsert(installationId, endpoint);
+          if (!_isCurrent(generation)) return;
+          state = state.copyWith(enabled: true, clearError: true);
         } else {
-          await _repository.deleteSubscription(installationId);
           state = state.copyWith(enabled: false);
+          if (hasServerSubscription) {
+            await _repository.deleteSubscription(installationId);
+            if (!_isCurrent(generation)) return;
+          }
+          state = state.copyWith(
+            enabled: false,
+            error:
+                'Notifications are allowed, but this device could not connect for alerts.',
+          );
         }
-      } else if (enabled &&
-          capability.permission == TurnNotificationPermission.denied) {
-        await _repository.deleteSubscription(installationId);
-        await _gateway.deactivate();
+      } else {
+        state = state.copyWith(enabled: false);
+        if (hasServerSubscription) {
+          await _repository.deleteSubscription(installationId);
+          if (!_isCurrent(generation)) return;
+        }
+        if (capability.permission == TurnNotificationPermission.denied) {
+          await _gateway.deactivate();
+          if (!_isCurrent(generation)) return;
+        }
         state = state.copyWith(enabled: false);
       }
     } catch (error) {
+      if (!_isCurrent(generation)) return;
       state = state.copyWith(loading: false, error: _message(error));
     }
   }
 
-  Future<void> enable() async {
-    if (!_signedIn || state.busy) return;
-    if (state.loading) await initialize();
-    if (!state.configured || !state.supported) return;
+  Future<void> allow() {
+    if (_accountId == null || state.busy) return Future.value();
     state = state.copyWith(busy: true, clearError: true);
+    return _enqueue(_allow);
+  }
+
+  Future<void> _allow() async {
+    if (_accountId == null) {
+      state = state.copyWith(busy: false);
+      return;
+    }
+    final generation = _generation;
+    if (state.loading) await initialize();
+    if (!_isCurrent(generation)) return;
+    if (!state.configured || !state.supported) {
+      state = state.copyWith(busy: false);
+      return;
+    }
     try {
       final endpoint = await _gateway.requestEndpoint();
+      if (!_isCurrent(generation)) return;
       final capability = await _gateway.capability();
+      if (!_isCurrent(generation)) return;
       if (endpoint == null) {
         state = state.copyWith(
           busy: false,
@@ -205,7 +258,9 @@ class TurnNotificationController extends StateNotifier<TurnNotificationState> {
         return;
       }
       final installationId = await _sessionStore.deviceId();
+      if (!_isCurrent(generation)) return;
       await _upsert(installationId, endpoint);
+      if (!_isCurrent(generation)) return;
       state = state.copyWith(
         busy: false,
         configured: capability.configured,
@@ -215,58 +270,62 @@ class TurnNotificationController extends StateNotifier<TurnNotificationState> {
         clearError: true,
       );
     } catch (error) {
+      if (!_isCurrent(generation)) return;
       state = state.copyWith(busy: false, error: _message(error));
     }
   }
 
-  Future<void> disable() async {
-    if (!_signedIn || state.busy) return;
-    state = state.copyWith(busy: true, clearError: true);
-    try {
-      final installationId = await _sessionStore.deviceId();
-      await _repository.deleteSubscription(installationId);
-      await _gateway.deactivate();
-      final capability = await _gateway.capability();
-      state = state.copyWith(
-        busy: false,
-        permission: capability.permission,
-        enabled: false,
-        clearError: true,
-      );
-    } catch (error) {
-      state = state.copyWith(busy: false, error: _message(error));
-    }
-  }
-
-  Future<void> disconnectAccount() async {
-    try {
-      final installationId = await _sessionStore.deviceId();
-      await _repository
-          .deleteSubscription(installationId)
-          .timeout(_sessionCleanupTimeout);
-    } catch (_) {
-      // Signing out must remain possible when the network is unavailable.
-    } finally {
+  Future<void> disconnectAccount() {
+    _accountId = null;
+    _authStateKnown = true;
+    _generation++;
+    state = state.copyWith(enabled: false, busy: false, clearError: true);
+    return _enqueue(() async {
       try {
-        await _gateway.deactivate().timeout(_sessionCleanupTimeout);
+        final installationId = await _sessionStore.deviceId();
+        await _repository
+            .deleteSubscription(installationId)
+            .timeout(_sessionCleanupTimeout);
       } catch (_) {
-        // Signing out must remain possible when provider cleanup fails.
+        // Signing out must remain possible when the network is unavailable.
+      } finally {
+        try {
+          await _gateway.deactivate().timeout(_sessionCleanupTimeout);
+        } catch (_) {
+          // Signing out must remain possible when provider cleanup fails.
+        }
+        state = state.copyWith(enabled: false, busy: false, clearError: true);
       }
-      _signedIn = false;
-      _authStateKnown = true;
-      state = state.copyWith(enabled: false, busy: false, clearError: true);
-    }
+    });
   }
 
-  Future<void> _endpointChanged(TurnNotificationEndpoint endpoint) async {
-    if (!_signedIn || !state.enabled) return;
+  void _endpointChanged(TurnNotificationEndpoint endpoint) {
+    unawaited(_enqueue(() => _syncEndpoint(endpoint)));
+  }
+
+  Future<void> _syncEndpoint(TurnNotificationEndpoint endpoint) async {
+    if (_accountId == null) return;
+    final generation = _generation;
     try {
       final installationId = await _sessionStore.deviceId();
+      if (!_isCurrent(generation)) return;
       await _upsert(installationId, endpoint);
+      if (!_isCurrent(generation)) return;
+      state = state.copyWith(enabled: true, clearError: true);
     } catch (error) {
+      if (!_isCurrent(generation)) return;
       state = state.copyWith(error: _message(error));
     }
   }
+
+  Future<void> _enqueue(Future<void> Function() operation) {
+    final result = _operationQueue.then((_) => operation());
+    _operationQueue = result.catchError((_) {});
+    return result;
+  }
+
+  bool _isCurrent(int generation) =>
+      _accountId != null && generation == _generation;
 
   Future<void> _upsert(
     String installationId,

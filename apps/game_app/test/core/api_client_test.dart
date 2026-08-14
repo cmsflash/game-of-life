@@ -85,6 +85,46 @@ void main() {
     expect(await store.readSession(), isNull);
   });
 
+  test('reuses an idempotency key after refreshing authentication', () async {
+    final store = MemorySessionStore()
+      ..session = const StoredSession(
+        accessToken: 'expired',
+        refreshToken: 'refresh-token',
+      );
+    final operationKeys = <String>[];
+    final api = ApiClient(
+      sessionStore: store,
+      httpClient: MockClient((request) async {
+        if (request.url.path == '/v1/auth/refresh') {
+          return http.Response(
+            jsonEncode({
+              'accessToken': 'renewed',
+              'refreshToken': 'refresh-token',
+            }),
+            200,
+          );
+        }
+        operationKeys.add(request.headers['idempotency-key']!);
+        if (request.headers['authorization'] == 'Bearer expired') {
+          return http.Response(
+            jsonEncode({
+              'error': {'code': 'unauthorized', 'message': 'Refresh.'},
+            }),
+            401,
+          );
+        }
+        expect(request.headers['authorization'], 'Bearer renewed');
+        return http.Response('{}', 200);
+      }),
+      baseUrl: 'https://api.example.test',
+    );
+
+    await api.post('/v1/challenges/c1/accept', idempotent: true);
+
+    expect(operationKeys, hasLength(2));
+    expect(operationKeys.toSet(), hasLength(1));
+  });
+
   test('maps request timeouts to a stable user-facing API error', () async {
     final api = ApiClient(
       sessionStore: MemorySessionStore(),

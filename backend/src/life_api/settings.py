@@ -186,7 +186,7 @@ class Settings:
                 or self.web_push_vapid_subject.startswith("https://")
             ):
                 raise RuntimeError("WEB_PUSH_VAPID_SUBJECT must be a mailto: or HTTPS URI")
-        if self.push_providers:
+        if self.push_providers and self.app_component == "notifications":
             missing_scheduler = [
                 name
                 for name, value in {

@@ -86,7 +86,9 @@ a match or committing a move updates the match snapshot first. DynamoDB Streams
 then invokes a separate notification worker, which sends the immediate alert
 and creates three one-time EventBridge schedules. Each delivery performs a
 strongly consistent match read and requires the same active status, engine
-revision, player-to-move, and recipient ID captured at turn start. A move,
+revision, active account state, and player-to-move. Scheduled inputs are identity-
+free: they contain the match ID, revision, reminder offset, and turn-start time,
+then derive the recipient from the authoritative match at execution. A move,
 resignation, or completed game therefore invalidates all earlier reminders
 without requiring schedule cancellation.
 
@@ -128,6 +130,46 @@ randomly assigned colors without a second profile service. Login usernames,
 email addresses, and tokens never enter match documents or queue rows. Account
 deletion replaces only the departing participant's stored name and identifier
 with an unlinkable `Deleted player` identity.
+
+## Social graph, discovery, and ratings
+
+Public profiles are private-by-default directory records. Opting into search
+transactionally adds a normalized, three-character-sharded prefix-index row;
+opting out or starting account deletion removes it. Search queries DynamoDB rather
+than scanning, rate-limits each subject, caps responses, and returns only opaque ID,
+display name, and rating. Login username and email never enter the index.
+
+Friendship uses one canonical unordered-pair record plus one projection per user.
+Conditional transactions update both projections, both bounded counters, and both
+Social snapshot versions. Pending direct challenges are separate seven-day records,
+not waiting matches. Acceptance rechecks friendship/expiry/account state and
+atomically creates one active randomly colored match, both memberships, and a
+recoverable challenge-result pointer. DynamoDB TTL is a retention backstop; Social
+reads repair partial expiry and counters.
+
+Every remote terminal transition writes the completed match, terminal move or
+resignation idempotency result, both player-stat updates, a participant-free
+per-match metrics ledger, and a global metrics-control sequence in one transaction.
+The global sequence serializes Elo updates across concurrently finishing matches.
+Rating begins at 1200, uses K=32 and symmetric half-away-from-zero rounding, and is
+an unbounded signed integer with exactly inverse deltas. Kill counters accumulate
+from authoritative death colors on every move: Black deaths credit White and White
+deaths credit Black.
+
+The `CONTROL#METRICS` record fails closed when missing. During the initial
+chronological backfill it is `backfilling`: nonterminal play continues, but terminal
+commits, Social/rating reads, and account deletion return a retryable 503. The
+dry-run-first migration orders attributable completed matches by authoritative
+terminal time and match ID, conditionally writes one contiguous ledger sequence,
+verifies exact aggregate stats, and only then sets `ready`. Completed histories
+whose players were already anonymized cannot be attributed and are conditionally
+marked `rated=false` without changing gameplay timestamps.
+
+Account deletion first writes a durable state fence under a SHA-256-derived key and
+a one-day raw-sub rolling-deployment guard. Every identity-bearing creation or move
+transaction checks the fence. Cleanup removes Social/search/stats rows and uses CAS
+loops to anonymize retained matches, moves, and counterpart command snapshots, so
+concurrent deletion of both participants cannot restore either identity.
 
 ## Portability
 

@@ -6,6 +6,9 @@ import 'package:game_of_life/features/online/data/online_models.dart';
 import 'package:game_of_life/features/online/data/online_repository.dart';
 import 'package:game_of_life/features/online/presentation/online_match_screen.dart';
 import 'package:game_of_life/features/game/presentation/life_board.dart';
+import 'package:game_of_life/features/stats/data/player_stats.dart';
+import 'package:game_of_life/features/stats/data/player_stats_repository.dart';
+import 'package:game_of_life/features/stats/presentation/player_stats_controller.dart';
 import 'package:game_of_life/providers.dart';
 
 import '../../support/game_play_layout_test_support.dart';
@@ -29,7 +32,7 @@ void main() {
       await tester.pump();
 
       expect(tester.takeException(), isNull);
-      expect(find.text('MOVE 1'), findsOneWidget);
+      expect(find.textContaining('MOVE 1'), findsOneWidget);
       expect(find.text('vs Mika'), findsOneWidget);
       expect(find.byKey(const Key('game-view-settings')), findsOneWidget);
       expectGameLayoutGeometry(
@@ -102,6 +105,73 @@ void main() {
     expect(repository.submissions, [(revision: 0, row: 8, column: 9)]);
     expect(find.byKey(const Key('commit-move')), findsNothing);
   });
+
+  testWidgets('terminal match refreshes the rated record exactly once', (
+    tester,
+  ) async {
+    configureGameViewport(tester, gameLayoutViewports.last);
+    final repository = _MatchRepository(_activeMatch());
+    final stats = _CountingStatsRepository();
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          onlineRepositoryProvider.overrideWithValue(repository),
+          playerStatsRepositoryProvider.overrideWithValue(stats),
+          playerStatsControllerProvider.overrideWith((ref) {
+            final controller = PlayerStatsController(stats);
+            controller.connectAccount('player-a');
+            return controller;
+          }),
+        ],
+        child: const MaterialApp(home: OnlineMatchScreen(matchId: 'match-1')),
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+    expect(stats.calls, 0);
+
+    repository.match = _completedMatch(repository.match);
+    await tester.tap(find.byTooltip('Refresh'));
+    await tester.pump();
+    await tester.pump();
+
+    expect(stats.calls, 1);
+    await tester.tap(find.byTooltip('Refresh'));
+    await tester.pump();
+    await tester.pump();
+    expect(stats.calls, 1);
+  });
+
+  testWidgets('an initially terminal match refreshes a stale rated record', (
+    tester,
+  ) async {
+    configureGameViewport(tester, gameLayoutViewports.last);
+    final repository = _MatchRepository(_completedMatch(_activeMatch()));
+    final stats = _CountingStatsRepository();
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          onlineRepositoryProvider.overrideWithValue(repository),
+          playerStatsRepositoryProvider.overrideWithValue(stats),
+          playerStatsControllerProvider.overrideWith((ref) {
+            final controller = PlayerStatsController(stats);
+            controller.connectAccount('player-a');
+            return controller;
+          }),
+        ],
+        child: const MaterialApp(home: OnlineMatchScreen(matchId: 'match-1')),
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+
+    expect(find.textContaining('MATCH COMPLETE'), findsOneWidget);
+    expect(stats.calls, 1);
+    await tester.tap(find.byTooltip('Refresh'));
+    await tester.pump();
+    await tester.pump();
+    expect(stats.calls, 1);
+  });
 }
 
 OnlineMatch _activeMatch() {
@@ -132,6 +202,36 @@ OnlineMatch _activeMatch() {
     yourColor: engine.Player.black,
     nextPlayer: engine.Player.black,
   );
+}
+
+OnlineMatch _completedMatch(OnlineMatch match) => OnlineMatch(
+  id: match.id,
+  status: 'completed',
+  revision: match.revision + 1,
+  board: match.board,
+  rules: match.rules,
+  players: match.players,
+  blackPopulation: match.blackPopulation,
+  whitePopulation: match.whitePopulation,
+  yourColor: match.yourColor,
+  result: const {'winner': 'black'},
+);
+
+class _CountingStatsRepository implements PlayerStatsRepository {
+  var calls = 0;
+
+  @override
+  Future<PlayerStats> getMyStats() async {
+    calls++;
+    return const PlayerStats(
+      elo: 1216,
+      victories: 1,
+      totalGames: 1,
+      kills: 3,
+      losses: 0,
+      draws: 0,
+    );
+  }
 }
 
 class _MatchRepository implements OnlineRepository {

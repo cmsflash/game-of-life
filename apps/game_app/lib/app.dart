@@ -23,16 +23,31 @@ class _GameOfLifeAppState extends ConsumerState<GameOfLifeApp> {
   @override
   Widget build(BuildContext context) {
     final router = ref.watch(routerProvider);
-    final authStatus = ref.watch(
-      authControllerProvider.select((state) => state.status),
-    );
+    ref.watch(authControllerProvider);
     final notifications = ref.read(turnNotificationControllerProvider.notifier);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
+      final currentAuth = ref.read(authControllerProvider);
+      final currentStatus = currentAuth.status;
+      final social = ref.read(socialControllerProvider.notifier);
+      final stats = ref.read(playerStatsControllerProvider.notifier);
+      final accountId = currentAuth.user?.id;
+      if (currentStatus == AuthStatus.signedIn && accountId != null) {
+        social.connectAccount(accountId);
+        stats.connectAccount(accountId);
+      } else if (currentStatus != AuthStatus.loading) {
+        social.disconnectAccount();
+        stats.disconnectAccount();
+      }
       unawaited(
         notifications.initialize().then((_) async {
-          if (authStatus == AuthStatus.loading) return;
-          await notifications.setSignedIn(authStatus == AuthStatus.signedIn);
+          final latestAuth = ref.read(authControllerProvider);
+          if (latestAuth.status == AuthStatus.loading) return;
+          await notifications.setAccount(
+            latestAuth.status == AuthStatus.signedIn
+                ? latestAuth.user?.id
+                : null,
+          );
         }),
       );
     });

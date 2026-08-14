@@ -7,6 +7,10 @@ import 'package:game_of_life/features/notifications/domain/turn_notifications.da
 import 'package:game_of_life/features/notifications/platform/turn_notification_gateway.dart';
 import 'package:game_of_life/features/online/data/online_models.dart';
 import 'package:game_of_life/features/online/data/online_repository.dart';
+import 'package:game_of_life/features/social/data/social_models.dart';
+import 'package:game_of_life/features/social/data/social_repository.dart';
+import 'package:game_of_life/features/stats/data/player_stats.dart';
+import 'package:game_of_life/features/stats/data/player_stats_repository.dart';
 
 class FakeAuthRepository implements AuthRepository {
   AppUser? current;
@@ -88,7 +92,12 @@ class FakeTurnNotificationRepository implements TurnNotificationRepository {
   final subscriptions = <TurnNotificationSubscription>[];
   final upserts = <TurnNotificationEndpoint>[];
   final deletedInstallationIds = <String>[];
+  Completer<void>? listSubscriptionsGate;
+  Completer<void>? upsertGate;
+  var listSubscriptionsCalls = 0;
+  var upsertCalls = 0;
   Object? error;
+  Object? upsertError;
 
   @override
   Future<TurnNotificationConfiguration> configuration() async {
@@ -98,6 +107,8 @@ class FakeTurnNotificationRepository implements TurnNotificationRepository {
 
   @override
   Future<List<TurnNotificationSubscription>> listSubscriptions() async {
+    listSubscriptionsCalls++;
+    await listSubscriptionsGate?.future;
     if (error != null) throw error!;
     return List.of(subscriptions);
   }
@@ -109,6 +120,9 @@ class FakeTurnNotificationRepository implements TurnNotificationRepository {
     String? locale,
     String? timeZone,
   }) async {
+    upsertCalls++;
+    await upsertGate?.future;
+    if (upsertError != null) throw upsertError!;
     if (error != null) throw error!;
     upserts.add(endpoint);
     subscriptions.removeWhere(
@@ -138,7 +152,9 @@ class FakeTurnNotificationRepository implements TurnNotificationRepository {
 class FakeTurnNotificationGateway implements TurnNotificationGateway {
   TurnNotificationCapability capabilityValue =
       const TurnNotificationCapability.notConfigured();
+  TurnNotificationCapability? capabilityAfterRequest;
   TurnNotificationEndpoint? endpoint;
+  TurnNotificationEndpoint? requestedEndpoint;
   var initializeCalls = 0;
   var requestCalls = 0;
   var deactivateCalls = 0;
@@ -167,7 +183,8 @@ class FakeTurnNotificationGateway implements TurnNotificationGateway {
   @override
   Future<TurnNotificationEndpoint?> requestEndpoint() async {
     requestCalls++;
-    return endpoint;
+    capabilityValue = capabilityAfterRequest ?? capabilityValue;
+    return requestedEndpoint ?? endpoint;
   }
 
   @override
@@ -196,9 +213,10 @@ class FakeTurnNotificationGateway implements TurnNotificationGateway {
 }
 
 class FakeOnlineRepository implements OnlineRepository {
-  FakeOnlineRepository({this.matches = const []});
+  FakeOnlineRepository({this.matches = const [], this.match});
 
   List<OnlineMatchSummary> matches;
+  OnlineMatch? match;
   final ticketPoll = Completer<MatchmakingTicket>();
   final lobbyPoll = Completer<PrivateLobby>();
   var listCalls = 0;
@@ -259,8 +277,7 @@ class FakeOnlineRepository implements OnlineRepository {
   }
 
   @override
-  Future<OnlineMatch?> getMatch(String id, {String? etag}) =>
-      throw UnimplementedError();
+  Future<OnlineMatch?> getMatch(String id, {String? etag}) async => match;
 
   @override
   Future<OnlineMatch> submitMove(
@@ -273,4 +290,132 @@ class FakeOnlineRepository implements OnlineRepository {
   @override
   Future<OnlineMatch> resign(String id, int revision) =>
       throw UnimplementedError();
+}
+
+class FakeSocialRepository implements SocialRepository {
+  FakeSocialRepository({
+    this.overview = const SocialOverview(),
+    this.searchResults = const [],
+  });
+
+  SocialOverview overview;
+  List<PublicPlayer> searchResults;
+  Object? overviewError;
+  Object? searchError;
+  Object? mutationError;
+  String acceptedMatchId = 'social-match-1';
+  var overviewCalls = 0;
+  var searchCalls = 0;
+  final sentFriendRequests = <String>[];
+  final acceptedFriendRequests = <String>[];
+  final removedFriendRequests = <String>[];
+  final removedFriends = <String>[];
+  final createdChallenges = <String>[];
+  final acceptedChallenges = <String>[];
+  final removedChallenges = <String>[];
+  final discoverabilityChanges = <bool>[];
+
+  @override
+  Future<SocialOverview> getOverview() async {
+    overviewCalls++;
+    if (overviewError != null) throw overviewError!;
+    return overview;
+  }
+
+  @override
+  Future<List<PublicPlayer>> searchPlayers(String query) async {
+    searchCalls++;
+    if (searchError != null) throw searchError!;
+    return searchResults;
+  }
+
+  void _throwMutationError() {
+    if (mutationError != null) throw mutationError!;
+  }
+
+  @override
+  Future<void> sendFriendRequest(String playerId) async {
+    _throwMutationError();
+    sentFriendRequests.add(playerId);
+  }
+
+  @override
+  Future<void> acceptFriendRequest(String requestId) async {
+    _throwMutationError();
+    acceptedFriendRequests.add(requestId);
+  }
+
+  @override
+  Future<void> removeFriendRequest(String requestId) async {
+    _throwMutationError();
+    removedFriendRequests.add(requestId);
+  }
+
+  @override
+  Future<void> unfriend(String playerId) async {
+    _throwMutationError();
+    removedFriends.add(playerId);
+  }
+
+  @override
+  Future<void> createChallenge(String opponentId) async {
+    _throwMutationError();
+    createdChallenges.add(opponentId);
+  }
+
+  @override
+  Future<String> acceptChallenge(String challengeId) async {
+    _throwMutationError();
+    acceptedChallenges.add(challengeId);
+    return acceptedMatchId;
+  }
+
+  @override
+  Future<void> removeChallenge(String challengeId) async {
+    _throwMutationError();
+    removedChallenges.add(challengeId);
+  }
+
+  @override
+  Future<DiscoverabilityResult> setDiscoverable(bool discoverable) async {
+    _throwMutationError();
+    discoverabilityChanges.add(discoverable);
+    overview = SocialOverview(
+      version: overview.version + 1,
+      discoverable: discoverable,
+      friends: overview.friends,
+      incomingFriendRequests: overview.incomingFriendRequests,
+      outgoingFriendRequests: overview.outgoingFriendRequests,
+      incomingChallenges: overview.incomingChallenges,
+      outgoingChallenges: overview.outgoingChallenges,
+    );
+    return DiscoverabilityResult(
+      discoverable: discoverable,
+      version: overview.version,
+    );
+  }
+}
+
+class FakePlayerStatsRepository implements PlayerStatsRepository {
+  FakePlayerStatsRepository({
+    this.stats = const PlayerStats(
+      elo: 1200,
+      victories: 0,
+      totalGames: 0,
+      kills: 0,
+      losses: 0,
+      draws: 0,
+    ),
+  });
+
+  PlayerStats stats;
+  Object? error;
+  var calls = 0;
+
+  @override
+  Future<PlayerStats> getMyStats() async {
+    calls++;
+    if (error != null) throw error!;
+    return stats;
+  }
 }

@@ -45,12 +45,17 @@ placeholders in a store record.
 - Completed Apple privacy nutrition labels and Google Play Data Safety form
   consistent with [`privacy-policy.md`](privacy-policy.md).
 - Age-rating, privacy, and user-generated-content answers reflecting that an
-  online opponent sees each player's user-authored display name.
+  online opponent, friend/request/challenge participant, and—only after search
+  opt-in—searcher can see a player's user-authored display name and rating.
 - A reviewed store-compliance plan for display-name moderation, reporting,
-  blocking, and abuse response. The current backend snapshot change does not
-  add those product controls; treat any controls required by the target store
+  friend-request/challenge spam controls, blocking, and abuse response. The
+  current Social backend does not add complete report/block/moderation product
+  controls; treat any controls required by the target store
   as a publication blocker rather than answering that no shared user-authored
   content exists.
+- Privacy/data-safety answers covering opt-in public-name discovery, Social graph
+  and challenge records, Elo and game/kill statistics, automatically refreshed
+  push registrations after OS permission, and anonymized retained match aggregates.
 
 ## Verification
 

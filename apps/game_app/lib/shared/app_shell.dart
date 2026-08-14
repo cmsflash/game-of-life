@@ -13,6 +13,7 @@ class AppShell extends ConsumerWidget {
 
   static const _destinations = [
     ('/', 'Home', Icons.home_outlined, Icons.home),
+    ('/social', 'Social', Icons.people_outline, Icons.people),
     ('/player', 'Player', Icons.person_outline, Icons.person),
   ];
 
@@ -110,13 +111,14 @@ class AppShell extends ConsumerWidget {
   }
 
   int _indexFor(String location) {
+    if (location.startsWith('/social')) return 1;
     if (location.startsWith('/player') ||
         location.startsWith('/profile') ||
         location.startsWith('/about') ||
         location.startsWith('/privacy') ||
         location.startsWith('/terms') ||
         location.startsWith('/account-deletion')) {
-      return 1;
+      return 2;
     }
     return 0;
   }

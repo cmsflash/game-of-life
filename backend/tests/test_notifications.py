@@ -110,6 +110,16 @@ class RecordingScheduler:
         self.jobs.append((job, deliver_at))
 
 
+@dataclass
+class DeleteDuringScheduling(RecordingScheduler):
+    repository: InMemoryRepository = field(default_factory=InMemoryRepository)
+
+    def schedule(self, job: TurnNotificationJob, deliver_at: datetime) -> None:
+        if not self.jobs:
+            self.repository.begin_user_deletion("user-white")
+        super().schedule(job, deliver_at)
+
+
 class StubSecretReader:
     def read(self, secret_arn: str) -> str:
         del secret_arn
@@ -262,6 +272,25 @@ def test_turn_start_delivers_once_and_schedules_all_reminders() -> None:
     assert len(provider.messages) == 1
     assert provider.messages[0].data["matchId"] == match.id
     assert {entry.reminder_hours for entry, _ in scheduler.jobs} == {8, 24, 72}
+    assert all(entry.recipient_user_id is None for entry, _ in scheduler.jobs)
+
+
+def test_deletion_racing_schedule_creation_never_persists_recipient_identity() -> None:
+    repository = InMemoryRepository()
+    match = _active_match()
+    repository.create_match(match)
+    scheduler = DeleteDuringScheduling(repository=repository)
+    service = _service(repository, RecordingProvider(), scheduler)
+    job = turn_job_for_match(match)
+    assert job is not None
+
+    service.process_turn_start(job)
+
+    assert len(scheduler.jobs) == 3
+    assert all(
+        "recipientUserId" not in entry.model_dump(by_alias=True, exclude_none=True)
+        for entry, _ in scheduler.jobs
+    )
 
 
 def test_stale_revision_is_silently_skipped() -> None:
@@ -704,3 +733,4 @@ def test_scheduler_uses_deterministic_one_time_jobs(
     assert request["ScheduleExpression"] == "at(2026-08-14T08:00:00)"
     assert request["ActionAfterCompletion"] == "DELETE"
     assert request["Target"]["DeadLetterConfig"]["Arn"].endswith("notification-dlq")
+    assert "recipientUserId" not in request["Target"]["Input"]

@@ -270,7 +270,9 @@ class _GamePanel extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  outcome == null ? 'TURN ${game.ply + 1}' : 'GAME OVER',
+                  outcome == null
+                      ? 'UNRATED · TURN ${game.ply + 1}'
+                      : 'UNRATED · GAME OVER',
                   style: Theme.of(context).textTheme.labelMedium?.copyWith(
                     letterSpacing: 1.5,
                     color: Theme.of(context).colorScheme.primary,

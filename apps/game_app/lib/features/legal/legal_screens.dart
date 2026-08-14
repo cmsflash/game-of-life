@@ -248,10 +248,15 @@ class _AccountDeletionContent extends StatelessWidget {
           data: _LegalSectionData(
             'What deletion does',
             'The authentication account and recovery email are deleted. '
+                'The public search profile, rating and player stats, friend '
+                'relationships, requests, and pending challenges are removed. '
+                'Registered notification subscriptions for the account are '
+                'removed and this device is deactivated. '
                 'Waiting matches are cancelled and active matches are treated '
                 'as resignations. Historical match records may be retained '
                 'for game integrity, but player labels and move identifiers '
-                'are anonymized. Operational logs and encrypted backups age '
+                'are anonymized; anonymized outcomes may remain in aggregate '
+                'service records. Operational logs and encrypted backups age '
                 'out under the periods described in the Privacy Policy.',
           ),
         ),
@@ -293,21 +298,55 @@ const _privacySections = [
         'sign-in is enabled and you choose it.',
   ),
   _LegalSectionData(
-    'Game and service data',
+    'Public profile and Social',
+    'If you explicitly enable “Appear in player search,” your display name '
+        'and current Elo rating are searchable by signed-in players. It is off '
+        'by default and can be disabled later without removing existing '
+        'friends or matches. Friends and matched opponents can still see the '
+        'display name already shared with them. Search results and Social do not expose your '
+        'username or email address. The service stores friend relationships, '
+        'incoming and outgoing requests, and pending rated challenges so you '
+        'can play directly with friends. Challenges expire after seven days.',
+  ),
+  _LegalSectionData(
+    'Game, rating, and service data',
     'The service stores match rules, board states, moves, results, internal '
-        'player identifiers, display names, and matchmaking records so it can '
-        'run and verify online games. Your display name is shown to players '
-        'you are matched with; your username and email address are not. '
+        'player identifiers, display names, matchmaking records, ratings, and '
+        'aggregate player stats so it can run and verify online games. Every '
+        'remote game is rated; local games are unrated and excluded from '
+        'online stats. Win rate uses all completed remote games, including '
+        'draws in its denominator. A kill is every opponent-colored cell that '
+        'dies, regardless of which player caused the death. '
         'Security and reliability logs may include time, route, status, '
         'request ID, source IP address, and device or platform category; '
         'request bodies and authentication secrets are not intentionally '
         'logged.',
   ),
   _LegalSectionData(
+    'Turn notifications',
+    'If you are signed in and have granted notification permission in your '
+        'browser or device, the app automatically registers and refreshes a '
+        'push endpoint for turn alerts. The service stores an installation '
+        'identifier, push provider and endpoint or token, platform, locale, '
+        'and time-zone information needed to deliver an immediate alert and '
+        'reminders after 8, 24, and 72 hours. The app does not request '
+        'permission until you choose Allow notifications. You can revoke '
+        'permission in browser or system settings; the app reconciles that '
+        'choice when it resumes. One-time reminder jobs carry only match, '
+        'revision, turn-start, and reminder timing—not a player identity or '
+        'push credentials. The recipient is derived from the authoritative '
+        'match, and stale turns are suppressed before delivery. Signing '
+        'out or deleting the account removes the server subscription and '
+        'deactivates the local endpoint on a best-effort basis.',
+  ),
+  _LegalSectionData(
     'Use and sharing',
     'Data is used to provide accounts, matchmaking, online play, recovery, '
-        'abuse prevention, security, and service operations. Display names are '
-        'shared with matched opponents. Other data is shared only with '
+        'Social, ratings and stats, abuse prevention, security, and service '
+        'operations. When you opt in, display names and ratings are shared with '
+        'signed-in players through public search. They are also shared as '
+        'needed with existing friends and online opponents. Other data '
+        'is shared only with '
         'infrastructure and identity providers needed to operate those '
         'functions, or when legally required. It is not sold and is not used '
         'for targeted advertising.',
@@ -319,14 +358,22 @@ const _privacySections = [
         'one hour; command-deduplication records expire after about 24 hours. '
         'Operational logs use a 30-day default retention and encrypted '
         'point-in-time backups can retain deleted table data for up to 35 '
-        'days. Deleting an account removes its identity data and anonymizes '
-        'retained match history as described on the Account deletion page.',
+        'days. Push subscriptions remain only while the signed-in installation '
+        'is active and permission remains granted; delivery-deduplication '
+        'records expire after about seven days. Deleting an account removes '
+        'its identity and public search '
+        'profile, Social graph, pending requests and challenges, and personal '
+        'rating and stats. Retained match history is anonymized; anonymized '
+        'outcomes and aggregates may remain for game and rating integrity as '
+        'described on the Account deletion page.',
   ),
   _LegalSectionData(
     'Your choices',
     'You can play locally without an account, decline optional Google sign-in, '
-        'sign out to remove the local session, or permanently delete the '
-        'account from Player. The service operator is Shen Zhuoran / CMSFlash. '
+        'use browser or system settings to disable notifications, sign out to '
+        'remove the local session and notification subscription, or '
+        'permanently delete the account from Player. The service operator is '
+        'Shen Zhuoran / CMSFlash. '
         'For privacy or support questions, use '
         'https://cmsflash.github.io/contact/.',
   ),
@@ -344,7 +391,9 @@ const _termsSections = [
     'Fair play',
     'Do not automate abusive traffic, exploit defects, interfere with other '
         'players, probe accounts, or attempt to manipulate server-authoritative '
-        'match results. Your display name is shown to matched opponents, so it '
+        'match results or ratings. If you opt into player search, your display '
+        'name and Elo rating are visible there to signed-in players. Your '
+        'display name and rating are also visible to friends and opponents, so the display name '
         'must not impersonate, threaten, harass, or contain abusive content. '
         'Your username and email address are not presented to opponents.',
   ),
@@ -353,14 +402,21 @@ const _termsSections = [
     'Local play is provided as part of the installed application. Online '
         'features may be interrupted for maintenance, security, network '
         'conditions, regional availability, or discontinued with reasonable '
-        'notice where practical. No uninterrupted matchmaking population is '
-        'guaranteed.',
+        'notice where practical. Local games are unrated. Every remote game is '
+        'rated, including direct friend challenges. No uninterrupted '
+        'matchmaking population is guaranteed. When notification permission '
+        'is granted, signing in automatically registers this device for turn '
+        'alerts; permission can be revoked in browser or system settings. '
+        'Alert delivery and timing are not guaranteed.',
   ),
   _LegalSectionData(
     'Game records',
     'The server is authoritative for online moves and outcomes. Completed '
-        'match records may be retained in anonymized form for replay integrity, '
-        'security, dispute investigation, and aggregate operations.',
+        'remote games update Elo and aggregate stats. Win rate includes draws '
+        'in total completed games. A kill is an opponent-colored cell death, '
+        'regardless of which player caused it. Match records may be retained '
+        'in anonymized form for replay and rating integrity, security, dispute '
+        'investigation, and aggregate operations.',
   ),
   _LegalSectionData(
     'Changes and termination',

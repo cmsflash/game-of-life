@@ -14,11 +14,19 @@ from .auth import IdentityProvider, build_identity_provider
 from .engine import Engine, build_engine
 from .errors import ApiError, error_payload, install_error_handlers
 from .models import (
+    ChallengeAcceptResponse,
+    ChallengeDocument,
+    ChallengeListResponse,
     ConfirmRequest,
     CreateMatchRequest,
+    DiscoverabilityDocument,
+    DiscoverabilityRequest,
     ExchangeRequest,
     ForgotPasswordRequest,
     ForgotPasswordResponse,
+    FriendListResponse,
+    FriendRequestDocument,
+    FriendRequestListResponse,
     JoinMatchRequest,
     LoginRequest,
     LogoutRequest,
@@ -27,6 +35,10 @@ from .models import (
     MessageResponse,
     MoveHistoryResponse,
     MoveRequest,
+    OpponentIdRequest,
+    PlayerIdRequest,
+    PlayerSearchResponse,
+    PlayerStatsDocument,
     PushNotificationConfig,
     PushSubscriptionDocument,
     PushSubscriptionListResponse,
@@ -39,6 +51,7 @@ from .models import (
     ReplayResponse,
     ResetPasswordRequest,
     ResignRequest,
+    SocialSnapshot,
     TokenSet,
     User,
     UsernameRequest,
@@ -48,6 +61,7 @@ from .oauth import GoogleOAuthService
 from .repository import Repository, build_repository
 from .service import MatchService
 from .settings import Settings, get_settings
+from .social import SocialService
 
 LOGGER = logging.getLogger("life_api")
 
@@ -67,6 +81,7 @@ class AppServices:
         self.engine = engine
         self.oauth = GoogleOAuthService(settings, identity, repository)
         self.matches = MatchService(repository, engine)
+        self.social = SocialService(repository, engine)
         self.notifications = PushSubscriptionService(repository, settings)
 
 
@@ -78,6 +93,7 @@ Services = Annotated[AppServices, Depends(current_services)]
 
 
 def current_user(
+    request: Request,
     services: Services,
     authorization: Annotated[str | None, Header()] = None,
 ) -> User:
@@ -90,11 +106,29 @@ def current_user(
     token = authorization.removeprefix("Bearer ").strip()
     if not token:
         raise ApiError("invalidToken", "The access token is invalid.", status_code=401)
-    return services.identity.authenticate(token)
+    user = services.identity.authenticate(token)
+    if services.repository.account_state(user.id).value == "deleting" and not (
+        request.method == "DELETE" and request.url.path == "/v1/me"
+    ):
+        raise ApiError("accountDeleting", "That account is being deleted.", status_code=409)
+    return user
 
 
 CurrentUser = Annotated[User, Depends(current_user)]
 MatchId = Annotated[
+    str,
+    Path(
+        min_length=36,
+        max_length=36,
+        pattern=r"^[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-"
+        r"[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}$",
+    ),
+]
+PlayerId = Annotated[
+    str,
+    Path(min_length=1, max_length=128, pattern=r"^[A-Za-z0-9_.:-]+$"),
+]
+SocialId = Annotated[
     str,
     Path(
         min_length=36,
@@ -216,7 +250,10 @@ def create_app(
         tags=["authentication"],
     )
     def login(request: LoginRequest, services: Services) -> TokenSet:
-        return services.identity.login(request.username, request.password)
+        tokens = services.identity.login(request.username, request.password)
+        if services.repository.account_state(tokens.user.id).value == "active":
+            services.social.index_user(tokens.user)
+        return tokens
 
     @app.post(
         "/v1/auth/refresh",
@@ -224,7 +261,10 @@ def create_app(
         tags=["authentication"],
     )
     def refresh(request: RefreshRequest, services: Services) -> TokenSet:
-        return services.identity.refresh(request.refresh_token)
+        tokens = services.identity.refresh(request.refresh_token)
+        if services.repository.account_state(tokens.user.id).value == "active":
+            services.social.index_user(tokens.user)
+        return tokens
 
     @app.post(
         "/v1/auth/forgot",
@@ -290,11 +330,145 @@ def create_app(
         tags=["authentication"],
     )
     def google_exchange(request: ExchangeRequest, services: Services) -> TokenSet:
-        return services.oauth.exchange(request.code)
+        tokens = services.oauth.exchange(request.code)
+        if services.repository.account_state(tokens.user.id).value == "active":
+            services.social.index_user(tokens.user)
+        return tokens
 
     @app.get("/v1/me", response_model=User, tags=["profile"])
-    def me(user: CurrentUser) -> User:
+    def me(user: CurrentUser, services: Services) -> User:
+        services.social.index_user(user)
         return user
+
+    @app.get("/v1/stats/me", response_model=PlayerStatsDocument, tags=["social"])
+    def my_stats(user: CurrentUser, services: Services) -> PlayerStatsDocument:
+        return services.social.stats(user)
+
+    @app.get("/v1/players/search", response_model=PlayerSearchResponse, tags=["social"])
+    def search_players(
+        q: Annotated[str, Query(min_length=3, max_length=48)],
+        user: CurrentUser,
+        services: Services,
+    ) -> PlayerSearchResponse:
+        return services.social.search(user, q)
+
+    @app.get("/v1/social", response_model=SocialSnapshot, tags=["social"])
+    def social_snapshot(user: CurrentUser, services: Services) -> SocialSnapshot:
+        return services.social.snapshot(user)
+
+    @app.patch(
+        "/v1/social/discoverability",
+        response_model=DiscoverabilityDocument,
+        tags=["social"],
+    )
+    def set_discoverability(
+        request: DiscoverabilityRequest,
+        user: CurrentUser,
+        services: Services,
+    ) -> DiscoverabilityDocument:
+        return services.social.set_discoverability(user, request.discoverable)
+
+    @app.get("/v1/friends", response_model=FriendListResponse, tags=["social"])
+    def friends(user: CurrentUser, services: Services) -> FriendListResponse:
+        return services.social.friends(user)
+
+    @app.delete(
+        "/v1/friends/{player_id}",
+        status_code=status.HTTP_204_NO_CONTENT,
+        tags=["social"],
+    )
+    def unfriend(player_id: PlayerId, user: CurrentUser, services: Services) -> Response:
+        services.social.unfriend(user, player_id)
+        return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+    @app.get(
+        "/v1/friends/requests",
+        response_model=FriendRequestListResponse,
+        tags=["social"],
+    )
+    def friend_requests(user: CurrentUser, services: Services) -> FriendRequestListResponse:
+        return services.social.friend_requests(user)
+
+    @app.post(
+        "/v1/friends/requests",
+        response_model=FriendRequestDocument,
+        status_code=status.HTTP_201_CREATED,
+        tags=["social"],
+    )
+    def send_friend_request(
+        request: PlayerIdRequest,
+        user: CurrentUser,
+        services: Services,
+    ) -> FriendRequestDocument:
+        return services.social.send_friend_request(user, request.player_id)
+
+    @app.post(
+        "/v1/friends/requests/{request_id}/accept",
+        status_code=status.HTTP_204_NO_CONTENT,
+        tags=["social"],
+    )
+    def accept_friend_request(
+        request_id: SocialId,
+        user: CurrentUser,
+        services: Services,
+    ) -> Response:
+        services.social.accept_friend_request(user, request_id)
+        return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+    @app.delete(
+        "/v1/friends/requests/{request_id}",
+        status_code=status.HTTP_204_NO_CONTENT,
+        tags=["social"],
+    )
+    def delete_friend_request(
+        request_id: SocialId,
+        user: CurrentUser,
+        services: Services,
+    ) -> Response:
+        services.social.delete_friend_request(user, request_id)
+        return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+    @app.get("/v1/challenges", response_model=ChallengeListResponse, tags=["social"])
+    def challenges(user: CurrentUser, services: Services) -> ChallengeListResponse:
+        return services.social.challenges(user)
+
+    @app.post(
+        "/v1/challenges",
+        response_model=ChallengeDocument,
+        status_code=status.HTTP_201_CREATED,
+        tags=["social"],
+    )
+    def create_challenge(
+        request: OpponentIdRequest,
+        user: CurrentUser,
+        services: Services,
+    ) -> ChallengeDocument:
+        return services.social.create_challenge(user, request.opponent_id)
+
+    @app.post(
+        "/v1/challenges/{challenge_id}/accept",
+        response_model=ChallengeAcceptResponse,
+        tags=["social"],
+    )
+    def accept_challenge(
+        challenge_id: SocialId,
+        user: CurrentUser,
+        services: Services,
+    ) -> ChallengeAcceptResponse:
+        return services.social.accept_challenge(user, challenge_id)
+
+    @app.delete(
+        "/v1/challenges/{challenge_id}",
+        status_code=status.HTTP_204_NO_CONTENT,
+        tags=["social"],
+    )
+    def delete_challenge(
+        challenge_id: SocialId,
+        user: CurrentUser,
+        services: Services,
+    ) -> Response:
+        services.social.delete_challenge(user, challenge_id)
+        return Response(status_code=status.HTTP_204_NO_CONTENT)
 
     @app.delete("/v1/me", status_code=status.HTTP_204_NO_CONTENT, tags=["profile"])
     def delete_me(
