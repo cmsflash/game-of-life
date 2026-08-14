@@ -5,6 +5,8 @@ import 'package:game_of_life/features/auth/data/auth_repository.dart';
 import 'package:game_of_life/features/notifications/data/turn_notification_repository.dart';
 import 'package:game_of_life/features/notifications/domain/turn_notifications.dart';
 import 'package:game_of_life/features/notifications/platform/turn_notification_gateway.dart';
+import 'package:game_of_life/features/online/data/online_models.dart';
+import 'package:game_of_life/features/online/data/online_repository.dart';
 
 class FakeAuthRepository implements AuthRepository {
   AppUser? current;
@@ -191,4 +193,84 @@ class FakeTurnNotificationGateway implements TurnNotificationGateway {
     await foregroundController.close();
     await openedController.close();
   }
+}
+
+class FakeOnlineRepository implements OnlineRepository {
+  FakeOnlineRepository({this.matches = const []});
+
+  List<OnlineMatchSummary> matches;
+  final ticketPoll = Completer<MatchmakingTicket>();
+  final lobbyPoll = Completer<PrivateLobby>();
+  var listCalls = 0;
+  var quickMatchCalls = 0;
+  var cancelTicketCalls = 0;
+  var createPrivateCalls = 0;
+  var closeLobbyCalls = 0;
+
+  @override
+  Future<MatchPage> listMatches() async {
+    listCalls++;
+    return MatchPage(matches, null);
+  }
+
+  @override
+  Future<MatchmakingTicket> startQuickMatch() async {
+    quickMatchCalls++;
+    return const MatchmakingTicket(
+      id: 'ticket-test-000001',
+      status: 'waiting',
+      pollAfter: Duration.zero,
+    );
+  }
+
+  @override
+  Future<MatchmakingTicket> getTicket(String id) => ticketPoll.future;
+
+  @override
+  Future<void> cancelTicket(String id) async {
+    cancelTicketCalls++;
+  }
+
+  @override
+  Future<PrivateLobby> createPrivateLobby() async {
+    createPrivateCalls++;
+    return const PrivateLobby(
+      id: 'lobby-test-000001',
+      status: 'waiting',
+      pollAfter: Duration.zero,
+      joinCode: 'LIFE42',
+    );
+  }
+
+  @override
+  Future<PrivateLobby> getLobby(String id) => lobbyPoll.future;
+
+  @override
+  Future<PrivateLobby> joinLobby(String code) async => const PrivateLobby(
+    id: 'match-joined',
+    status: 'matched',
+    pollAfter: Duration.zero,
+    matchId: 'match-joined',
+  );
+
+  @override
+  Future<void> closeLobby(String id) async {
+    closeLobbyCalls++;
+  }
+
+  @override
+  Future<OnlineMatch?> getMatch(String id, {String? etag}) =>
+      throw UnimplementedError();
+
+  @override
+  Future<OnlineMatch> submitMove(
+    String id, {
+    required int revision,
+    required int row,
+    required int column,
+  }) => throw UnimplementedError();
+
+  @override
+  Future<OnlineMatch> resign(String id, int revision) =>
+      throw UnimplementedError();
 }

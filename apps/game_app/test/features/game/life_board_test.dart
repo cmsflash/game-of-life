@@ -1,3 +1,5 @@
+import 'dart:ui' as ui;
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -13,6 +15,7 @@ void main() {
   Future<void> pumpBoard(
     WidgetTester tester, {
     required void Function(int row, int column) onCellTap,
+    VoidCallback? onMoveConfirm,
     bool enabled = true,
     engine.Board? board,
     engine.Board? previewBoard,
@@ -37,6 +40,7 @@ void main() {
                 semanticLabel: 'Test game board',
                 enabled: enabled,
                 onCellTap: onCellTap,
+                onMoveConfirm: onMoveConfirm,
               ),
             ),
           ),
@@ -93,6 +97,111 @@ void main() {
       'White cell',
     );
     semantics.dispose();
+  });
+
+  testWidgets(
+    'a first tap previews, another cell reselects, and a repeated tap confirms',
+    (tester) async {
+      engine.Coordinate? tentativeMove;
+      final previews = <engine.Coordinate>[];
+      var confirmations = 0;
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Center(
+              child: SizedBox.square(
+                dimension: 300,
+                child: StatefulBuilder(
+                  builder: (context, setState) => LifeBoard(
+                    board: testBoard(),
+                    tentativeMove: tentativeMove,
+                    onCellTap: (row, column) {
+                      final coordinate = engine.Coordinate(row, column);
+                      previews.add(coordinate);
+                      setState(() => tentativeMove = coordinate);
+                    },
+                    onMoveConfirm: () => confirmations += 1,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      await tester.tap(find.byKey(const ValueKey('life-cell-1-0')));
+      await tester.pump();
+      expect(previews, [const engine.Coordinate(1, 0)]);
+      expect(confirmations, 0);
+
+      await tester.tap(find.byKey(const ValueKey('life-cell-0-0')));
+      await tester.pump();
+      expect(previews, [
+        const engine.Coordinate(1, 0),
+        const engine.Coordinate(0, 0),
+      ]);
+      expect(confirmations, 0);
+
+      await tester.tap(find.byKey(const ValueKey('life-cell-0-0')));
+      await tester.pump();
+      expect(previews, hasLength(2));
+      expect(confirmations, 1);
+    },
+  );
+
+  testWidgets('Enter confirms the currently previewed keyboard coordinate', (
+    tester,
+  ) async {
+    engine.Coordinate? tentativeMove;
+    var confirmations = 0;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: Center(
+            child: SizedBox.square(
+              dimension: 300,
+              child: StatefulBuilder(
+                builder: (context, setState) => LifeBoard(
+                  board: testBoard(),
+                  tentativeMove: tentativeMove,
+                  onCellTap: (row, column) => setState(
+                    () => tentativeMove = engine.Coordinate(row, column),
+                  ),
+                  onMoveConfirm: () => confirmations += 1,
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.byKey(const ValueKey('life-cell-1-0')));
+    await tester.pump();
+    expect(tentativeMove, const engine.Coordinate(1, 0));
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    await tester.pump();
+    expect(confirmations, 1);
+  });
+
+  testWidgets('selection breathing settles after a bounded cue', (
+    tester,
+  ) async {
+    await pumpBoard(
+      tester,
+      tentativeMove: const engine.Coordinate(1, 0),
+      onCellTap: (_, _) {},
+      onMoveConfirm: () {},
+    );
+
+    final pumps = await tester.pumpAndSettle(
+      const Duration(milliseconds: 100),
+      EnginePhase.sendSemanticsUpdate,
+      const Duration(seconds: 5),
+    );
+    expect(pumps, greaterThan(1));
   });
 
   test('last-move shutter surrounds rather than covers a White cell', () {
@@ -214,6 +323,39 @@ void main() {
               (arguments[2] as Paint).color.toARGB32() ==
                   LifeColors.boardMarkerDark.toARGB32(),
         ),
+    );
+  });
+
+  test('tentative selection paints a breathing green border', () {
+    const coordinate = engine.Coordinate(1, 0);
+    final painter = LifeBoardPainter(
+      board: testBoard(),
+      colorScheme: ColorScheme.fromSeed(seedColor: LifeColors.sprout),
+      lastMove: null,
+      tentativeMove: coordinate,
+      selectionPulse: const AlwaysStoppedAnimation(1),
+      births: const {},
+      hovered: null,
+      showHover: false,
+      focused: null,
+      showFocus: false,
+    );
+
+    void paintBoard(Canvas canvas) {
+      painter.paint(canvas, const Size.square(300));
+    }
+
+    expect(
+      paintBoard,
+      paints..something(
+        (method, arguments) =>
+            method == #drawRRect &&
+            arguments[1] is Paint &&
+            (arguments[1] as Paint).style == PaintingStyle.stroke &&
+            ((arguments[1] as Paint).strokeWidth - 2.5).abs() < .001 &&
+            (arguments[1] as Paint).color.toARGB32() ==
+                LifeColors.sprout.withValues(alpha: .92).toARGB32(),
+      ),
     );
   });
 
@@ -431,6 +573,11 @@ void main() {
           .value,
       'Hypothetical black cell',
     );
+    final tentativeSemantics = tester
+        .getSemantics(find.byKey(const ValueKey('life-cell-0-0')))
+        .getSemanticsData();
+    expect(tentativeSemantics.hint, 'Tap again to confirm this move.');
+    expect(tentativeSemantics.flagsCollection.isSelected, ui.Tristate.isTrue);
     semantics.dispose();
   });
 

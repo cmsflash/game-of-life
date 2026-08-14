@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:game_engine/game_engine.dart' as engine;
 import 'package:go_router/go_router.dart';
 
 import '../../../core/theme.dart';
@@ -11,11 +10,6 @@ import '../../../shared/page_frame.dart';
 import '../../auth/presentation/auth_controller.dart';
 import '../data/online_models.dart';
 import 'lobby_controller.dart';
-
-final lobbyControllerProvider =
-    StateNotifierProvider.autoDispose<LobbyController, LobbyState>(
-      (ref) => LobbyController(ref.watch(onlineRepositoryProvider)),
-    );
 
 class LobbyScreen extends ConsumerStatefulWidget {
   const LobbyScreen({super.key});
@@ -70,8 +64,13 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
           if (lobby.searching)
             _WaitingCard(
               icon: Icons.radar,
-              title: 'Searching for an opponent',
-              description: 'Looking in the casual queue…',
+              title: lobby.matchmakingIntent == MatchmakingIntent.publicRoom
+                  ? 'Public room open'
+                  : 'Finding an opponent',
+              description:
+                  lobby.matchmakingIntent == MatchmakingIntent.publicRoom
+                  ? 'Waiting for any player to join…'
+                  : 'Looking for the next available player…',
               onCancel: () =>
                   ref.read(lobbyControllerProvider.notifier).cancelQuickMatch(),
             )
@@ -84,12 +83,10 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
             )
           else
             _MatchActions(
-              busy: lobby.loading,
+              busy: lobby.loading || lobby.hasOwnedWaitingRoom,
               onQuickMatch: () =>
                   ref.read(lobbyControllerProvider.notifier).startQuickMatch(),
-              onCreate: () => ref
-                  .read(lobbyControllerProvider.notifier)
-                  .createPrivateLobby(),
+              onCreate: () => _showCreateRoomDialog(context),
               onJoin: () => _showJoinDialog(context),
             ),
           const SizedBox(height: 42),
@@ -132,7 +129,7 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
                     for (final match in lobby.matches)
                       SizedBox(
                         width: width >= 800 ? (width - 14) / 2 : width,
-                        child: _MatchCard(
+                        child: OnlineMatchCard(
                           match: match,
                           onTap: () => context.go('/online/match/${match.id}'),
                         ),
@@ -151,7 +148,7 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
     final code = await showDialog<String>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Join a private match'),
+        title: const Text('Join by code'),
         content: TextField(
           key: const Key('join-code'),
           controller: controller,
@@ -184,7 +181,50 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
       await ref.read(lobbyControllerProvider.notifier).join(code!);
     }
   }
+
+  Future<void> _showCreateRoomDialog(BuildContext context) async {
+    final access = await showDialog<_RoomAccess>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Create room'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              key: const Key('create-public-room'),
+              leading: const Icon(Icons.public),
+              title: const Text('Public room'),
+              subtitle: const Text('Wait for any available player.'),
+              onTap: () => Navigator.pop(context, _RoomAccess.public),
+            ),
+            ListTile(
+              key: const Key('create-private-room'),
+              leading: const Icon(Icons.lock_outline),
+              title: const Text('Private room'),
+              subtitle: const Text('Invite someone with a join code.'),
+              onTap: () => Navigator.pop(context, _RoomAccess.private),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+        ],
+      ),
+    );
+    if (!mounted || access == null) return;
+    final controller = ref.read(lobbyControllerProvider.notifier);
+    if (access == _RoomAccess.public) {
+      await controller.startQuickMatch(intent: MatchmakingIntent.publicRoom);
+    } else {
+      await controller.createPrivateLobby();
+    }
+  }
 }
+
+enum _RoomAccess { public, private }
 
 class _SignedOutOnlineCard extends StatelessWidget {
   const _SignedOutOnlineCard({required this.onSignIn});
@@ -242,17 +282,17 @@ class _MatchActions extends StatelessWidget {
     final actions = [
       (
         Icons.bolt,
-        'Quick match',
-        'Find the next available player.',
-        'Find player',
+        'Find opponent',
+        'Search for the next available player now.',
+        'Find opponent',
         onQuickMatch,
         true,
       ),
       (
         Icons.add_link,
-        'Create private',
-        'Share a code with someone you know.',
-        'Create code',
+        'Create room',
+        'Open a public room or invite someone privately.',
+        'Choose room',
         onCreate,
         false,
       ),
@@ -412,8 +452,8 @@ class _PrivateWaitingCard extends StatelessWidget {
   );
 }
 
-class _MatchCard extends StatelessWidget {
-  const _MatchCard({required this.match, required this.onTap});
+class OnlineMatchCard extends StatelessWidget {
+  const OnlineMatchCard({super.key, required this.match, required this.onTap});
 
   final OnlineMatchSummary match;
   final VoidCallback onTap;
@@ -427,16 +467,9 @@ class _MatchCard extends StatelessWidget {
         padding: const EdgeInsets.all(20),
         child: Row(
           children: [
-            Container(
-              width: 48,
-              height: 48,
-              decoration: BoxDecoration(
-                color: match.yourColor == engine.Player.black
-                    ? LifeColors.ink
-                    : LifeColors.paper,
-                shape: BoxShape.circle,
-                border: Border.all(color: Colors.grey),
-              ),
+            CircleAvatar(
+              backgroundColor: Theme.of(context).colorScheme.primaryContainer,
+              child: const Icon(Icons.public),
             ),
             const SizedBox(width: 16),
             Expanded(
@@ -448,15 +481,7 @@ class _MatchCard extends StatelessWidget {
                     style: Theme.of(context).textTheme.titleLarge,
                   ),
                   const SizedBox(height: 3),
-                  Text(
-                    match.status == 'completed'
-                        ? 'Completed'
-                        : match.status == 'waiting'
-                        ? 'Waiting for a player'
-                        : match.yourTurn
-                        ? 'Your move'
-                        : 'Waiting for opponent',
-                  ),
+                  Text('Online · ${onlineMatchStatus(match)}'),
                 ],
               ),
             ),
@@ -472,6 +497,13 @@ class _MatchCard extends StatelessWidget {
       ),
     ),
   );
+}
+
+String onlineMatchStatus(OnlineMatchSummary match) {
+  if (match.status == 'completed') return 'Completed';
+  if (match.status == 'waiting') return 'Waiting for a player';
+  if (match.yourTurn) return 'Your turn';
+  return 'Waiting for opponent';
 }
 
 class _EmptyMatches extends StatelessWidget {

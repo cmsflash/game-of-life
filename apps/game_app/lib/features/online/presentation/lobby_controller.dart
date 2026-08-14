@@ -6,11 +6,14 @@ import '../../../core/api_client.dart';
 import '../data/online_models.dart';
 import '../data/online_repository.dart';
 
+enum MatchmakingIntent { findOpponent, publicRoom }
+
 class LobbyState {
   const LobbyState({
     this.loading = false,
     this.matches = const [],
     this.ticket,
+    this.matchmakingIntent,
     this.privateLobby,
     this.matchedId,
     this.error,
@@ -19,6 +22,7 @@ class LobbyState {
   final bool loading;
   final List<OnlineMatchSummary> matches;
   final MatchmakingTicket? ticket;
+  final MatchmakingIntent? matchmakingIntent;
   final PrivateLobby? privateLobby;
   final String? matchedId;
   final String? error;
@@ -26,15 +30,20 @@ class LobbyState {
   bool get searching =>
       ticket?.status == 'searching' || ticket?.status == 'waiting';
   bool get hosting => privateLobby?.status == 'waiting';
+  bool get hasOwnedWaitingRoom => matches.any(
+    (match) => match.status == 'waiting' && match.joinCode != null,
+  );
 
   LobbyState copyWith({
     bool? loading,
     List<OnlineMatchSummary>? matches,
     MatchmakingTicket? ticket,
+    MatchmakingIntent? matchmakingIntent,
     PrivateLobby? privateLobby,
     String? matchedId,
     String? error,
     bool clearTicket = false,
+    bool clearMatchmakingIntent = false,
     bool clearLobby = false,
     bool clearMatched = false,
     bool clearError = false,
@@ -42,6 +51,9 @@ class LobbyState {
     loading: loading ?? this.loading,
     matches: matches ?? this.matches,
     ticket: clearTicket ? null : ticket ?? this.ticket,
+    matchmakingIntent: clearMatchmakingIntent
+        ? null
+        : matchmakingIntent ?? this.matchmakingIntent,
     privateLobby: clearLobby ? null : privateLobby ?? this.privateLobby,
     matchedId: clearMatched ? null : matchedId ?? this.matchedId,
     error: clearError ? null : error ?? this.error,
@@ -64,10 +76,17 @@ class LobbyController extends StateNotifier<LobbyState> {
     }
   }
 
-  Future<void> startQuickMatch() async {
-    if (state.searching || state.hosting) return;
+  Future<void> startQuickMatch({
+    MatchmakingIntent intent = MatchmakingIntent.findOpponent,
+  }) async {
+    if (state.searching || state.hosting || state.hasOwnedWaitingRoom) return;
     final generation = ++_pollGeneration;
-    state = state.copyWith(loading: true, clearError: true, clearMatched: true);
+    state = state.copyWith(
+      loading: true,
+      matchmakingIntent: intent,
+      clearError: true,
+      clearMatched: true,
+    );
     try {
       var ticket = await _repository.startQuickMatch();
       if (!mounted || generation != _pollGeneration) return;
@@ -86,7 +105,12 @@ class LobbyController extends StateNotifier<LobbyState> {
       }
     } catch (error) {
       if (mounted && generation == _pollGeneration) {
-        state = state.copyWith(loading: false, error: _message(error));
+        state = state.copyWith(
+          loading: false,
+          error: _message(error),
+          clearTicket: true,
+          clearMatchmakingIntent: true,
+        );
       }
     }
   }
@@ -94,25 +118,35 @@ class LobbyController extends StateNotifier<LobbyState> {
   Future<void> cancelQuickMatch() async {
     final ticket = state.ticket;
     ++_pollGeneration;
-    state = state.copyWith(clearTicket: true);
+    state = state.copyWith(loading: ticket != null, clearError: true);
     if (ticket != null) {
       try {
         await _repository.cancelTicket(ticket.id);
+        state = state.copyWith(
+          loading: false,
+          clearTicket: true,
+          clearMatchmakingIntent: true,
+        );
       } on ApiException catch (error) {
         final matchId = error.details?['matchId'];
         if (error.code == 'matchAlreadyFound' && matchId is String) {
-          state = state.copyWith(matchedId: matchId);
+          state = state.copyWith(
+            loading: false,
+            matchedId: matchId,
+            clearTicket: true,
+            clearMatchmakingIntent: true,
+          );
         } else {
-          state = state.copyWith(error: _message(error));
+          state = state.copyWith(loading: false, error: _message(error));
         }
       } catch (error) {
-        state = state.copyWith(error: _message(error));
+        state = state.copyWith(loading: false, error: _message(error));
       }
     }
   }
 
   Future<void> createPrivateLobby() async {
-    if (state.searching || state.hosting) return;
+    if (state.searching || state.hosting || state.hasOwnedWaitingRoom) return;
     final generation = ++_pollGeneration;
     state = state.copyWith(loading: true, clearError: true, clearMatched: true);
     try {
@@ -141,17 +175,65 @@ class LobbyController extends StateNotifier<LobbyState> {
   Future<void> closePrivateLobby() async {
     final lobby = state.privateLobby;
     ++_pollGeneration;
-    state = state.copyWith(clearLobby: true);
+    state = state.copyWith(loading: lobby != null, clearError: true);
     if (lobby != null) {
       try {
         await _repository.closeLobby(lobby.id);
+        state = state.copyWith(loading: false, clearLobby: true);
+      } on ApiException catch (error) {
+        if (!await _resolveRoomCloseRace(lobby.id, error)) {
+          state = state.copyWith(loading: false, error: _message(error));
+        }
       } catch (error) {
-        state = state.copyWith(error: _message(error));
+        state = state.copyWith(loading: false, error: _message(error));
       }
     }
   }
 
+  Future<void> closeWaitingRoom(String id) async {
+    if (state.privateLobby?.id == id) ++_pollGeneration;
+    state = state.copyWith(loading: true, clearError: true);
+    try {
+      await _repository.closeLobby(id);
+      state = state.copyWith(
+        loading: false,
+        matches: [
+          for (final match in state.matches)
+            if (match.id != id) match,
+        ],
+        clearLobby: state.privateLobby?.id == id,
+      );
+    } on ApiException catch (error) {
+      if (!await _resolveRoomCloseRace(id, error)) {
+        state = state.copyWith(loading: false, error: _message(error));
+      }
+    } catch (error) {
+      state = state.copyWith(loading: false, error: _message(error));
+    }
+  }
+
+  Future<bool> _resolveRoomCloseRace(String id, ApiException error) async {
+    if (error.code != 'matchUnavailable') return false;
+    try {
+      final lobby = await _repository.getLobby(id);
+      if (lobby.matchId == null) return false;
+      state = state.copyWith(
+        loading: false,
+        matchedId: lobby.matchId,
+        matches: [
+          for (final match in state.matches)
+            if (match.id != id) match,
+        ],
+        clearLobby: true,
+      );
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
   Future<void> join(String code) async {
+    if (state.searching || state.hosting || state.hasOwnedWaitingRoom) return;
     state = state.copyWith(loading: true, clearError: true, clearMatched: true);
     try {
       final lobby = await _repository.joinLobby(code);
@@ -170,8 +252,40 @@ class LobbyController extends StateNotifier<LobbyState> {
     state = state.copyWith(
       clearMatched: true,
       clearTicket: true,
+      clearMatchmakingIntent: true,
       clearLobby: true,
     );
+  }
+
+  void sessionEnded() {
+    ++_pollGeneration;
+    state = const LobbyState();
+  }
+
+  Future<void> disconnectAccount() async {
+    final ticket = state.ticket;
+    final lobby = state.privateLobby;
+    final waitingRoomIds = <String>{
+      if (lobby?.status == 'waiting') lobby!.id,
+      for (final match in state.matches)
+        if (match.status == 'waiting' && match.joinCode != null) match.id,
+    };
+    sessionEnded();
+    if (ticket != null &&
+        (ticket.status == 'searching' || ticket.status == 'waiting')) {
+      try {
+        await _repository.cancelTicket(ticket.id);
+      } catch (_) {
+        // Session shutdown must continue when cancellation loses a race.
+      }
+    }
+    for (final id in waitingRoomIds) {
+      try {
+        await _repository.closeLobby(id);
+      } catch (_) {
+        // Session shutdown must continue when closure loses a race.
+      }
+    }
   }
 
   @override

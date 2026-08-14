@@ -123,8 +123,8 @@ class _AboutContent extends StatelessWidget {
                 launchUrl(_supportUri, mode: LaunchMode.externalApplication),
             trailing: signedIn
                 ? OutlinedButton(
-                    onPressed: () => context.go('/profile'),
-                    child: const Text('Profile'),
+                    onPressed: () => context.go('/player'),
+                    child: const Text('Player'),
                   )
                 : OutlinedButton(
                     onPressed: () => context.go('/login'),
@@ -238,7 +238,7 @@ class _AccountDeletionContent extends StatelessWidget {
         const _LegalSection(
           data: _LegalSectionData(
             'How to delete',
-            'Sign in, open Profile, choose Delete account, and confirm the '
+            'Sign in, open Player, choose Delete account, and confirm the '
                 'permanent action. On the web, the same steps are available '
                 'from this application’s hosted version.',
           ),
@@ -258,10 +258,10 @@ class _AccountDeletionContent extends StatelessWidget {
         const SizedBox(height: 22),
         FilledButton.icon(
           onPressed: () =>
-              context.go(signedIn ? '/profile' : '/login?returnTo=/profile'),
+              context.go(signedIn ? '/player' : '/login?returnTo=/player'),
           icon: Icon(signedIn ? Icons.person_outline : Icons.login),
           label: Text(
-            signedIn ? 'Open profile settings' : 'Sign in to delete account',
+            signedIn ? 'Open player settings' : 'Sign in to delete account',
           ),
         ),
       ],
@@ -323,7 +323,7 @@ const _privacySections = [
     'Your choices',
     'You can play locally without an account, decline optional Google sign-in, '
         'sign out to remove the local session, or permanently delete the '
-        'account from Profile. The service operator is Shen Zhuoran / CMSFlash. '
+        'account from Player. The service operator is Shen Zhuoran / CMSFlash. '
         'For privacy or support questions, use '
         'https://cmsflash.github.io/contact/.',
   ),

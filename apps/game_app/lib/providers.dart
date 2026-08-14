@@ -7,13 +7,15 @@ import 'features/auth/data/auth_repository.dart';
 import 'features/auth/data/session_store.dart';
 import 'features/auth/presentation/auth_controller.dart';
 import 'features/game/data/game_view_settings_store.dart';
-import 'features/game/domain/game_session.dart';
+import 'features/game/data/local_game_store.dart';
 import 'features/game/domain/game_view_settings.dart';
+import 'features/game/presentation/local_games_controller.dart';
 import 'features/notifications/data/turn_notification_repository.dart';
 import 'features/notifications/platform/turn_notification_gateway.dart';
 import 'features/notifications/platform/turn_notification_gateway_factory.dart';
 import 'features/notifications/presentation/turn_notification_controller.dart';
 import 'features/online/data/online_repository.dart';
+import 'features/online/presentation/lobby_controller.dart';
 
 final sessionStoreProvider = Provider<SessionStore>(
   (ref) => SecureSessionStore(),
@@ -37,14 +39,22 @@ final authControllerProvider = StateNotifierProvider<AuthController, AuthState>(
   (ref) {
     final controller = AuthController(
       ref.watch(authRepositoryProvider),
-      beforeSessionEnd: () => ref
-          .read(turnNotificationControllerProvider.notifier)
-          .disconnectAccount(),
+      beforeSessionEnd: () async {
+        await Future.wait([
+          ref.read(lobbyControllerProvider.notifier).disconnectAccount(),
+          ref
+              .read(turnNotificationControllerProvider.notifier)
+              .disconnectAccount(),
+        ]);
+      },
     );
     final expirationSubscription = ref
         .watch(apiClientProvider)
         .sessionExpired
-        .listen((_) => controller.sessionExpired());
+        .listen((_) {
+          ref.read(lobbyControllerProvider.notifier).sessionEnded();
+          controller.sessionExpired();
+        });
     ref.onDispose(expirationSubscription.cancel);
     scheduleMicrotask(controller.restore);
     return controller;
@@ -54,6 +64,11 @@ final authControllerProvider = StateNotifierProvider<AuthController, AuthState>(
 final onlineRepositoryProvider = Provider<OnlineRepository>(
   (ref) => ApiOnlineRepository(ref.watch(apiClientProvider)),
 );
+
+final lobbyControllerProvider =
+    StateNotifierProvider<LobbyController, LobbyState>(
+      (ref) => LobbyController(ref.watch(onlineRepositoryProvider)),
+    );
 
 final turnNotificationRepositoryProvider = Provider<TurnNotificationRepository>(
   (ref) => ApiTurnNotificationRepository(ref.watch(apiClientProvider)),
@@ -72,10 +87,18 @@ final turnNotificationControllerProvider =
       ),
     );
 
-final localGameProvider =
-    StateNotifierProvider<LocalGameController, LocalGameSession?>(
-      (ref) => LocalGameController(),
-    );
+final localGameStoreProvider = Provider<LocalGameStore>(
+  (ref) => SecureLocalGameStore(),
+);
+
+final localGamesProvider =
+    StateNotifierProvider<LocalGamesController, LocalGamesState>((ref) {
+      final controller = LocalGamesController(
+        ref.watch(localGameStoreProvider),
+      );
+      scheduleMicrotask(controller.load);
+      return controller;
+    });
 
 final gameViewSettingsStoreProvider = Provider<GameViewSettingsStore>(
   (ref) => SecureGameViewSettingsStore(),

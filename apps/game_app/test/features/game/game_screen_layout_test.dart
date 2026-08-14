@@ -3,9 +3,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:game_engine/game_engine.dart' as engine;
 import 'package:game_of_life/features/game/data/game_view_settings_store.dart';
+import 'package:game_of_life/features/game/data/local_game_store.dart';
 import 'package:game_of_life/features/game/domain/game_session.dart';
 import 'package:game_of_life/features/game/presentation/life_board.dart';
 import 'package:game_of_life/features/game/presentation/local_game_screen.dart';
+import 'package:game_of_life/features/game/presentation/local_games_controller.dart';
 import 'package:game_of_life/providers.dart';
 
 import '../../support/game_play_layout_test_support.dart';
@@ -15,11 +17,11 @@ void main() {
     testWidgets('local game uses ${viewport.name} geometry', (tester) async {
       configureGameViewport(tester, viewport);
 
-      final controller = LocalGameController()..start(const LocalGameConfig());
+      final controller = await _localController();
       await tester.pumpWidget(
         ProviderScope(
-          overrides: [localGameProvider.overrideWith((ref) => controller)],
-          child: const MaterialApp(home: LocalGameScreen()),
+          overrides: [localGamesProvider.overrideWith((ref) => controller)],
+          child: const MaterialApp(home: LocalGameScreen(gameId: _gameId)),
         ),
       );
       await tester.pump();
@@ -27,6 +29,7 @@ void main() {
       expect(tester.takeException(), isNull);
       expect(find.text('TURN 1'), findsOneWidget);
       expect(find.byKey(const Key('game-view-settings')), findsOneWidget);
+      expect(find.byTooltip('Delete local game'), findsOneWidget);
       expectGameLayoutGeometry(
         tester,
         viewport,
@@ -39,52 +42,58 @@ void main() {
     tester,
   ) async {
     configureGameViewport(tester, gameLayoutViewports.last);
-    final controller = LocalGameController()..start(const LocalGameConfig());
+    final controller = await _localController();
     await tester.pumpWidget(
       ProviderScope(
-        overrides: [localGameProvider.overrideWith((ref) => controller)],
-        child: const MaterialApp(home: LocalGameScreen()),
+        overrides: [localGamesProvider.overrideWith((ref) => controller)],
+        child: const MaterialApp(home: LocalGameScreen(gameId: _gameId)),
       ),
     );
     await tester.pump();
 
     await tester.tap(find.byKey(const ValueKey('life-cell-8-9')));
     await tester.pump();
-    expect(controller.state!.game.revision, 0);
+    expect(controller.state.gameById(_gameId)!.game.revision, 0);
     expect(
-      controller.state!.preview?.coordinate,
+      controller.state.gameById(_gameId)!.preview?.coordinate,
       const engine.Coordinate(8, 9),
     );
     expect(find.byKey(const Key('commit-move')), findsOneWidget);
 
     await tester.tap(find.byKey(const ValueKey('life-cell-0-0')));
     await tester.pump();
-    expect(controller.state!.game.revision, 0);
+    expect(controller.state.gameById(_gameId)!.game.revision, 0);
     expect(
-      controller.state!.preview?.coordinate,
+      controller.state.gameById(_gameId)!.preview?.coordinate,
       const engine.Coordinate(0, 0),
     );
 
     await tester.tap(find.byKey(const Key('commit-move')));
     await tester.pump();
-    expect(controller.state!.game.revision, 1);
-    expect(controller.state!.game.toMove, engine.Player.white);
-    expect(controller.state!.lastMove, const engine.Coordinate(0, 0));
-    expect(controller.state!.preview, isNull);
+    expect(controller.state.gameById(_gameId)!.game.revision, 1);
+    expect(
+      controller.state.gameById(_gameId)!.game.toMove,
+      engine.Player.white,
+    );
+    expect(
+      controller.state.gameById(_gameId)!.lastMove,
+      const engine.Coordinate(0, 0),
+    );
+    expect(controller.state.gameById(_gameId)!.preview, isNull);
     expect(find.byKey(const Key('commit-move')), findsNothing);
   });
 
   testWidgets('game view settings toggle death visualization', (tester) async {
     configureGameViewport(tester, gameLayoutViewports.last);
-    final controller = LocalGameController()..start(const LocalGameConfig());
+    final controller = await _localController();
     final settingsStore = MemoryGameViewSettingsStore();
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
-          localGameProvider.overrideWith((ref) => controller),
+          localGamesProvider.overrideWith((ref) => controller),
           gameViewSettingsStoreProvider.overrideWithValue(settingsStore),
         ],
-        child: const MaterialApp(home: LocalGameScreen()),
+        child: const MaterialApp(home: LocalGameScreen(gameId: _gameId)),
       ),
     );
     await tester.pump();
@@ -107,4 +116,61 @@ void main() {
     );
     expect(settingsStore.visualizeDeathsInPreview, isFalse);
   });
+
+  testWidgets('tapping the previewed square again commits the local move', (
+    tester,
+  ) async {
+    configureGameViewport(tester, gameLayoutViewports.last);
+    final controller = await _localController();
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [localGamesProvider.overrideWith((ref) => controller)],
+        child: const MaterialApp(home: LocalGameScreen(gameId: _gameId)),
+      ),
+    );
+    await tester.pump();
+
+    final cell = find.byKey(const ValueKey('life-cell-0-0'));
+    await tester.tap(cell);
+    await tester.pump();
+    expect(controller.state.gameById(_gameId)!.game.revision, 0);
+
+    await tester.tap(cell);
+    await tester.pumpAndSettle();
+    expect(controller.state.gameById(_gameId)!.game.revision, 1);
+    expect(controller.state.gameById(_gameId)!.preview, isNull);
+  });
+
+  testWidgets('delete action requires confirmation', (tester) async {
+    configureGameViewport(tester, gameLayoutViewports.last);
+    final controller = await _localController();
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [localGamesProvider.overrideWith((ref) => controller)],
+        child: const MaterialApp(home: LocalGameScreen(gameId: _gameId)),
+      ),
+    );
+    await tester.pump();
+
+    await tester.tap(find.byTooltip('Delete local game'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Delete this local game?'), findsOneWidget);
+    expect(find.text('Keep game'), findsOneWidget);
+    expect(find.text('Delete game'), findsOneWidget);
+    expect(controller.state.gameById(_gameId), isNotNull);
+  });
+}
+
+const _gameId = 'local-widget-test';
+
+Future<LocalGamesController> _localController() async {
+  final controller = LocalGamesController(
+    MemoryLocalGameStore(),
+    idFactory: () => _gameId,
+    clock: () => DateTime.utc(2026, 8, 14),
+  );
+  await controller.load();
+  await controller.create(const LocalGameConfig());
+  return controller;
 }

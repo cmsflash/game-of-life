@@ -190,8 +190,8 @@ class _OnlineMatchScreenState extends ConsumerState<OnlineMatchScreen> {
     return Scaffold(
       appBar: AppBar(
         leading: IconButton(
-          tooltip: 'Back to lobby',
-          onPressed: () => context.go('/online'),
+          tooltip: 'Back to home',
+          onPressed: () => context.go('/'),
           icon: const Icon(Icons.arrow_back),
         ),
         title: Text('vs ${opponent?.displayName ?? 'Opponent'}'),
@@ -232,6 +232,7 @@ class _OnlineMatchScreenState extends ConsumerState<OnlineMatchScreen> {
                   previewDeaths: _preview?.deathEvents ?? const [],
                   visualizePreviewDeaths: viewSettings.visualizeDeathsInPreview,
                   onCellTap: _consider,
+                  onMoveConfirm: () => unawaited(_commit()),
                 ),
               ),
               if (_submitting)
@@ -351,8 +352,8 @@ class _OnlineGamePanel extends StatelessWidget {
                       : match.isYourTurn
                       ? preview == null
                             ? 'Choose an empty square to preview the next round.'
-                            : 'Tap another square to compare, or press the check '
-                                  'to commit this move.'
+                            : 'Tap the selected square again to confirm. Tap '
+                                  'another square to compare, or press the check.'
                       : 'The board refreshes automatically.',
                 ),
               ],

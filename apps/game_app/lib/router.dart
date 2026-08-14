@@ -9,7 +9,6 @@ import 'features/game/presentation/local_game_screen.dart';
 import 'features/game/presentation/local_setup_screen.dart';
 import 'features/home/home_screen.dart';
 import 'features/legal/legal_screens.dart';
-import 'features/online/presentation/lobby_screen.dart';
 import 'features/online/presentation/online_match_screen.dart';
 import 'providers.dart';
 import 'shared/app_shell.dart';
@@ -32,17 +31,14 @@ final routerProvider = Provider<GoRouter>((ref) {
       if (auth.status == AuthStatus.loading) return null;
       final path = state.uri.path;
       final isAuthPage = path == '/login' || path == '/register';
-      final protected =
-          path == '/online' ||
-          path.startsWith('/online/') ||
-          path == '/profile';
+      final protected = path == '/online' || path.startsWith('/online/');
       final callback = path == '/auth/callback' || path == '/auth';
       if (protected && auth.status != AuthStatus.signedIn) {
         return '/login?returnTo=${Uri.encodeComponent(state.uri.toString())}';
       }
       if (isAuthPage && auth.status == AuthStatus.signedIn) {
         final returnTo = state.uri.queryParameters['returnTo'];
-        return returnTo ?? '/online';
+        return returnTo ?? '/';
       }
       if (callback) return null;
       return null;
@@ -63,13 +59,13 @@ final routerProvider = Provider<GoRouter>((ref) {
           ),
           GoRoute(
             path: '/online',
-            pageBuilder: (context, state) => _page(state, const LobbyScreen()),
+            pageBuilder: (context, state) => _page(state, const HomeScreen()),
           ),
           GoRoute(
-            path: '/profile',
-            pageBuilder: (context, state) =>
-                _page(state, const ProfileScreen()),
+            path: '/player',
+            pageBuilder: (context, state) => _page(state, const PlayerScreen()),
           ),
+          GoRoute(path: '/profile', redirect: (context, state) => '/player'),
           GoRoute(
             path: '/about',
             pageBuilder: (context, state) =>
@@ -95,6 +91,11 @@ final routerProvider = Provider<GoRouter>((ref) {
             ),
           ),
         ],
+      ),
+      GoRoute(
+        path: '/local/game/:id',
+        pageBuilder: (context, state) =>
+            _page(state, LocalGameScreen(gameId: state.pathParameters['id']!)),
       ),
       GoRoute(
         path: '/local/game',

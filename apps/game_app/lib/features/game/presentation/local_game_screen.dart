@@ -9,32 +9,36 @@ import '../../../shared/game_play_layout.dart';
 import '../domain/game_session.dart';
 import 'game_view_settings_dialog.dart';
 import 'life_board.dart';
+import 'local_games_controller.dart';
 import 'player_turn_marker.dart';
 
 class LocalGameScreen extends ConsumerWidget {
-  const LocalGameScreen({super.key});
+  const LocalGameScreen({super.key, this.gameId});
+
+  /// Null preserves the legacy `/local/game` link by resuming the most recent
+  /// saved game on this device.
+  final String? gameId;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final session = ref.watch(localGameProvider);
+    final games = ref.watch(localGamesProvider);
+    if (games.status == LocalGamesLoadStatus.loading) {
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
+    if (games.status == LocalGamesLoadStatus.failed) {
+      return _UnavailableLocalGame(
+        message: games.error ?? 'Local games could not be loaded.',
+        onRetry: () => ref.read(localGamesProvider.notifier).retryLoad(),
+      );
+    }
+    final session = gameId == null
+        ? games.selectedGame
+        : games.gameById(gameId!);
     if (session == null) {
-      return Scaffold(
-        appBar: AppBar(title: const Text('Local game')),
-        body: Center(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(Icons.grid_off, size: 56),
-              const SizedBox(height: 16),
-              const Text('Set up a game before opening the board.'),
-              const SizedBox(height: 16),
-              FilledButton(
-                onPressed: () => context.go('/local/setup'),
-                child: const Text('Game setup'),
-              ),
-            ],
-          ),
-        ),
+      return _UnavailableLocalGame(
+        message: gameId == null
+            ? 'Create a local game to open the board.'
+            : 'This local game is not saved on this device.',
       );
     }
     final game = session.game;
@@ -42,17 +46,22 @@ class LocalGameScreen extends ConsumerWidget {
     return Scaffold(
       appBar: AppBar(
         leading: IconButton(
-          tooltip: 'Back to setup',
-          onPressed: () => context.go('/local/setup'),
+          tooltip: 'Back to games',
+          onPressed: () => context.go('/'),
           icon: const Icon(Icons.arrow_back),
         ),
-        title: Text(session.config.modeLabel),
+        title: Text(session.title),
         actions: [
           const GameViewSettingsButton(),
           IconButton(
             tooltip: 'Restart game',
-            onPressed: () => _confirmRestart(context, ref),
+            onPressed: () => _confirmRestart(context, ref, session.id),
             icon: const Icon(Icons.refresh),
+          ),
+          IconButton(
+            tooltip: 'Delete local game',
+            onPressed: () => _confirmDelete(context, ref, session),
+            icon: const Icon(Icons.delete_outline),
           ),
           const SizedBox(width: 8),
         ],
@@ -70,12 +79,16 @@ class LocalGameScreen extends ConsumerWidget {
             previewDeaths: session.preview?.deathEvents ?? const [],
             visualizePreviewDeaths: viewSettings.visualizeDeathsInPreview,
             births: session.lastBirths,
+            onMoveConfirm: () => _commit(context, ref, session.id),
             onCellTap: (row, column) {
               final success = ref
-                  .read(localGameProvider.notifier)
-                  .consider(row, column);
+                  .read(localGamesProvider.notifier)
+                  .consider(session.id, row, column);
               if (!success) {
-                final message = ref.read(localGameProvider)?.error;
+                final message = ref
+                    .read(localGamesProvider)
+                    .gameById(session.id)
+                    ?.error;
                 if (message != null) {
                   ScaffoldMessenger.of(context)
                     ..clearSnackBars()
@@ -86,14 +99,33 @@ class LocalGameScreen extends ConsumerWidget {
           ),
           panel: _GamePanel(
             session: session,
-            onCommit: () => ref.read(localGameProvider.notifier).commit(),
+            onCommit: () => _commit(context, ref, session.id),
           ),
         ),
       ),
     );
   }
 
-  Future<void> _confirmRestart(BuildContext context, WidgetRef ref) async {
+  Future<void> _commit(BuildContext context, WidgetRef ref, String id) async {
+    try {
+      await ref.read(localGamesProvider.notifier).commit(id);
+    } catch (_) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context)
+        ..clearSnackBars()
+        ..showSnackBar(
+          const SnackBar(
+            content: Text('The move could not be saved on this device.'),
+          ),
+        );
+    }
+  }
+
+  Future<void> _confirmRestart(
+    BuildContext context,
+    WidgetRef ref,
+    String id,
+  ) async {
     final restart = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -111,8 +143,104 @@ class LocalGameScreen extends ConsumerWidget {
         ],
       ),
     );
-    if (restart ?? false) ref.read(localGameProvider.notifier).restart();
+    if (restart ?? false) {
+      try {
+        await ref.read(localGamesProvider.notifier).restart(id);
+      } catch (_) {
+        if (!context.mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('The restarted game could not be saved.'),
+          ),
+        );
+      }
+    }
   }
+
+  Future<void> _confirmDelete(
+    BuildContext context,
+    WidgetRef ref,
+    LocalGameSession session,
+  ) async {
+    final delete = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete this local game?'),
+        content: Text(
+          '“${session.title}” and its current position will be removed from '
+          'this device.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Keep game'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Delete game'),
+          ),
+        ],
+      ),
+    );
+    if (!(delete ?? false) || !context.mounted) return;
+    try {
+      await ref.read(localGamesProvider.notifier).delete(session.id);
+      if (context.mounted) context.go('/');
+    } catch (_) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('The local game could not be deleted.')),
+      );
+    }
+  }
+}
+
+class _UnavailableLocalGame extends StatelessWidget {
+  const _UnavailableLocalGame({required this.message, this.onRetry});
+
+  final String message;
+  final VoidCallback? onRetry;
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+    appBar: AppBar(title: const Text('Local game')),
+    body: Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.grid_off, size: 56),
+            const SizedBox(height: 16),
+            Text(message, textAlign: TextAlign.center),
+            const SizedBox(height: 18),
+            Wrap(
+              spacing: 12,
+              runSpacing: 12,
+              alignment: WrapAlignment.center,
+              children: [
+                if (onRetry != null)
+                  FilledButton.icon(
+                    onPressed: onRetry,
+                    icon: const Icon(Icons.refresh),
+                    label: const Text('Retry'),
+                  ),
+                OutlinedButton(
+                  onPressed: () => context.go('/'),
+                  child: const Text('Home'),
+                ),
+                if (onRetry == null)
+                  FilledButton(
+                    onPressed: () => context.go('/local/setup'),
+                    child: const Text('New local game'),
+                  ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    ),
+  );
 }
 
 class _GamePanel extends StatelessWidget {
@@ -165,8 +293,8 @@ class _GamePanel extends StatelessWidget {
                   outcome == null
                       ? preview == null
                             ? 'Choose an empty square to preview the next round.'
-                            : 'Tap another square to compare, or press the check '
-                                  'to commit this move.'
+                            : 'Tap the selected square again to confirm. Tap '
+                                  'another square to compare, or press the check.'
                       : _reason(outcome.reason),
                 ),
               ],

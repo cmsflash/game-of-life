@@ -9,14 +9,15 @@ Firebase Core and Messaging dependencies.
 
 ## Included flows
 
-- Responsive Material 3 landing page and navigation
-- Offline hot-seat play on a 20×20 board
+- Responsive Material 3 Home/Player navigation with one unified game list
+- Multiple persistent offline hot-seat games on a 20×20 board
+- Two-step move previews with same-cell confirmation and accessible controls
 - Elimination, turn-limit, and population-target victory modes
 - Username/email/password registration, confirmation, login, recovery, reset,
   player profile, secure token persistence, refresh, and logout
 - Optional Google browser sign-in using a one-time backend exchange code
 - In-app privacy, Terms, open-source license, and permanent account deletion
-- Quick matchmaking, private match creation, join by code, match list, online
+- Quick matchmaking, public/private room creation, join by code, match list, online
   board polling, move submission, stale-revision recovery, and resignation
 - Opt-in turn alerts on web, Android, and iOS with direct links back to a match
 - Server board decoding for the canonical state JSON and packed 2-bit format
@@ -65,7 +66,7 @@ installers register a callback protocol.
 
 Notification support is provider-neutral at the application/API boundary. Web
 uses the standard Web Push protocol, while Android and iOS use Firebase Cloud
-Messaging. Builds without notification configuration remain valid; the Profile
+Messaging. Builds without notification configuration remain valid; the Player
 screen explains that notifications are unavailable instead of prompting the
 player.
 
@@ -101,7 +102,7 @@ not server credentials. FCM service-account credentials and the Apple APNs
 authentication key remain backend/Firebase secrets. Before distributing iOS,
 enable Push Notifications for the App ID and provisioning profile and upload
 an APNs authentication key to Firebase. Android 13+ and iOS ask the player for
-permission only after they turn the Profile preference on.
+permission only after they turn the Player preference on.
 
 The authenticated client contract is:
 

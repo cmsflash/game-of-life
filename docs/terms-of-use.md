@@ -34,7 +34,7 @@ dispute investigation, and aggregate operations.
 
 Online access may be limited for abuse, security risk, or a material violation
 of these terms. A player may stop using the service or permanently delete the
-account at any time from the Profile screen.
+account at any time from the Player screen.
 
 Material changes will be reflected by a new effective date in the application.
 The service operator is **Shen Zhuoran / CMSFlash**. Support is available

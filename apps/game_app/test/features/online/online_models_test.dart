@@ -5,6 +5,17 @@ import 'package:game_engine/game_engine.dart' as engine;
 import 'package:game_of_life/features/online/data/online_models.dart';
 
 void main() {
+  test('match summaries retain a private-room join code', () {
+    final summary = OnlineMatchSummary.fromJson({
+      'matchId': 'waiting-room',
+      'status': 'waiting',
+      'joinCode': 'LIFE42',
+      'opponentName': 'Opponent',
+    });
+
+    expect(summary.joinCode, 'LIFE42');
+  });
+
   test('decodes packed two-bit server boards', () {
     final values = List<int>.filled(400, 0)
       ..[0] = 1

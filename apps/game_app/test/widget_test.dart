@@ -1,9 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:game_engine/game_engine.dart' as engine;
 import 'package:game_of_life/app.dart';
 import 'package:game_of_life/features/auth/data/session_store.dart';
+import 'package:game_of_life/features/game/data/local_game_store.dart';
+import 'package:game_of_life/features/game/domain/game_session.dart';
 import 'package:game_of_life/features/notifications/domain/turn_notifications.dart';
+import 'package:game_of_life/features/online/data/online_models.dart';
+import 'package:game_of_life/features/online/presentation/online_match_screen.dart';
 import 'package:game_of_life/providers.dart';
 
 import 'fakes.dart';
@@ -15,6 +20,8 @@ void main() {
     FakeAuthRepository? authRepository,
     FakeTurnNotificationRepository? notificationRepository,
     FakeTurnNotificationGateway? notificationGateway,
+    LocalGameStore? localGameStore,
+    FakeOnlineRepository? onlineRepository,
   }) async {
     tester.view.physicalSize = size;
     tester.view.devicePixelRatio = 1;
@@ -27,6 +34,12 @@ void main() {
             authRepository ?? FakeAuthRepository(),
           ),
           sessionStoreProvider.overrideWithValue(MemorySessionStore()),
+          localGameStoreProvider.overrideWithValue(
+            localGameStore ?? MemoryLocalGameStore(),
+          ),
+          onlineRepositoryProvider.overrideWithValue(
+            onlineRepository ?? FakeOnlineRepository(),
+          ),
           turnNotificationRepositoryProvider.overrideWithValue(
             notificationRepository ?? FakeTurnNotificationRepository(),
           ),
@@ -43,7 +56,7 @@ void main() {
   testWidgets('home opens the complete local game setup', (tester) async {
     await pumpApp(tester);
 
-    expect(find.text('Give life\na side.'), findsOneWidget);
+    expect(find.text('Choose your next game'), findsOneWidget);
     await tester.tap(find.byKey(const Key('play-local')));
     await tester.pumpAndSettle();
 
@@ -57,20 +70,20 @@ void main() {
   ) async {
     await pumpApp(tester, size: const Size(390, 844));
 
-    expect(find.text('Give life\na side.'), findsOneWidget);
+    expect(find.text('Choose your next game'), findsOneWidget);
     await tester.tap(find.byKey(const Key('play-local')));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 100));
 
     expect(find.text('Set the terms of life'), findsOneWidget);
-    expect(find.text('Give life\na side.'), findsNothing);
+    expect(find.text('Choose your next game'), findsNothing);
   });
 
   testWidgets('victory mode transition keeps only the current panel mounted', (
     tester,
   ) async {
     await pumpApp(tester, size: const Size(390, 844));
-    await tester.tap(find.text('Local'));
+    await tester.tap(find.byKey(const Key('play-local')));
     await tester.pumpAndSettle();
 
     expect(find.byKey(const Key('elimination')), findsOneWidget);
@@ -86,7 +99,7 @@ void main() {
     tester,
   ) async {
     await pumpApp(tester, size: const Size(390, 844));
-    await tester.tap(find.text('Local'));
+    await tester.tap(find.byKey(const Key('play-local')));
     await tester.pumpAndSettle();
 
     final start = find.byKey(const Key('start-local-game'));
@@ -193,6 +206,8 @@ void main() {
   ) async {
     await pumpApp(tester);
 
+    await tester.tap(find.text('Player'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('About'));
     await tester.pumpAndSettle();
 
@@ -204,7 +219,7 @@ void main() {
   testWidgets('mobile layout reaches and starts a local match', (tester) async {
     await pumpApp(tester, size: const Size(390, 844));
 
-    await tester.tap(find.text('Local'));
+    await tester.tap(find.byKey(const Key('play-local')));
     await tester.pumpAndSettle();
     expect(find.text('Set the terms of life'), findsOneWidget);
 
@@ -224,7 +239,7 @@ void main() {
     await repository.login(username: 'alice', password: 'password');
     await pumpApp(tester, authRepository: repository);
 
-    await tester.tap(find.text('Profile'));
+    await tester.tap(find.text('Player'));
     await tester.pumpAndSettle();
     await tester.ensureVisible(find.byKey(const Key('delete-account')));
     await tester.tap(find.byKey(const Key('delete-account')));
@@ -235,7 +250,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(repository.current, isNull);
-    expect(find.text('Give life\na side.'), findsOneWidget);
+    expect(find.text('Choose your next game'), findsOneWidget);
   });
 
   testWidgets('signed-in player can opt into the reminder schedule', (
@@ -262,7 +277,7 @@ void main() {
       notificationGateway: gateway,
     );
 
-    await tester.tap(find.text('Profile'));
+    await tester.tap(find.text('Player'));
     await tester.pumpAndSettle();
 
     expect(find.text('Turn notifications'), findsOneWidget);
@@ -278,5 +293,268 @@ void main() {
       find.byKey(const Key('turn-notifications-toggle')),
     );
     expect(toggle.value, isTrue);
+  });
+
+  testWidgets('home has two destinations and four play choices', (
+    tester,
+  ) async {
+    await pumpApp(tester, size: const Size(390, 844));
+
+    expect(find.byType(NavigationDestination), findsNWidgets(2));
+    expect(find.text('Home'), findsOneWidget);
+    expect(find.text('Player'), findsOneWidget);
+    expect(find.byKey(const Key('play-local')), findsOneWidget);
+    expect(find.byKey(const Key('find-opponent')), findsOneWidget);
+    expect(find.byKey(const Key('create-room')), findsOneWidget);
+    expect(find.byKey(const Key('join-by-code')), findsOneWidget);
+    expect(find.byKey(const Key('current-games')), findsOneWidget);
+    expect(find.text('Local'), findsNothing);
+    expect(find.text('Online'), findsNothing);
+    expect(find.text('Profile'), findsNothing);
+  });
+
+  testWidgets('create room offers public and private choices', (tester) async {
+    final auth = FakeAuthRepository();
+    await auth.login(username: 'alice', password: 'password');
+    final online = FakeOnlineRepository();
+    await pumpApp(tester, authRepository: auth, onlineRepository: online);
+
+    final create = find.byKey(const Key('create-room'));
+    await tester.ensureVisible(create);
+    await tester.tap(create);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Public room'), findsOneWidget);
+    expect(find.text('Private room'), findsOneWidget);
+    await tester.tap(find.byKey(const Key('create-public-room')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 10));
+
+    expect(online.quickMatchCalls, 1);
+    expect(find.text('Public room open'), findsOneWidget);
+    await tester.tap(
+      find.descendant(
+        of: find.byKey(const Key('matchmaking-status')),
+        matching: find.widgetWithText(TextButton, 'Cancel'),
+      ),
+    );
+    online.ticketPoll.complete(
+      const MatchmakingTicket(
+        id: 'ticket-test-000001',
+        status: 'cancelled',
+        pollAfter: Duration.zero,
+      ),
+    );
+    await tester.pump();
+  });
+
+  testWidgets('current online games put your turn first and hide history', (
+    tester,
+  ) async {
+    final auth = FakeAuthRepository();
+    await auth.login(username: 'alice', password: 'password');
+    final online = FakeOnlineRepository(
+      matches: [
+        OnlineMatchSummary(
+          id: 'waiting',
+          status: 'active',
+          updatedAt: DateTime.utc(2026, 8, 14, 10),
+          opponentName: 'Waiting Player',
+        ),
+        OnlineMatchSummary(
+          id: 'your-turn',
+          status: 'active',
+          updatedAt: DateTime.utc(2026, 8, 14, 9),
+          opponentName: 'Your Turn Player',
+          yourTurn: true,
+        ),
+        OnlineMatchSummary(
+          id: 'completed',
+          status: 'completed',
+          updatedAt: DateTime.utc(2026, 8, 14, 11),
+          opponentName: 'Past Player',
+        ),
+      ],
+    );
+    await pumpApp(
+      tester,
+      size: const Size(390, 844),
+      authRepository: auth,
+      onlineRepository: online,
+    );
+
+    expect(find.text('Online · Your turn'), findsOneWidget);
+    expect(find.text('Online · Waiting for opponent'), findsOneWidget);
+    expect(find.text('vs Past Player'), findsNothing);
+    expect(find.byKey(const Key('finished-games')), findsOneWidget);
+    expect(
+      tester.getTopLeft(find.byKey(const Key('online-your-turn'))).dy,
+      lessThan(tester.getTopLeft(find.byKey(const Key('online-waiting'))).dy),
+    );
+
+    await tester.ensureVisible(find.byKey(const Key('finished-games')));
+    await tester.tap(find.byKey(const Key('finished-games')));
+    await tester.pumpAndSettle();
+    expect(find.text('vs Past Player'), findsOneWidget);
+    expect(find.text('Online · Completed'), findsOneWidget);
+  });
+
+  testWidgets('signing out removes cached online games from Home', (
+    tester,
+  ) async {
+    final auth = FakeAuthRepository();
+    await auth.login(username: 'alice', password: 'password');
+    final online = FakeOnlineRepository(
+      matches: [
+        OnlineMatchSummary(
+          id: 'private-match',
+          status: 'active',
+          updatedAt: DateTime.utc(2026, 8, 14),
+          opponentName: 'Private Opponent',
+          yourTurn: true,
+        ),
+      ],
+    );
+    await pumpApp(tester, authRepository: auth, onlineRepository: online);
+    expect(find.text('vs Private Opponent'), findsOneWidget);
+
+    await tester.tap(find.text('Player'));
+    await tester.pumpAndSettle();
+    final signOut = find.widgetWithText(OutlinedButton, 'Sign out');
+    await tester.ensureVisible(signOut);
+    await tester.tap(signOut);
+    await tester.pumpAndSettle();
+
+    expect(find.text('vs Private Opponent'), findsNothing);
+    expect(find.text('Choose your next game'), findsOneWidget);
+  });
+
+  testWidgets('recovered private room exposes copy and close controls', (
+    tester,
+  ) async {
+    final auth = FakeAuthRepository();
+    await auth.login(username: 'alice', password: 'password');
+    final online = FakeOnlineRepository(
+      matches: [
+        OnlineMatchSummary(
+          id: 'waiting-room',
+          status: 'waiting',
+          updatedAt: DateTime.utc(2026, 8, 14),
+          opponentName: 'Waiting for player',
+          joinCode: 'LIFE42',
+        ),
+      ],
+    );
+    await pumpApp(tester, authRepository: auth, onlineRepository: online);
+
+    expect(find.text('Online · Private room waiting'), findsOneWidget);
+    expect(find.byTooltip('Copy join code'), findsOneWidget);
+    expect(
+      find.byKey(const Key('find-opponent')).evaluate().single.widget,
+      isA<FilledButton>().having(
+        (button) => button.onPressed,
+        'onPressed',
+        isNull,
+      ),
+    );
+    expect(
+      tester
+          .widget<OutlinedButton>(find.byKey(const Key('create-room')))
+          .onPressed,
+      isNull,
+    );
+    expect(
+      tester
+          .widget<OutlinedButton>(find.byKey(const Key('join-by-code')))
+          .onPressed,
+      isNull,
+    );
+    await tester.tap(find.byTooltip('Private room actions'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Close private room'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('confirm-close-private-room')));
+    await tester.pumpAndSettle();
+
+    expect(online.closeLobbyCalls, 1);
+    expect(find.text('Online · Private room waiting'), findsNothing);
+  });
+
+  testWidgets('failed local load can be retried from Home', (tester) async {
+    final store = MemoryLocalGameStore()..readError = StateError('disk');
+    await pumpApp(tester, localGameStore: store);
+
+    expect(find.byKey(const Key('retry-local-games')), findsOneWidget);
+    final playLocal = tester.widget<FilledButton>(
+      find.byKey(const Key('play-local')),
+    );
+    expect(playLocal.onPressed, isNull);
+
+    store.readError = null;
+    await tester.tap(find.byKey(const Key('retry-local-games')));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('retry-local-games')), findsNothing);
+    expect(find.text('No current games'), findsOneWidget);
+  });
+
+  testWidgets('match found away from Home opens when Home is revisited', (
+    tester,
+  ) async {
+    final auth = FakeAuthRepository();
+    await auth.login(username: 'alice', password: 'password');
+    final online = FakeOnlineRepository();
+    await pumpApp(tester, authRepository: auth, onlineRepository: online);
+
+    final findOpponent = find.byKey(const Key('find-opponent'));
+    await tester.ensureVisible(findOpponent);
+    await tester.tap(findOpponent);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 10));
+    await tester.tap(find.text('Player'));
+    await tester.pumpAndSettle();
+
+    online.ticketPoll.complete(
+      const MatchmakingTicket(
+        id: 'ticket-test-000001',
+        status: 'matched',
+        pollAfter: Duration.zero,
+        matchId: 'match-found-away',
+      ),
+    );
+    await tester.pump();
+    await tester.tap(find.text('Home'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 10));
+
+    expect(find.byType(OnlineMatchScreen), findsOneWidget);
+  });
+
+  testWidgets('local current game can be deleted from Home', (tester) async {
+    const config = LocalGameConfig();
+    final createdAt = DateTime.utc(2026, 8, 14);
+    final session = LocalGameSession(
+      id: 'local-1',
+      title: 'Couch match',
+      opponentLabel: 'White',
+      createdAt: createdAt,
+      updatedAt: createdAt,
+      config: config,
+      game: const engine.GameEngine().initialState(config.rules),
+    );
+    final store = MemoryLocalGameStore(games: [session]);
+    await pumpApp(tester, localGameStore: store);
+
+    expect(find.text('Couch match'), findsOneWidget);
+    expect(find.text('Local · Black to move'), findsOneWidget);
+    await tester.tap(find.byTooltip('Local game actions'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Delete local game'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('confirm-delete-local-game')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Couch match'), findsNothing);
+    expect(store.games, isEmpty);
   });
 }

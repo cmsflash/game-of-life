@@ -71,6 +71,36 @@ void main() {
     expect(board.lastMove, const engine.Coordinate(0, 0));
     expect(board.board.at(0, 0), engine.CellState.empty);
   });
+
+  testWidgets('tapping the previewed online cell again submits it', (
+    tester,
+  ) async {
+    configureGameViewport(tester, gameLayoutViewports.last);
+    final repository = _MatchRepository(_activeMatch());
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [onlineRepositoryProvider.overrideWithValue(repository)],
+        child: const MaterialApp(home: OnlineMatchScreen(matchId: 'match-1')),
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+
+    await tester.tap(find.byKey(const ValueKey('life-cell-8-9')));
+    await tester.pump();
+    expect(repository.submissions, isEmpty);
+    expect(
+      find.textContaining('Tap the selected square again to confirm.'),
+      findsOneWidget,
+    );
+
+    await tester.tap(find.byKey(const ValueKey('life-cell-8-9')));
+    await tester.pump();
+    await tester.pump();
+
+    expect(repository.submissions, [(revision: 0, row: 8, column: 9)]);
+    expect(find.byKey(const Key('commit-move')), findsNothing);
+  });
 }
 
 OnlineMatch _activeMatch() {

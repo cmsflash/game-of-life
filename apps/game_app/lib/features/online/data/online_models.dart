@@ -39,6 +39,7 @@ class OnlineMatchSummary {
     this.yourTurn = false,
     this.blackPopulation,
     this.whitePopulation,
+    this.joinCode,
   });
 
   final String id;
@@ -49,6 +50,7 @@ class OnlineMatchSummary {
   final bool yourTurn;
   final int? blackPopulation;
   final int? whitePopulation;
+  final String? joinCode;
 
   factory OnlineMatchSummary.fromJson(Map<String, dynamic> json) {
     final state = json['state'] as Map<String, dynamic>?;
@@ -70,6 +72,7 @@ class OnlineMatchSummary {
               yourColor != null),
       blackPopulation: (counts?['black'] as num?)?.round(),
       whitePopulation: (counts?['white'] as num?)?.round(),
+      joinCode: json['joinCode'] as String?,
     );
   }
 }

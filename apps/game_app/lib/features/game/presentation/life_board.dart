@@ -12,6 +12,7 @@ class LifeBoard extends StatefulWidget {
     super.key,
     required this.board,
     this.onCellTap,
+    this.onMoveConfirm,
     this.enabled = true,
     this.lastMove,
     this.previewBoard,
@@ -24,6 +25,12 @@ class LifeBoard extends StatefulWidget {
 
   final engine.Board board;
   final void Function(int row, int column)? onCellTap;
+
+  /// Called instead of [onCellTap] when the player activates [tentativeMove].
+  ///
+  /// Keeping this decision in the board makes pointer, keyboard, and semantic
+  /// activation share the same two-step confirmation behavior.
+  final VoidCallback? onMoveConfirm;
   final bool enabled;
   final engine.Coordinate? lastMove;
   final engine.Board? previewBoard;
@@ -37,11 +44,16 @@ class LifeBoard extends StatefulWidget {
   State<LifeBoard> createState() => _LifeBoardState();
 }
 
-class _LifeBoardState extends State<LifeBoard> {
+class _LifeBoardState extends State<LifeBoard>
+    with SingleTickerProviderStateMixin {
   late final FocusNode _focusNode;
+  late final AnimationController _selectionPulse;
   engine.Coordinate? _hovered;
+  engine.Coordinate? _animatedTentativeMove;
   var _selected = const engine.Coordinate(0, 0);
   var _hasFocus = false;
+  var _disableAnimations = false;
+  var _tickerEnabled = true;
 
   bool get _canActivate => widget.enabled && widget.onCellTap != null;
 
@@ -49,6 +61,18 @@ class _LifeBoardState extends State<LifeBoard> {
   void initState() {
     super.initState();
     _focusNode = FocusNode(debugLabel: 'Life board');
+    _selectionPulse = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 900),
+    );
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _disableAnimations = MediaQuery.maybeDisableAnimationsOf(context) ?? false;
+    _tickerEnabled = TickerMode.valuesOf(context).enabled;
+    _syncSelectionPulse();
   }
 
   @override
@@ -65,10 +89,16 @@ class _LifeBoardState extends State<LifeBoard> {
         _selected.column.clamp(0, widget.board.columns - 1),
       );
     }
+    if (widget.tentativeMove != null &&
+        widget.tentativeMove != oldWidget.tentativeMove) {
+      _selected = widget.tentativeMove!;
+    }
+    _syncSelectionPulse();
   }
 
   @override
   void dispose() {
+    _selectionPulse.dispose();
     _focusNode.dispose();
     super.dispose();
   }
@@ -104,10 +134,7 @@ class _LifeBoardState extends State<LifeBoard> {
               value: _hasFocus && _canActivate
                   ? _cellDescription(_selected)
                   : null,
-              hint: _canActivate
-                  ? 'Use the arrow keys to select a coordinate, then press '
-                        'Enter or Space to preview it.'
-                  : null,
+              hint: _canActivate ? _boardHint() : null,
               enabled: _canActivate,
               liveRegion: _hasFocus && _canActivate,
               child: MouseRegion(
@@ -140,6 +167,7 @@ class _LifeBoardState extends State<LifeBoard> {
                           showHover: _canActivate,
                           focused: _selected,
                           showFocus: _hasFocus && _canActivate,
+                          selectionPulse: _selectionPulse,
                         ),
                       ),
                       ..._cellInteractionLayer(size),
@@ -172,12 +200,15 @@ class _LifeBoardState extends State<LifeBoard> {
               ),
               label: 'Row ${row + 1}, column ${column + 1}',
               value: _cellStateLabel(engine.Coordinate(row, column)),
+              hint: _cellHint(engine.Coordinate(row, column)),
               button: _canActivate,
               enabled: _canActivate,
               selected:
-                  _hasFocus &&
                   _canActivate &&
-                  _selected == engine.Coordinate(row, column),
+                  (widget.tentativeMove != null
+                      ? widget.tentativeMove == engine.Coordinate(row, column)
+                      : _hasFocus &&
+                            _selected == engine.Coordinate(row, column)),
               onTap: _canActivate
                   ? () => _selectAndActivate(engine.Coordinate(row, column))
                   : null,
@@ -217,7 +248,7 @@ class _LifeBoardState extends State<LifeBoard> {
             key == LogicalKeyboardKey.numpadEnter ||
             key == LogicalKeyboardKey.space)) {
       if (_canActivate) {
-        widget.onCellTap!(_selected.row, _selected.column);
+        _activate(_selected);
       }
     } else {
       return KeyEventResult.ignored;
@@ -241,6 +272,14 @@ class _LifeBoardState extends State<LifeBoard> {
   void _selectAndActivate(engine.Coordinate coordinate) {
     _setSelection(coordinate);
     _focusNode.requestFocus();
+    _activate(coordinate);
+  }
+
+  void _activate(engine.Coordinate coordinate) {
+    if (coordinate == widget.tentativeMove && widget.onMoveConfirm != null) {
+      widget.onMoveConfirm!();
+      return;
+    }
     widget.onCellTap!(coordinate.row, coordinate.column);
   }
 
@@ -248,10 +287,61 @@ class _LifeBoardState extends State<LifeBoard> {
     if (_hovered != coordinate) setState(() => _hovered = coordinate);
   }
 
+  void _syncSelectionPulse() {
+    final tentativeMove = widget.tentativeMove;
+    if (tentativeMove == null) {
+      _animatedTentativeMove = null;
+      _selectionPulse.stop();
+      if (_selectionPulse.value != 0) _selectionPulse.value = 0;
+      return;
+    }
+
+    final shouldAnimate = _canActivate && !_disableAnimations && _tickerEnabled;
+    if (!shouldAnimate) {
+      _animatedTentativeMove = null;
+      _selectionPulse.stop();
+      if (_selectionPulse.value != .5) _selectionPulse.value = .5;
+      return;
+    }
+
+    if (_animatedTentativeMove != tentativeMove) {
+      _animatedTentativeMove = tentativeMove;
+      // Two full breaths draw attention without running indefinitely while a
+      // player studies a preview or leaves a match open in the background.
+      _selectionPulse.repeat(reverse: true, count: 4);
+    }
+  }
+
+  String _boardHint() {
+    if (widget.tentativeMove == null) {
+      return 'Use the arrow keys to select a coordinate, then press Enter or '
+          'Space to preview it.';
+    }
+    if (_selected == widget.tentativeMove) {
+      return 'Press Enter or Space again to confirm this move. Use the arrow '
+          'keys to choose another coordinate.';
+    }
+    return 'Press Enter or Space to preview the selected coordinate. Return '
+        'to the previewed coordinate to confirm it.';
+  }
+
+  String? _cellHint(engine.Coordinate coordinate) {
+    if (!_canActivate) return null;
+    if (coordinate == widget.tentativeMove) {
+      return 'Tap again to confirm this move.';
+    }
+    return widget.tentativeMove == null
+        ? 'Tap to preview this move.'
+        : 'Tap to preview this move instead.';
+  }
+
   String _cellDescription(engine.Coordinate coordinate) {
+    final confirmation = coordinate == widget.tentativeMove
+        ? ', tap again to confirm'
+        : '';
     return 'Selected row ${coordinate.row + 1}, column '
         '${coordinate.column + 1}, '
-        '${_cellStateLabel(coordinate).toLowerCase()}';
+        '${_cellStateLabel(coordinate).toLowerCase()}$confirmation';
   }
 
   String _cellStateLabel(engine.Coordinate coordinate) {
@@ -310,7 +400,8 @@ class LifeBoardPainter extends CustomPainter {
     required this.showHover,
     required this.focused,
     required this.showFocus,
-  });
+    this.selectionPulse,
+  }) : super(repaint: selectionPulse);
 
   final engine.Board board;
   final ColorScheme colorScheme;
@@ -324,6 +415,7 @@ class LifeBoardPainter extends CustomPainter {
   final bool showHover;
   final engine.Coordinate? focused;
   final bool showFocus;
+  final Animation<double>? selectionPulse;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -473,7 +565,18 @@ class LifeBoardPainter extends CustomPainter {
           ..color = colorScheme.primary,
       );
     }
-    final shutter = tentativeMove ?? lastMove;
+    if (tentativeMove != null && board.contains(tentativeMove!)) {
+      _drawTentativeSelection(
+        canvas,
+        coordinate: tentativeMove!,
+        cellWidth: cellWidth,
+        cellHeight: cellHeight,
+        radius: radius,
+      );
+    }
+    // The breathing frame is the tentative marker; the shutter is retained
+    // only for an already-committed move so the two cues never stack.
+    final shutter = tentativeMove == null ? lastMove : null;
     if (shutter != null && board.contains(shutter)) {
       _drawShutter(
         canvas,
@@ -489,6 +592,38 @@ class LifeBoardPainter extends CustomPainter {
         ..style = PaintingStyle.stroke
         ..strokeWidth = 1.7
         ..color = LifeColors.boardBorder,
+    );
+  }
+
+  void _drawTentativeSelection(
+    Canvas canvas, {
+    required engine.Coordinate coordinate,
+    required double cellWidth,
+    required double cellHeight,
+    required double radius,
+  }) {
+    final pulse = Curves.easeInOut.transform(selectionPulse?.value ?? .5);
+    final inset = 1.6 + pulse * .35;
+    final rect = Rect.fromLTWH(
+      coordinate.column * cellWidth + inset,
+      coordinate.row * cellHeight + inset,
+      cellWidth - inset * 2,
+      cellHeight - inset * 2,
+    );
+    final shape = RRect.fromRectAndRadius(rect, Radius.circular(radius * .8));
+    canvas.drawRRect(
+      shape,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 3.4 + pulse * .8
+        ..color = LifeColors.boardMarkerDark.withValues(alpha: .72),
+    );
+    canvas.drawRRect(
+      shape,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.7 + pulse * .8
+        ..color = LifeColors.sprout.withValues(alpha: .58 + pulse * .34),
     );
   }
 
@@ -599,5 +734,6 @@ class LifeBoardPainter extends CustomPainter {
       oldDelegate.showHover != showHover ||
       oldDelegate.focused != focused ||
       oldDelegate.showFocus != showFocus ||
+      oldDelegate.selectionPulse != selectionPulse ||
       oldDelegate.births != births;
 }

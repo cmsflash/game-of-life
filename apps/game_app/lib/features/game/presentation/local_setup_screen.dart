@@ -17,11 +17,14 @@ class _LocalSetupScreenState extends ConsumerState<LocalSetupScreen> {
   var _mode = LocalGameMode.elimination;
   var _turnLimit = 100;
   var _target = 50;
+  final _title = TextEditingController();
   final _blackName = TextEditingController(text: 'Black');
   final _whiteName = TextEditingController(text: 'White');
+  var _creating = false;
 
   @override
   void dispose() {
+    _title.dispose();
     _blackName.dispose();
     _whiteName.dispose();
     super.dispose();
@@ -155,10 +158,23 @@ class _LocalSetupScreenState extends ConsumerState<LocalSetupScreen> {
                     style: Theme.of(context).textTheme.titleLarge,
                   ),
                   const SizedBox(height: 16),
+                  TextField(
+                    key: const Key('local-game-title'),
+                    controller: _title,
+                    maxLength: 48,
+                    decoration: const InputDecoration(
+                      labelText: 'Game name (optional)',
+                      counterText: '',
+                      prefixIcon: Icon(Icons.edit_outlined),
+                      hintText: 'Black vs White',
+                    ),
+                  ),
+                  const SizedBox(height: 14),
                   LayoutBuilder(
                     builder: (context, constraints) {
                       final fields = [
                         TextField(
+                          key: const Key('local-black-name'),
                           controller: _blackName,
                           maxLength: 24,
                           decoration: const InputDecoration(
@@ -168,6 +184,7 @@ class _LocalSetupScreenState extends ConsumerState<LocalSetupScreen> {
                           ),
                         ),
                         TextField(
+                          key: const Key('local-white-name'),
                           controller: _whiteName,
                           maxLength: 24,
                           decoration: const InputDecoration(
@@ -213,22 +230,14 @@ class _LocalSetupScreenState extends ConsumerState<LocalSetupScreen> {
               );
               final button = FilledButton.icon(
                 key: const Key('start-local-game'),
-                onPressed: () {
-                  ref
-                      .read(localGameProvider.notifier)
-                      .start(
-                        LocalGameConfig(
-                          mode: _mode,
-                          turnLimit: _turnLimit,
-                          populationTarget: _target,
-                          blackName: _blackName.text,
-                          whiteName: _whiteName.text,
-                        ),
-                      );
-                  context.go('/local/game');
-                },
-                icon: const Icon(Icons.play_arrow),
-                label: const Text('Start game'),
+                onPressed: _creating ? null : _startGame,
+                icon: _creating
+                    ? const SizedBox.square(
+                        dimension: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.play_arrow),
+                label: Text(_creating ? 'Creating…' : 'Start game'),
               );
               if (constraints.maxWidth < 600) {
                 return Column(
@@ -248,6 +257,36 @@ class _LocalSetupScreenState extends ConsumerState<LocalSetupScreen> {
         ],
       ),
     );
+  }
+
+  Future<void> _startGame() async {
+    setState(() => _creating = true);
+    try {
+      final game = await ref
+          .read(localGamesProvider.notifier)
+          .create(
+            LocalGameConfig(
+              mode: _mode,
+              turnLimit: _turnLimit,
+              populationTarget: _target,
+              blackName: _blackName.text,
+              whiteName: _whiteName.text,
+            ),
+            title: _title.text,
+            opponentLabel: _whiteName.text,
+          );
+      if (mounted) context.go('/local/game/${game.id}');
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+        ..clearSnackBars()
+        ..showSnackBar(
+          const SnackBar(
+            content: Text('The local game could not be saved. Try again.'),
+          ),
+        );
+      setState(() => _creating = false);
+    }
   }
 }
 

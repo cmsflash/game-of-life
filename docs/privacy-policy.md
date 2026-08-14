@@ -8,8 +8,10 @@ uses the local game or the optional online service.
 ## Local play
 
 Local matches run on the player's device. They do not require an account and
-are not sent to the online service. The current application contains no
-advertising or third-party analytics.
+are not sent to the online service. Match positions and the local player names
+entered for them are saved on that device so games can be resumed; they can be
+removed from the game's menu or by clearing the application's local data. The
+current application contains no advertising or third-party analytics.
 
 ## Information processed for online play
 
@@ -59,7 +61,7 @@ when legally required. It is not sold and is not used for targeted advertising.
 - DynamoDB point-in-time recovery can retain deleted table data for up to 35
   days before it ages out.
 
-A signed-in player can permanently delete an account from **Profile → Delete
+A signed-in player can permanently delete an account from **Player → Delete
 account**. Deletion removes the identity account and recovery email, cancels
 waiting matches, treats active matches as resignations, removes short-lived
 player records and push subscriptions, and anonymizes player labels and move
