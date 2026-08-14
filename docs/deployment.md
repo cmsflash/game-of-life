@@ -97,9 +97,10 @@ The supported modes are:
 - `hybrid` for both.
 
 For Web Push, generate a P-256 VAPID keypair using a maintained Web Push tool.
-Store the private key as the entire `SecretString` of a Secrets Manager secret
-in the API region. Pass its ARN as `WebPushVapidPrivateKeySecretArn`, pass the
-URL-safe base64 public key as `WebPushVapidPublicKey`, and set
+Store the private key, as either PEM text or a py-vapid-compatible encoded key,
+as the entire `SecretString` of a Secrets Manager secret in the API region.
+Pass its ARN as `WebPushVapidPrivateKeySecretArn`, pass the URL-safe base64
+public key as `WebPushVapidPublicKey`, and set
 `WebPushVapidSubject` to an operator contact such as
 `mailto:operations@example.com`. The private key must never enter source,
 `samconfig.toml`, Flutter defines, or CloudFormation outputs; the public key is

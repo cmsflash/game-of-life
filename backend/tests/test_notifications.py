@@ -8,6 +8,9 @@ from typing import Any
 import pytest
 from boto3.dynamodb.types import TypeSerializer
 from botocore.exceptions import ClientError
+from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.primitives.asymmetric import ec
+from py_vapid import Vapid02
 
 from life_api import notification_handler
 from life_api.models import (
@@ -111,6 +114,15 @@ class StubSecretReader:
     def read(self, secret_arn: str) -> str:
         del secret_arn
         return "{}"
+
+
+class StaticSecretReader:
+    def __init__(self, value: str) -> None:
+        self._value = value
+
+    def read(self, secret_arn: str) -> str:
+        del secret_arn
+        return self._value
 
 
 class StubHttpResponse:
@@ -557,6 +569,15 @@ def test_firebase_only_removes_explicitly_unregistered_tokens(
 
 
 def test_web_push_provider_disables_provider_queueing(monkeypatch: Any) -> None:
+    pem = (
+        ec.generate_private_key(ec.SECP256R1())
+        .private_bytes(
+            serialization.Encoding.PEM,
+            serialization.PrivateFormat.PKCS8,
+            serialization.NoEncryption(),
+        )
+        .decode()
+    )
     calls: list[dict[str, Any]] = []
     monkeypatch.setattr(
         "life_api.notifications.webpush",
@@ -565,7 +586,7 @@ def test_web_push_provider_disables_provider_queueing(monkeypatch: Any) -> None:
     provider = WebPushProvider(
         private_key_secret_arn="secret-arn",
         subject="mailto:operations@example.com",
-        secrets_reader=StubSecretReader(),  # type: ignore[arg-type]
+        secrets_reader=StaticSecretReader(pem),  # type: ignore[arg-type]
     )
     message = NotificationMessage(
         title="It's your turn",
@@ -578,6 +599,37 @@ def test_web_push_provider_disables_provider_queueing(monkeypatch: Any) -> None:
 
     assert calls[0]["ttl"] == 0
     assert calls[0]["headers"]["Topic"] == "collapse-key"
+
+
+def test_web_push_provider_normalizes_pem_secret_before_transport(monkeypatch: Any) -> None:
+    private_key = ec.generate_private_key(ec.SECP256R1())
+    pem = private_key.private_bytes(
+        serialization.Encoding.PEM,
+        serialization.PrivateFormat.PKCS8,
+        serialization.NoEncryption(),
+    ).decode()
+    calls: list[dict[str, Any]] = []
+    monkeypatch.setattr(
+        "life_api.notifications.webpush",
+        lambda **kwargs: calls.append(kwargs),
+    )
+    provider = WebPushProvider(
+        private_key_secret_arn="secret-arn",
+        subject="mailto:operations@example.com",
+        secrets_reader=StaticSecretReader(pem),  # type: ignore[arg-type]
+    )
+    message = NotificationMessage(
+        title="It's your turn",
+        body="Make a move.",
+        data={"matchId": "match-1"},
+        collapse_key="collapse-key",
+    )
+
+    provider.send(_subscription(), message)
+
+    normalized = calls[0]["vapid_private_key"]
+    assert isinstance(normalized, Vapid02)
+    assert normalized.public_key.public_numbers() == private_key.public_key().public_numbers()
 
 
 def test_turn_alerts_for_same_match_share_provider_collapse_key() -> None:

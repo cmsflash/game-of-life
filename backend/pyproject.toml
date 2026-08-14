@@ -16,6 +16,7 @@ dependencies = [
   "httpx>=0.28,<1",
   "mangum>=0.19,<1",
   "pydantic>=2.11,<3",
+  "py-vapid>=1.9,<2",
   "pywebpush>=2.0,<3",
   "PyJWT[crypto]>=2.10,<3",
   "uvicorn[standard]>=0.35,<1",
@@ -53,5 +54,5 @@ mypy_path = "src"
 plugins = ["pydantic.mypy"]
 
 [[tool.mypy.overrides]]
-module = ["boto3", "boto3.*", "botocore", "botocore.*", "pywebpush"]
+module = ["boto3", "boto3.*", "botocore", "botocore.*", "py_vapid", "pywebpush"]
 ignore_missing_imports = true

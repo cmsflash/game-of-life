@@ -14,6 +14,7 @@ import boto3
 import httpx
 import jwt
 from botocore.exceptions import ClientError
+from py_vapid import Vapid02
 from pywebpush import WebPushException, webpush
 
 from .errors import ApiError
@@ -99,6 +100,7 @@ class WebPushProvider:
         self._private_key_secret_arn = private_key_secret_arn
         self._subject = subject
         self._secrets = secrets_reader
+        self._private_key: Vapid02 | None = None
 
     def send(
         self,
@@ -123,7 +125,7 @@ class WebPushProvider:
                     },
                 },
                 data=json.dumps(payload, separators=(",", ":")),
-                vapid_private_key=self._secrets.read(self._private_key_secret_arn),
+                vapid_private_key=self._vapid_private_key(),
                 vapid_claims={"sub": self._subject},
                 # A turn can become stale at any moment. Do not let a push
                 # service retain and deliver this alert after the send attempt.
@@ -137,6 +139,20 @@ class WebPushProvider:
                 raise PushEndpointGone("Web Push subscription expired") from None
             status = response.status_code if response is not None else "unknown"
             raise PushDeliveryError(f"Web Push delivery failed with HTTP {status}") from None
+
+    def _vapid_private_key(self) -> Vapid02:
+        if self._private_key is not None:
+            return self._private_key
+        encoded = self._secrets.read(self._private_key_secret_arn).strip()
+        try:
+            if encoded.startswith("-----BEGIN"):
+                private_key = Vapid02.from_pem(encoded.encode())
+            else:
+                private_key = Vapid02.from_string(encoded)
+        except (TypeError, ValueError):
+            raise PushDeliveryError("Web Push VAPID private key is invalid") from None
+        self._private_key = private_key
+        return private_key
 
 
 class FirebasePushProvider:
