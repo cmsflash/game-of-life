@@ -4,6 +4,9 @@ The cross-platform client for the competitive Game of Life. It runs on Android,
 iOS, web, macOS, Windows, and Linux and uses the shared pure-Dart
 `game_engine` package for offline matches.
 
+The iOS app requires iOS 15.0 or later, matching the minimum supported by its
+Firebase Core and Messaging dependencies.
+
 ## Included flows
 
 - Responsive Material 3 landing page and navigation
