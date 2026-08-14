@@ -141,3 +141,34 @@ def test_push_subscription_transaction_keeps_credentials_in_user_record(
     assert "private-firebase-registration-token" in subscription_item["document"]["S"]
     assert owner_item["PK"] == {"S": "INSTALLATION#installation-0001"}
     assert "document" not in owner_item
+
+
+def test_expired_push_cleanup_conditions_on_exact_subscription_document(
+    monkeypatch,
+    settings: Settings,
+) -> None:
+    client = RecordingClient()
+    table = EmptyTable()
+    monkeypatch.setattr(boto3, "resource", lambda *args, **kwargs: TableResource(table))
+    monkeypatch.setattr(boto3, "client", lambda *args, **kwargs: client)
+    repository = DynamoRepository(settings)
+    subscription = StoredPushSubscription(
+        user_id="user-1",
+        installation_id="installation-0001",
+        platform=PushPlatform.android,
+        provider=PushProviderName.firebase,
+        token="private-firebase-registration-token",
+    )
+
+    assert repository.delete_push_subscription_if_unchanged(subscription) is True
+
+    transaction = client.transactions[0]["TransactItems"]
+    subscription_delete = transaction[0]["Delete"]
+    assert subscription_delete["Key"] == {
+        "PK": {"S": "USER#user-1"},
+        "SK": {"S": "PUSH#installation-0001"},
+    }
+    assert subscription_delete["ConditionExpression"] == "document = :document"
+    assert subscription_delete["ExpressionAttributeValues"][":document"] == {
+        "S": subscription.model_dump_json(by_alias=True)
+    }

@@ -67,6 +67,39 @@ class OneInstallationFailsProvider:
 
 
 @dataclass
+class CapturingProvider:
+    name: PushProviderName = PushProviderName.web_push
+    subscriptions: list[StoredPushSubscription] = field(default_factory=list)
+
+    def send(
+        self,
+        subscription: StoredPushSubscription,
+        message: NotificationMessage,
+    ) -> None:
+        del message
+        self.subscriptions.append(subscription)
+
+
+@dataclass
+class RefreshingGoneProvider:
+    repository: InMemoryRepository
+    refreshed: StoredPushSubscription
+    name: PushProviderName = PushProviderName.web_push
+    subscriptions: list[StoredPushSubscription] = field(default_factory=list)
+
+    def send(
+        self,
+        subscription: StoredPushSubscription,
+        message: NotificationMessage,
+    ) -> None:
+        del message
+        self.subscriptions.append(subscription)
+        if len(self.subscriptions) == 1:
+            self.repository.upsert_push_subscription(self.refreshed)
+            raise PushEndpointGone
+
+
+@dataclass
 class RecordingScheduler:
     jobs: list[tuple[TurnNotificationJob, datetime]] = field(default_factory=list)
 
@@ -126,6 +159,39 @@ class TurnChangesBeforeSendRepository(InMemoryRepository):
         if self._reads >= 2:
             return self._changed.model_copy(deep=True)
         return super().get_match(match_id)
+
+
+class RefreshBeforeSendRepository(InMemoryRepository):
+    def __init__(self, refreshed: StoredPushSubscription) -> None:
+        super().__init__()
+        self._refreshed = refreshed
+        self._refresh_pending = True
+
+    def get_push_subscription(
+        self,
+        user_id: str,
+        installation_id: str,
+    ) -> StoredPushSubscription | None:
+        if self._refresh_pending:
+            self._refresh_pending = False
+            self.upsert_push_subscription(self._refreshed)
+        return super().get_push_subscription(user_id, installation_id)
+
+
+class UnsubscribeBeforeSendRepository(InMemoryRepository):
+    def __init__(self) -> None:
+        super().__init__()
+        self._unsubscribe_pending = True
+
+    def get_push_subscription(
+        self,
+        user_id: str,
+        installation_id: str,
+    ) -> StoredPushSubscription | None:
+        if self._unsubscribe_pending:
+            self._unsubscribe_pending = False
+            self.delete_push_subscription(user_id, installation_id)
+        return super().get_push_subscription(user_id, installation_id)
 
 
 def _active_match(*, revision: int = 3, to_move: str = "white") -> StoredMatch:
@@ -280,6 +346,85 @@ def test_one_failed_installation_does_not_block_another() -> None:
         service.process_reminder(job)
 
     assert provider.delivered_installations == ["installation-0002"]
+
+
+def test_refreshed_subscription_is_reread_immediately_before_send() -> None:
+    refreshed = _subscription().model_copy(
+        update={
+            "endpoint": "https://fcm.googleapis.com/fcm/send/refreshed",
+            "updated_at": datetime.now(UTC),
+        }
+    )
+    repository = RefreshBeforeSendRepository(refreshed)
+    match = _active_match()
+    repository.create_match(match)
+    repository.upsert_push_subscription(_subscription())
+    provider = CapturingProvider()
+    service = TurnNotificationService(
+        repository=repository,
+        providers={PushProviderName.web_push: provider},
+        scheduler=RecordingScheduler(),
+    )
+    job = turn_job_for_match(match)
+    assert job is not None
+
+    service.process_reminder(job)
+
+    assert [value.endpoint for value in provider.subscriptions] == [refreshed.endpoint]
+
+
+def test_unsubscribed_installation_is_not_sent_after_snapshot() -> None:
+    repository = UnsubscribeBeforeSendRepository()
+    match = _active_match()
+    repository.create_match(match)
+    repository.upsert_push_subscription(_subscription())
+    provider = CapturingProvider()
+    service = TurnNotificationService(
+        repository=repository,
+        providers={PushProviderName.web_push: provider},
+        scheduler=RecordingScheduler(),
+    )
+    job = turn_job_for_match(match)
+    assert job is not None
+
+    service.process_reminder(job)
+
+    assert provider.subscriptions == []
+
+
+def test_old_endpoint_failure_cannot_delete_refresh_and_retries_new_value() -> None:
+    repository = InMemoryRepository()
+    match = _active_match()
+    repository.create_match(match)
+    original = _subscription()
+    refreshed = original.model_copy(
+        update={
+            "endpoint": "https://fcm.googleapis.com/fcm/send/refreshed-after-send",
+            "updated_at": datetime.now(UTC),
+        }
+    )
+    repository.upsert_push_subscription(original)
+    provider = RefreshingGoneProvider(repository, refreshed)
+    service = TurnNotificationService(
+        repository=repository,
+        providers={PushProviderName.web_push: provider},
+        scheduler=RecordingScheduler(),
+    )
+    job = turn_job_for_match(match)
+    assert job is not None
+
+    with pytest.raises(PushDeliveryError, match="subscription changed during delivery"):
+        service.process_reminder(job)
+    assert (
+        repository.get_push_subscription(refreshed.user_id, refreshed.installation_id) == refreshed
+    )
+
+    service.process_reminder(job)
+
+    assert [value.endpoint for value in provider.subscriptions] == [
+        original.endpoint,
+        refreshed.endpoint,
+    ]
 
 
 def test_stream_handler_only_dispatches_a_new_active_turn(monkeypatch: Any) -> None:

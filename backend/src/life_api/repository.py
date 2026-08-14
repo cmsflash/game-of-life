@@ -124,7 +124,15 @@ class Repository(Protocol):
 
     def list_push_subscriptions(self, user_id: str) -> list[StoredPushSubscription]: ...
 
+    def get_push_subscription(
+        self, user_id: str, installation_id: str
+    ) -> StoredPushSubscription | None: ...
+
     def delete_push_subscription(self, user_id: str, installation_id: str) -> None: ...
+
+    def delete_push_subscription_if_unchanged(
+        self, subscription: StoredPushSubscription
+    ) -> bool: ...
 
     def claim_notification_delivery(self, delivery_id: str) -> str | None: ...
 
@@ -546,11 +554,28 @@ class InMemoryRepository:
             ]
         return sorted(subscriptions, key=lambda value: value.created_at)
 
+    def get_push_subscription(
+        self, user_id: str, installation_id: str
+    ) -> StoredPushSubscription | None:
+        with self._lock:
+            subscription = self._push_subscriptions.get((user_id, installation_id))
+            return subscription.model_copy(deep=True) if subscription is not None else None
+
     def delete_push_subscription(self, user_id: str, installation_id: str) -> None:
         with self._lock:
             self._push_subscriptions.pop((user_id, installation_id), None)
             if self._installation_owners.get(installation_id) == user_id:
                 self._installation_owners.pop(installation_id, None)
+
+    def delete_push_subscription_if_unchanged(self, subscription: StoredPushSubscription) -> bool:
+        with self._lock:
+            key = (subscription.user_id, subscription.installation_id)
+            if self._push_subscriptions.get(key) != subscription:
+                return False
+            self._push_subscriptions.pop(key, None)
+            if self._installation_owners.get(subscription.installation_id) == subscription.user_id:
+                self._installation_owners.pop(subscription.installation_id, None)
+            return True
 
     def claim_notification_delivery(self, delivery_id: str) -> str | None:
         with self._lock:
@@ -1791,6 +1816,17 @@ class DynamoRepository:
         ]
         return sorted(subscriptions, key=lambda value: value.created_at)
 
+    def get_push_subscription(
+        self, user_id: str, installation_id: str
+    ) -> StoredPushSubscription | None:
+        item = self._table.get_item(
+            Key={"PK": f"USER#{user_id}", "SK": f"PUSH#{installation_id}"},
+            ConsistentRead=True,
+        ).get("Item")
+        if item is None:
+            return None
+        return StoredPushSubscription.model_validate_json(item["document"])
+
     def delete_push_subscription(self, user_id: str, installation_id: str) -> None:
         subscription_key = {"PK": f"USER#{user_id}", "SK": f"PUSH#{installation_id}"}
         owner_key = {"PK": f"INSTALLATION#{installation_id}", "SK": "OWNER"}
@@ -1825,6 +1861,48 @@ class DynamoRepository:
             if error.response["Error"]["Code"] == "TransactionCanceledException":
                 return
             raise
+
+    def delete_push_subscription_if_unchanged(self, subscription: StoredPushSubscription) -> bool:
+        subscription_key = {
+            "PK": f"USER#{subscription.user_id}",
+            "SK": f"PUSH#{subscription.installation_id}",
+        }
+        owner_key = {"PK": f"INSTALLATION#{subscription.installation_id}", "SK": "OWNER"}
+        try:
+            self._client.transact_write_items(
+                TransactItems=[
+                    {
+                        "Delete": {
+                            "TableName": self._table_name,
+                            "Key": _serialize(subscription_key),
+                            "ConditionExpression": "document = :document",
+                            "ExpressionAttributeValues": _serialize_values(
+                                {":document": subscription.model_dump_json(by_alias=True)}
+                            ),
+                        }
+                    },
+                    {
+                        "Delete": {
+                            "TableName": self._table_name,
+                            "Key": _serialize(owner_key),
+                            "ConditionExpression": (
+                                "userId = :userId AND installationId = :installationId"
+                            ),
+                            "ExpressionAttributeValues": _serialize_values(
+                                {
+                                    ":userId": subscription.user_id,
+                                    ":installationId": subscription.installation_id,
+                                }
+                            ),
+                        }
+                    },
+                ]
+            )
+        except ClientError as error:
+            if error.response["Error"]["Code"] == "TransactionCanceledException":
+                return False
+            raise
+        return True
 
     def claim_notification_delivery(self, delivery_id: str) -> str | None:
         now = datetime.now(UTC)

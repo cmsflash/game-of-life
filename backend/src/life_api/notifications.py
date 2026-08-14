@@ -444,11 +444,8 @@ class TurnNotificationService:
         message = _message(job)
         subscriptions = self.repository.list_push_subscriptions(job.recipient_user_id)
         first_error: Exception | None = None
-        for subscription in subscriptions[:_MAX_SUBSCRIPTIONS_PER_USER]:
-            provider = self.providers.get(subscription.provider)
-            if provider is None:
-                continue
-            delivery_id = _delivery_id(job, subscription.installation_id)
+        for snapshot in subscriptions[:_MAX_SUBSCRIPTIONS_PER_USER]:
+            delivery_id = _delivery_id(job, snapshot.installation_id)
             claim_token = self.repository.claim_notification_delivery(delivery_id)
             if claim_token is None:
                 continue
@@ -458,14 +455,30 @@ class TurnNotificationService:
             if self._current_match(job) is None:
                 self.repository.complete_notification_delivery(delivery_id, claim_token)
                 return
+            subscription = self.repository.get_push_subscription(
+                snapshot.user_id,
+                snapshot.installation_id,
+            )
+            if subscription is None:
+                self.repository.complete_notification_delivery(delivery_id, claim_token)
+                continue
+            provider = self.providers.get(subscription.provider)
+            if provider is None:
+                self.repository.complete_notification_delivery(delivery_id, claim_token)
+                continue
             try:
                 provider.send(subscription, message)
             except PushEndpointGone:
-                self.repository.delete_push_subscription(
-                    subscription.user_id,
-                    subscription.installation_id,
-                )
-                self.repository.complete_notification_delivery(delivery_id, claim_token)
+                if self.repository.delete_push_subscription_if_unchanged(subscription):
+                    self.repository.complete_notification_delivery(delivery_id, claim_token)
+                else:
+                    # A refreshed credential won the race with the provider
+                    # response. Release the claim so a retry can use it.
+                    self.repository.release_notification_delivery(delivery_id, claim_token)
+                    if first_error is None:
+                        first_error = PushDeliveryError(
+                            f"{subscription.provider.value} subscription changed during delivery"
+                        )
             except Exception:
                 self.repository.release_notification_delivery(delivery_id, claim_token)
                 if first_error is None:

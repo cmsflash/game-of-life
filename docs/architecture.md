@@ -97,8 +97,11 @@ later release an accumulated burst after that turn has become stale.
 Delivery claims are stored per match revision, reminder offset, and
 installation. Retries normally send once; an unavoidable crash between a push
 provider accepting a message and recording completion can still produce a
-duplicate, so provider collapse identifiers are deterministic. Expired device
-tokens are removed. Failed stream records and exhausted scheduled jobs enter an
+duplicate, so provider collapse identifiers are deterministic. The worker
+re-reads each subscription immediately before sending. Expired credentials are
+deleted only when the stored subscription still exactly matches the attempted
+value; a concurrent refresh releases the delivery claim and retries against the
+new value instead. Failed stream records and exhausted scheduled jobs enter an
 encrypted dead-letter queue, whose visible-message alarm covers partial stream
 failures that do not increment the Lambda error metric.
 
