@@ -8,6 +8,7 @@ import hashlib
 import io
 import json
 import string
+import xml.etree.ElementTree as ET
 from pathlib import Path
 
 import PIL
@@ -429,6 +430,22 @@ def _validate_generated_assets(assets: dict[Path, bytes]) -> None:
             raise ValueError(f"invalid two-player cell colors in {path}")
         if "#FF765E" in artwork or "#7FC8FF" in artwork:
             raise ValueError(f"legacy accent color remains in {path}")
+
+    expected_diagonal = [SPROUT, PAPER, PAPER, SPROUT]
+    svg_root = ET.fromstring(assets[Path("assets/brand/app_icon.svg")])
+    svg_rects = svg_root.findall("{http://www.w3.org/2000/svg}rect")
+    if [rect.attrib.get("fill") for rect in svg_rects[1:]] != expected_diagonal:
+        raise ValueError("SVG cells must use the two-player diagonal layout")
+
+    android_root = ET.fromstring(
+        assets[Path("android/app/src/main/res/drawable/ic_launcher_foreground.xml")]
+    )
+    android_namespace = "{http://schemas.android.com/apk/res/android}"
+    if [
+        path.attrib.get(f"{android_namespace}fillColor")
+        for path in android_root.findall("path")
+    ] != expected_diagonal:
+        raise ValueError("Android cells must use the two-player diagonal layout")
 
     with Image.open(
         io.BytesIO(assets[Path("windows/runner/resources/app_icon.ico")])
