@@ -358,6 +358,17 @@ def _validate_generated_assets(assets: dict[Path, bytes]) -> None:
                     f"invalid generated PNG {path}: "
                     f"format={image.format} size={image.size} mode={image.mode}"
                 )
+            if (
+                mode == "RGBA"
+                and path != Path("assets/brand/play_store_icon_512.png")
+                and (
+                    image.getchannel("A").getextrema() != (0, 255)
+                    or image.getpixel((0, 0))[3] != 0
+                )
+            ):
+                raise ValueError(
+                    f"transparent icon must have a clear corner and opaque art: {path}"
+                )
 
     with Image.open(
         io.BytesIO(assets[Path("assets/brand/play_store_icon_512.png")])
@@ -383,6 +394,31 @@ def _validate_generated_assets(assets: dict[Path, bytes]) -> None:
         expected_background = tuple(bytes.fromhex(INK.removeprefix("#")))
         if canonical_icon.getpixel((0, 0)) != expected_background:
             raise ValueError("canonical opaque icon must use the ink background")
+
+    with Image.open(
+        io.BytesIO(assets[Path("assets/brand/app_icon_1024.png")])
+    ) as transparent_icon:
+        expected_cells = (
+            ((405, 405), SPROUT),
+            ((619, 405), PAPER),
+            ((405, 619), PAPER),
+            ((619, 619), SPROUT),
+        )
+        for position, expected_hex in expected_cells:
+            expected_rgba = (*bytes.fromhex(expected_hex.removeprefix("#")), 255)
+            if transparent_icon.getpixel(position) != expected_rgba:
+                raise ValueError(
+                    "transparent icon must use the two-player diagonal 2x2 layout"
+                )
+        expected_ink = (*bytes.fromhex(INK.removeprefix("#")), 255)
+        if transparent_icon.getpixel((512, 512)) != expected_ink:
+            raise ValueError("transparent icon tile must use the ink background")
+
+    with Image.open(io.BytesIO(assets[Path("web/icons/Badge-96.png")])) as badge:
+        expected_paper = (*bytes.fromhex(PAPER.removeprefix("#")), 255)
+        for position in ((34, 34), (62, 34), (34, 62), (62, 62)):
+            if badge.getpixel(position) != expected_paper:
+                raise ValueError("notification badge must contain four paper cells")
 
     for path in (
         Path("assets/brand/app_icon.svg"),
