@@ -24,8 +24,8 @@ self.addEventListener("push", (event) => {
       notification.title ?? defaultTitle,
       {
         body: notification.body ?? defaultBody,
-        icon: "/icons/Icon-192.png",
-        badge: "/icons/Icon-192.png",
+        icon: "/icons/Icon-192.png?v=20260815-2x2",
+        badge: "/icons/Badge-96.png?v=20260815-2x2",
         tag: matchId ? `turn-${matchId}` : "turn-notification",
         renotify: true,
         data: { path },

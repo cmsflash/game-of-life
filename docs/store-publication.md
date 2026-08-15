@@ -38,7 +38,9 @@ placeholders in a store record.
 
 - Phone and tablet screenshots showing Home, local setup, a live match, Social,
   Settings, profile-picture management, privacy policy, and account deletion.
-- Android feature graphic and final adaptive-icon preview.
+- Android feature graphic and final adaptive-icon preview. Use the generated
+  opaque, full-square `apps/game_app/assets/brand/play_store_icon_512.png` for
+  the Google Play listing; Play applies the final mask and shadow.
 - Review notes explaining that local play needs no account and how reviewers
   can exercise online play with two test accounts.
 - A disposable reviewer account when the store review process permits one.

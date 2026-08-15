@@ -65,10 +65,20 @@ jobs:
           flutter-version: 3.44.8
           channel: stable
           cache: true
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: apps/game_app/tool/requirements-brand-icons.txt
+      - name: Verify generated brand icons
+        run: |
+          python -m pip install -r apps/game_app/tool/requirements-brand-icons.txt
+          python apps/game_app/tool/generate_brand_icons.py --check
       - name: Validate publication metadata
         run: |
           python3 - <<'PY'
           import json
+          import hashlib
           import xml.etree.ElementTree as ET
           from pathlib import Path
 
@@ -91,10 +101,62 @@ jobs:
           assert application is not None
           assert application.attrib[f"{android_ns}dataExtractionRules"] == "@xml/data_extraction_rules"
           assert application.attrib[f"{android_ns}fullBackupContent"] == "@xml/backup_rules"
+          metadata = {
+              item.attrib[f"{android_ns}name"]: item.attrib
+              for item in application.findall("meta-data")
+          }
+          assert (
+              metadata["com.google.firebase.messaging.default_notification_icon"]
+              [f"{android_ns}resource"]
+              == "@drawable/ic_stat_life"
+          )
+          assert (
+              metadata["com.google.firebase.messaging.default_notification_color"]
+              [f"{android_ns}resource"]
+              == "@color/ic_notification_color"
+          )
 
           web_manifest = json.loads((app / "web/manifest.json").read_text())
           assert web_manifest["name"] == "The Game of Life"
           assert any("maskable" in icon.get("purpose", "") for icon in web_manifest["icons"])
+          assert all("?v=20260815-2x2" in icon["src"] for icon in web_manifest["icons"])
+
+          icon_hashes = json.loads(
+              (app / "assets/brand/app_icon_assets.sha256.json").read_text()
+          )
+          assert len(icon_hashes) == 44
+          for relative, expected in icon_hashes.items():
+              path = app / relative
+              assert path.is_file(), relative
+              assert hashlib.sha256(path.read_bytes()).hexdigest() == expected, relative
+
+          source_icon = (app / "assets/brand/app_icon.svg").read_text()
+          android_foreground = (
+              app / "android/app/src/main/res/drawable/ic_launcher_foreground.xml"
+          ).read_text()
+          for artwork in (source_icon, android_foreground):
+              assert artwork.count("#B7F36B") == 2
+              assert artwork.count("#F7F3EA") == 2
+              assert "#FF765E" not in artwork
+              assert "#7FC8FF" not in artwork
+
+          web_index = (app / "web/index.html").read_text()
+          assert ".life-startup-mark span:nth-child(1)" in web_index
+          assert ".life-startup-mark span:nth-child(4)" in web_index
+          assert ".life-startup-mark span:nth-child(2)" not in web_index
+          assert "favicon.png?v=20260815-2x2" in web_index
+          assert (
+              'sizes="180x180" href="icons/Apple-touch-icon-180.png?v=20260815-2x2"'
+              in web_index
+          )
+          push_worker = (app / "web/push-service-worker.js").read_text()
+          assert push_worker.count("Icon-192.png?v=20260815-2x2") == 1
+          assert push_worker.count("Badge-96.png?v=20260815-2x2") == 1
+          adaptive = (
+              app / "android/app/src/main/res/mipmap-anydpi-v33/ic_launcher.xml"
+          ).read_text()
+          assert '@drawable/ic_launcher_monochrome' in adaptive
+          assert (app / "assets/brand/play_store_icon_512.png").is_file()
           PY
       - run: flutter pub get
         working-directory: apps/game_app
@@ -181,8 +243,8 @@ jobs:
           cache: pip
           cache-dependency-path: backend/pyproject.toml
       - run: python -m pip install -e 'backend[dev]'
-      - run: ruff format --check backend
-      - run: ruff check backend
+      - run: ruff format --check backend apps/game_app/tool
+      - run: ruff check backend apps/game_app/tool
       - run: mypy --config-file backend/pyproject.toml backend/src
       - run: pytest backend/tests --cov=life_api --cov-report=term-missing
 

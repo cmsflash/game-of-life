@@ -9,7 +9,7 @@ Firebase Core and Messaging dependencies.
 
 ## Included flows
 
-- Responsive Material 3 Home/Player navigation with one unified game list
+- Responsive Material 3 Home/Social/Settings navigation with one unified game list
 - Multiple persistent offline hot-seat games on a 20×20 board
 - Two-step move previews with same-cell confirmation and accessible controls
 - Elimination, turn-limit, and population-target victory modes
@@ -19,11 +19,31 @@ Firebase Core and Messaging dependencies.
 - In-app privacy, Terms, open-source license, and permanent account deletion
 - Quick matchmaking, public/private room creation, join by code, match list, online
   board polling, move submission, stale-revision recovery, and resignation
-- Opt-in turn alerts on web, Android, and iOS with direct links back to a match
+- Automatic turn alerts on web, Android, and iOS with direct links back to a match
 - Server board decoding for the canonical state JSON and packed 2-bit format
 
 Username/password authentication never contacts Google and remains available
 when Google is unreachable.
+
+## Brand icons
+
+Every browser, PWA, notification, Android, iOS, macOS, Windows, and Linux icon
+is generated from the same diagonal two-player 2×2 mark. After changing the
+canonical geometry in `tool/generate_brand_icons.py`, regenerate and verify the
+committed platform assets with:
+
+```sh
+../../.venv/bin/python -m pip install -r tool/requirements-brand-icons.txt
+../../.venv/bin/python tool/generate_brand_icons.py
+../../.venv/bin/python tool/generate_brand_icons.py --check
+```
+
+The renderer version is pinned so the committed assets are byte-for-byte
+reproducible in CI. `assets/brand/play_store_icon_512.png` is the opaque,
+full-square Google Play listing export; the store applies its own mask and
+shadow. Android adaptive, themed, and notification icons and the web
+notification badge are generated separately from the same cell geometry so
+each platform can apply its own mask safely.
 
 ## Run
 
@@ -102,7 +122,8 @@ not server credentials. FCM service-account credentials and the Apple APNs
 authentication key remain backend/Firebase secrets. Before distributing iOS,
 enable Push Notifications for the App ID and provisioning profile and upload
 an APNs authentication key to Firebase. Android 13+ and iOS ask the player for
-permission only after they turn the Player preference on.
+permission from the Settings screen when the operating system still requires
+an explicit user gesture.
 
 The authenticated client contract is:
 
