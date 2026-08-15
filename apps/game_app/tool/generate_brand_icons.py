@@ -71,8 +71,9 @@ ANDROID_ICON_SIZES = {
 }
 
 
-def _scaled(value: int) -> int:
-    return value * RENDER_SCALE
+def _scaled(value: int, output_size: int) -> int:
+    numerator = value * output_size * RENDER_SCALE
+    return (numerator + CANVAS // 2) // CANVAS
 
 
 def _draw_cells(
@@ -82,6 +83,7 @@ def _draw_cells(
     cell_size: int,
     gap: int,
     radius: int,
+    output_size: int,
     monochrome: bool = False,
 ) -> None:
     colors = (PAPER,) * 4 if monochrome else (SPROUT, PAPER, PAPER, SPROUT)
@@ -94,18 +96,18 @@ def _draw_cells(
     for (x, y), color in zip(positions, colors, strict=True):
         draw.rounded_rectangle(
             (
-                _scaled(x),
-                _scaled(y),
-                _scaled(x + cell_size),
-                _scaled(y + cell_size),
+                _scaled(x, output_size),
+                _scaled(y, output_size),
+                _scaled(x + cell_size, output_size),
+                _scaled(y + cell_size, output_size),
             ),
-            radius=_scaled(radius),
+            radius=_scaled(radius, output_size),
             fill=color,
         )
 
 
-def _render_master(*, opaque: bool) -> Image.Image:
-    side = CANVAS * RENDER_SCALE
+def _render_master(*, opaque: bool, output_size: int) -> Image.Image:
+    side = output_size * RENDER_SCALE
     background = INK if opaque else (0, 0, 0, 0)
     image = Image.new("RGBA", (side, side), background)
     draw = ImageDraw.Draw(image)
@@ -117,14 +119,15 @@ def _render_master(*, opaque: bool) -> Image.Image:
             cell_size=FULL_CELL_SIZE,
             gap=FULL_CELL_GAP,
             radius=FULL_CELL_RADIUS,
+            output_size=output_size,
         )
     else:
         draw.rounded_rectangle(
-            tuple(_scaled(value) for value in TILE_BOX),
-            radius=_scaled(TILE_RADIUS),
+            tuple(_scaled(value, output_size) for value in TILE_BOX),
+            radius=_scaled(TILE_RADIUS, output_size),
             fill=INK,
             outline=OUTLINE,
-            width=_scaled(TILE_STROKE),
+            width=max(1, _scaled(TILE_STROKE, output_size)),
         )
         _draw_cells(
             draw,
@@ -132,12 +135,20 @@ def _render_master(*, opaque: bool) -> Image.Image:
             cell_size=CELL_SIZE,
             gap=CELL_GAP,
             radius=CELL_RADIUS,
+            output_size=output_size,
         )
     return image
 
 
+def _raster_image(size: int, *, opaque: bool) -> Image.Image:
+    return _render_master(opaque=opaque, output_size=size).resize(
+        (size, size),
+        Image.Resampling.BOX,
+    )
+
+
 def _badge_png_bytes(size: int) -> bytes:
-    side = CANVAS * RENDER_SCALE
+    side = size * RENDER_SCALE
     image = Image.new("RGBA", (side, side), (0, 0, 0, 0))
     _draw_cells(
         ImageDraw.Draw(image),
@@ -145,19 +156,17 @@ def _badge_png_bytes(size: int) -> bytes:
         cell_size=FULL_CELL_SIZE,
         gap=FULL_CELL_GAP,
         radius=FULL_CELL_RADIUS,
+        output_size=size,
         monochrome=True,
     )
-    image = image.resize((size, size), Image.Resampling.LANCZOS)
+    image = image.resize((size, size), Image.Resampling.BOX)
     output = io.BytesIO()
     image.save(output, format="PNG", compress_level=9, optimize=False)
     return output.getvalue()
 
 
 def _png_bytes(size: int, *, opaque: bool, preserve_alpha: bool = False) -> bytes:
-    image = _render_master(opaque=opaque).resize(
-        (size, size),
-        Image.Resampling.LANCZOS,
-    )
+    image = _raster_image(size, opaque=opaque)
     if opaque and not preserve_alpha:
         image = image.convert("RGB")
     output = io.BytesIO()
@@ -166,23 +175,14 @@ def _png_bytes(size: int, *, opaque: bool, preserve_alpha: bool = False) -> byte
 
 
 def _ico_bytes() -> bytes:
-    image = _render_master(opaque=False).resize(
-        (256, 256),
-        Image.Resampling.LANCZOS,
-    )
+    sizes = (16, 24, 32, 48, 64, 128, 256)
+    frames = [_raster_image(size, opaque=False) for size in reversed(sizes)]
     output = io.BytesIO()
-    image.save(
+    frames[0].save(
         output,
         format="ICO",
-        sizes=[
-            (16, 16),
-            (24, 24),
-            (32, 32),
-            (48, 48),
-            (64, 64),
-            (128, 128),
-            (256, 256),
-        ],
+        sizes=[(size, size) for size in sizes],
+        append_images=frames[1:],
     )
     return output.getvalue()
 
