@@ -22,7 +22,6 @@ class SocialState {
     this.notice,
     this.matchId,
     this.snapshotVersion = 0,
-    this.discoverable = false,
   });
 
   final SocialStatus status;
@@ -39,7 +38,6 @@ class SocialState {
   final String? notice;
   final String? matchId;
   final int snapshotVersion;
-  final bool discoverable;
 
   bool get hasOverviewData =>
       friends.isNotEmpty ||
@@ -63,7 +61,6 @@ class SocialState {
     String? notice,
     String? matchId,
     int? snapshotVersion,
-    bool? discoverable,
     bool clearAction = false,
     bool clearError = false,
     bool clearNotice = false,
@@ -85,7 +82,6 @@ class SocialState {
     notice: clearNotice ? null : notice ?? this.notice,
     matchId: clearMatch ? null : matchId ?? this.matchId,
     snapshotVersion: snapshotVersion ?? this.snapshotVersion,
-    discoverable: discoverable ?? this.discoverable,
   );
 }
 
@@ -141,41 +137,6 @@ class SocialController extends StateNotifier<SocialState> {
 
   Future<void> refresh() => load(force: true);
 
-  Future<void> setDiscoverable(bool discoverable) async {
-    if (state.actionId != null || _accountId == null) return;
-    final generation = _generation;
-    state = state.copyWith(
-      actionId: 'discoverability',
-      clearError: true,
-      clearNotice: true,
-    );
-    try {
-      final result = await _repository.setDiscoverable(discoverable);
-      if (!_isCurrent(generation)) return;
-      if (result.version < state.snapshotVersion) {
-        state = state.copyWith(clearAction: true);
-        await refresh();
-        return;
-      }
-      state = state.copyWith(
-        discoverable: result.discoverable,
-        snapshotVersion: result.version,
-        clearAction: true,
-        notice: result.discoverable
-            ? 'You now appear in signed-in player search.'
-            : 'You are hidden from player search. Existing friends are unchanged.',
-      );
-      try {
-        await _reloadOverview(generation);
-      } catch (_) {
-        // The canonical toggle result is already safe to display.
-      }
-    } catch (error) {
-      if (!_isCurrent(generation)) return;
-      state = state.copyWith(clearAction: true, error: _message(error));
-    }
-  }
-
   void cancelSearch() {
     _searchGeneration++;
     state = state.copyWith(
@@ -201,12 +162,12 @@ class SocialController extends StateNotifier<SocialState> {
       );
       return;
     }
-    if (normalized.length < 3 || normalized.length > 48) {
+    if (normalized.length > 48) {
       state = state.copyWith(
         searchQuery: normalized,
         searchResults: const [],
         searching: false,
-        error: 'Enter 3 to 48 characters of a public display name.',
+        error: 'Enter up to 48 characters of a public display name.',
       );
       return;
     }
@@ -419,7 +380,6 @@ class SocialController extends StateNotifier<SocialState> {
       clearAction: !preserveAction,
       clearError: true,
       snapshotVersion: overview.version,
-      discoverable: overview.discoverable,
     );
   }
 

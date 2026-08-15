@@ -60,7 +60,9 @@ The client includes in-app privacy, Terms, open-source license, and account
 deletion surfaces. The API deletes the identity account, resolves outstanding
 matches, and anonymizes retained history. Online opponents see each player's
 chosen public display name, while login usernames and email addresses stay out
-of match documents. Public-name search is opt-in and off by default.
+of match documents. Every active online account is searchable by its public
+display name during this development phase; players can optionally upload a
+processed profile picture for Social and match views.
 Authenticated remote matches are rated with server-authoritative Elo, result,
 and kill statistics; device-local games remain private and unrated.
 

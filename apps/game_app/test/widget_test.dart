@@ -1,9 +1,13 @@
+import 'dart:async';
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:game_engine/game_engine.dart' as engine;
 import 'package:game_of_life/app.dart';
 import 'package:game_of_life/features/auth/data/session_store.dart';
+import 'package:game_of_life/features/auth/data/profile_avatar.dart';
 import 'package:game_of_life/features/game/data/local_game_store.dart';
 import 'package:game_of_life/features/game/domain/game_session.dart';
 import 'package:game_of_life/features/notifications/domain/turn_notifications.dart';
@@ -14,6 +18,7 @@ import 'package:game_of_life/features/social/data/social_repository.dart';
 import 'package:game_of_life/features/stats/data/player_stats.dart';
 import 'package:game_of_life/features/stats/data/player_stats_repository.dart';
 import 'package:game_of_life/providers.dart';
+import 'package:go_router/go_router.dart';
 
 import 'fakes.dart';
 
@@ -28,6 +33,7 @@ void main() {
     FakeOnlineRepository? onlineRepository,
     SocialRepository? socialRepository,
     PlayerStatsRepository? playerStatsRepository,
+    ProfileAvatarPicker? profileAvatarPicker,
   }) async {
     tester.view.physicalSize = size;
     tester.view.devicePixelRatio = 1;
@@ -57,6 +63,9 @@ void main() {
           ),
           turnNotificationGatewayProvider.overrideWithValue(
             notificationGateway ?? FakeTurnNotificationGateway(),
+          ),
+          profileAvatarPickerProvider.overrideWithValue(
+            profileAvatarPicker ?? FakeProfileAvatarPicker(),
           ),
         ],
         child: const GameOfLifeApp(),
@@ -172,7 +181,7 @@ void main() {
     expect(displayName.autofillHints, const [AutofillHints.nickname]);
     expect(
       displayName.decoration?.helperText,
-      'Shown to friends and opponents; player search is a separate opt-in',
+      'Public to signed-in players in search, friends, and matches',
     );
     expect(email.autofillHints, const [AutofillHints.email]);
     expect(email.keyboardType, TextInputType.emailAddress);
@@ -222,7 +231,7 @@ void main() {
   ) async {
     await pumpApp(tester);
 
-    await tester.tap(find.text('Player'));
+    await tester.tap(find.text('Settings'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('About'));
     await tester.pumpAndSettle();
@@ -232,34 +241,109 @@ void main() {
     expect(find.text('Account deletion'), findsOneWidget);
   });
 
-  testWidgets('privacy policy discloses Social and automatic notifications', (
+  testWidgets(
+    'privacy policy discloses Social, avatars, and automatic notifications',
+    (tester) async {
+      await pumpApp(tester);
+
+      await tester.tap(find.text('Settings'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Privacy Policy'));
+      await tester.pumpAndSettle();
+
+      expect(find.textContaining('Effective August 14, 2026'), findsOneWidget);
+      expect(
+        find.textContaining(
+          'profile picture, and current Elo rating are searchable',
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.textContaining('Display names, profile pictures, and ratings'),
+        findsOneWidget,
+      );
+      expect(
+        find.textContaining('stored as a private object at rest'),
+        findsOneWidget,
+      );
+      expect(
+        find.textContaining('shared caches may retain a prior response'),
+        findsOneWidget,
+      );
+      expect(
+        find.textContaining('immediately fail closed with a 404 response'),
+        findsOneWidget,
+      );
+      expect(
+        find.textContaining('immediately prevents public delivery'),
+        findsOneWidget,
+      );
+      expect(
+        find.textContaining('normal cleanup checks it after about 15 minutes'),
+        findsOneWidget,
+      );
+      expect(
+        find.textContaining('eligible for storage lifecycle cleanup'),
+        findsOneWidget,
+      );
+      expect(
+        find.textContaining('Durable retries and alarms cover rare'),
+        findsOneWidget,
+      );
+      expect(
+        find.textContaining('configured maximum, currently 14 days'),
+        findsOneWidget,
+      );
+      expect(
+        find.textContaining(
+          'automatically registers and refreshes a push endpoint',
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.textContaining('browser or system settings'),
+        findsAtLeastNWidgets(1),
+      );
+    },
+  );
+
+  testWidgets('terms disclose avatar rights, license, and content rules', (
     tester,
   ) async {
     await pumpApp(tester);
 
-    await tester.tap(find.text('Player'));
+    await tester.tap(find.text('Settings'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Privacy Policy'));
+    await tester.tap(find.text('Terms of Use'));
     await tester.pumpAndSettle();
 
-    expect(find.textContaining('Effective August 14, 2026'), findsOneWidget);
     expect(
-      find.textContaining('display name and current Elo rating are searchable'),
-      findsOneWidget,
-    );
-    expect(
-      find.textContaining('display names and ratings are shared'),
+      find.textContaining('confirm that you own it or have permission'),
       findsOneWidget,
     );
     expect(
       find.textContaining(
-        'automatically registers and refreshes a push endpoint',
+        'limited, non-exclusive, worldwide, royalty-free license',
       ),
       findsOneWidget,
     );
     expect(
-      find.textContaining('browser or system settings'),
-      findsAtLeastNWidgets(1),
+      find.textContaining('crop, re-encode, host, reproduce'),
+      findsOneWidget,
+    );
+    expect(
+      find.textContaining('privacy-invasive, sexually exploitative'),
+      findsOneWidget,
+    );
+    expect(
+      find.textContaining('infringes intellectual-property or other rights'),
+      findsOneWidget,
+    );
+    expect(
+      find.textContaining(
+        'may remove or disable a picture and restrict access',
+      ),
+      findsOneWidget,
     );
   });
 
@@ -298,7 +382,7 @@ void main() {
       notificationGateway: gateway,
     );
 
-    await tester.tap(find.text('Player'));
+    await tester.tap(find.text('Settings'));
     await tester.pumpAndSettle();
     await tester.ensureVisible(find.byKey(const Key('delete-account')));
     await tester.tap(find.byKey(const Key('delete-account')));
@@ -312,6 +396,140 @@ void main() {
     expect(notifications.deletedInstallationIds, ['test-device']);
     expect(gateway.deactivateCalls, 1);
     expect(find.text('Choose your next game'), findsOneWidget);
+  });
+
+  testWidgets('Settings uploads and removes a profile picture', (tester) async {
+    final auth = FakeAuthRepository();
+    await auth.login(username: 'alice', password: 'password');
+    final picker = FakeProfileAvatarPicker()
+      ..result = ProfileAvatarUpload(
+        bytes: Uint8List.fromList(const [0xff, 0xd8, 0xff]),
+        filename: 'profile.jpg',
+        contentType: 'image/jpeg',
+      );
+    await pumpApp(
+      tester,
+      size: const Size(390, 844),
+      authRepository: auth,
+      profileAvatarPicker: picker,
+    );
+
+    await tester.tap(find.text('Settings'));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('settings-avatar')), findsOneWidget);
+    expect(
+      find.text(
+        'Shown publicly in player search, friends, and online matches.',
+      ),
+      findsOneWidget,
+    );
+
+    await tester.tap(find.byKey(const Key('choose-profile-picture')));
+    await tester.pumpAndSettle();
+
+    expect(picker.calls, 1);
+    expect(auth.current?.avatarVersion, 1);
+    expect(find.text('Profile picture updated.'), findsOneWidget);
+    expect(find.byKey(const Key('remove-profile-picture')), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('remove-profile-picture')));
+    await tester.pumpAndSettle();
+
+    expect(auth.removeAvatarCalls, 1);
+    expect(auth.current?.avatarUrl, isNull);
+    expect(find.text('Profile picture removed.'), findsOneWidget);
+    expect(find.byKey(const Key('remove-profile-picture')), findsNothing);
+  });
+
+  testWidgets('profile picture failure offers an explicit retry', (
+    tester,
+  ) async {
+    final auth = FakeAuthRepository();
+    await auth.login(username: 'alice', password: 'password');
+    final picker = FakeProfileAvatarPicker()
+      ..error = const ProfileAvatarPickException(
+        'Choose a JPEG, PNG, or WebP image smaller than 3 MB.',
+      );
+    await pumpApp(
+      tester,
+      size: const Size(390, 844),
+      authRepository: auth,
+      profileAvatarPicker: picker,
+    );
+
+    await tester.tap(find.text('Settings'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('choose-profile-picture')));
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('smaller than 3 MB'), findsOneWidget);
+    expect(find.byKey(const Key('retry-profile-picture')), findsOneWidget);
+  });
+
+  testWidgets('profile picture picker result is fenced after sign out', (
+    tester,
+  ) async {
+    final auth = FakeAuthRepository();
+    await auth.login(username: 'alice', password: 'password');
+    final pickerGate = Completer<ProfileAvatarUpload?>();
+    final picker = FakeProfileAvatarPicker()..gate = pickerGate;
+    await pumpApp(
+      tester,
+      size: const Size(390, 844),
+      authRepository: auth,
+      profileAvatarPicker: picker,
+    );
+
+    await tester.tap(find.text('Settings'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('choose-profile-picture')));
+    await tester.pump();
+    final choose = tester.widget<FilledButton>(
+      find.byKey(const Key('choose-profile-picture')),
+    );
+    expect(choose.onPressed, isNull);
+
+    await tester.ensureVisible(find.text('Sign out').last);
+    await tester.tap(find.text('Sign out').last);
+    await tester.pump();
+    pickerGate.complete(
+      ProfileAvatarUpload(
+        bytes: Uint8List.fromList(const [0xff, 0xd8, 0xff]),
+        filename: 'profile.jpg',
+        contentType: 'image/jpeg',
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(auth.uploadAvatarCalls, 0);
+    expect(auth.current, isNull);
+    expect(find.text('Choose your next game'), findsOneWidget);
+  });
+
+  testWidgets('legacy player routes redirect to Settings', (tester) async {
+    await pumpApp(tester, size: const Size(390, 844));
+    final context = tester.element(find.byType(NavigationBar));
+
+    GoRouter.of(context).go('/player');
+    await tester.pumpAndSettle();
+    expect(find.text('Make Life your own'), findsOneWidget);
+    expect(find.text('Settings'), findsWidgets);
+
+    GoRouter.of(tester.element(find.byType(NavigationBar))).go('/profile');
+    await tester.pumpAndSettle();
+    expect(find.text('Make Life your own'), findsOneWidget);
+  });
+
+  testWidgets('wide signed-in rail has no redundant account avatar', (
+    tester,
+  ) async {
+    final auth = FakeAuthRepository();
+    await auth.login(username: 'alice', password: 'password');
+    await pumpApp(tester, authRepository: auth);
+
+    expect(find.byType(NavigationRail), findsOneWidget);
+    expect(find.bySemanticsLabel('Profile picture for alice'), findsNothing);
+    expect(find.byTooltip('Sign in'), findsNothing);
   });
 
   testWidgets('signed-in player automatically receives granted turn alerts', (
@@ -338,7 +556,7 @@ void main() {
       notificationGateway: gateway,
     );
 
-    await tester.tap(find.text('Player'));
+    await tester.tap(find.text('Settings'));
     await tester.pumpAndSettle();
 
     expect(find.text('Turn alerts'), findsOneWidget);
@@ -382,7 +600,7 @@ void main() {
       );
 
       expect(gateway.requestCalls, 0);
-      await tester.tap(find.text('Player'));
+      await tester.tap(find.text('Settings'));
       await tester.pumpAndSettle();
       await tester.ensureVisible(
         find.byKey(const Key('allow-turn-notifications')),
@@ -415,7 +633,7 @@ void main() {
       notificationGateway: gateway,
     );
 
-    await tester.tap(find.text('Player'));
+    await tester.tap(find.text('Settings'));
     await tester.pumpAndSettle();
     await tester.ensureVisible(
       find.byKey(const Key('notification-settings-help')),
@@ -477,7 +695,7 @@ void main() {
     expect(find.byType(NavigationDestination), findsNWidgets(3));
     expect(find.text('Home'), findsOneWidget);
     expect(find.text('Social'), findsOneWidget);
-    expect(find.text('Player'), findsOneWidget);
+    expect(find.text('Settings'), findsOneWidget);
     expect(find.byKey(const Key('play-local')), findsOneWidget);
     expect(find.byKey(const Key('find-opponent')), findsOneWidget);
     expect(find.byKey(const Key('create-room')), findsOneWidget);
@@ -606,21 +824,7 @@ void main() {
     );
     expect(find.textContaining('private_alice'), findsNothing);
 
-    final visibility = tester.widget<SwitchListTile>(
-      find.byKey(const Key('social-discoverability')),
-    );
-    expect(visibility.value, isFalse);
-    await tester.tap(find.byKey(const Key('social-discoverability')));
-    await tester.pumpAndSettle();
-    expect(social.discoverabilityChanges, [true]);
-    expect(
-      tester
-          .widget<SwitchListTile>(
-            find.byKey(const Key('social-discoverability')),
-          )
-          .value,
-      isTrue,
-    );
+    expect(find.byKey(const Key('social-discoverability')), findsNothing);
 
     await tester.enterText(find.byKey(const Key('social-search')), 'Ced');
     await tester.pump(const Duration(milliseconds: 360));
@@ -680,46 +884,47 @@ void main() {
     expect(find.textContaining('RATED'), findsOneWidget);
   });
 
-  testWidgets('Home and Player show authoritative rated metrics and refresh', (
-    tester,
-  ) async {
-    final auth = FakeAuthRepository();
-    await auth.login(username: 'alice', password: 'password');
-    final stats = FakePlayerStatsRepository(
-      stats: const PlayerStats(
-        elo: -24,
-        victories: 6,
-        totalGames: 10,
-        kills: 42,
-        losses: 3,
-        draws: 1,
-      ),
-    );
-    await pumpApp(tester, authRepository: auth, playerStatsRepository: stats);
+  testWidgets(
+    'Home and Settings show authoritative rated metrics and refresh',
+    (tester) async {
+      final auth = FakeAuthRepository();
+      await auth.login(username: 'alice', password: 'password');
+      final stats = FakePlayerStatsRepository(
+        stats: const PlayerStats(
+          elo: -24,
+          victories: 6,
+          totalGames: 10,
+          kills: 42,
+          losses: 3,
+          draws: 1,
+        ),
+      );
+      await pumpApp(tester, authRepository: auth, playerStatsRepository: stats);
 
-    expect(find.byKey(const Key('player-metrics')), findsOneWidget);
-    expect(find.text('-24'), findsOneWidget);
-    expect(find.text('60%'), findsOneWidget);
-    expect(find.text('42'), findsOneWidget);
-    expect(stats.calls, 1);
-    final metricsTop = tester
-        .getTopLeft(find.byKey(const Key('player-metrics')))
-        .dy;
-    for (final key in const [
-      Key('play-local'),
-      Key('find-opponent'),
-      Key('create-room'),
-      Key('join-by-code'),
-    ]) {
-      expect(tester.getTopLeft(find.byKey(key)).dy, lessThan(metricsTop));
-    }
+      expect(find.byKey(const Key('player-metrics')), findsOneWidget);
+      expect(find.text('-24'), findsOneWidget);
+      expect(find.text('60%'), findsOneWidget);
+      expect(find.text('42'), findsOneWidget);
+      expect(stats.calls, 1);
+      final metricsTop = tester
+          .getTopLeft(find.byKey(const Key('player-metrics')))
+          .dy;
+      for (final key in const [
+        Key('play-local'),
+        Key('find-opponent'),
+        Key('create-room'),
+        Key('join-by-code'),
+      ]) {
+        expect(tester.getTopLeft(find.byKey(key)).dy, lessThan(metricsTop));
+      }
 
-    await tester.tap(find.text('Player'));
-    await tester.pumpAndSettle();
+      await tester.tap(find.text('Settings'));
+      await tester.pumpAndSettle();
 
-    expect(find.byKey(const Key('player-metrics')), findsOneWidget);
-    expect(stats.calls, 2);
-  });
+      expect(find.byKey(const Key('player-metrics')), findsOneWidget);
+      expect(stats.calls, 2);
+    },
+  );
 
   testWidgets('rated metrics expose a retry and recover from a load failure', (
     tester,
@@ -854,7 +1059,7 @@ void main() {
     await pumpApp(tester, authRepository: auth, onlineRepository: online);
     expect(find.text('vs Private Opponent'), findsOneWidget);
 
-    await tester.tap(find.text('Player'));
+    await tester.tap(find.text('Settings'));
     await tester.pumpAndSettle();
     final signOut = find.widgetWithText(OutlinedButton, 'Sign out');
     await tester.ensureVisible(signOut);
@@ -948,7 +1153,7 @@ void main() {
     await tester.tap(findOpponent);
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 10));
-    await tester.tap(find.text('Player'));
+    await tester.tap(find.text('Settings'));
     await tester.pumpAndSettle();
 
     online.ticketPoll.complete(

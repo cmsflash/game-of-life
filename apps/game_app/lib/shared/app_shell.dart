@@ -14,7 +14,7 @@ class AppShell extends ConsumerWidget {
   static const _destinations = [
     ('/', 'Home', Icons.home_outlined, Icons.home),
     ('/social', 'Social', Icons.people_outline, Icons.people),
-    ('/player', 'Player', Icons.person_outline, Icons.person),
+    ('/settings', 'Settings', Icons.settings_outlined, Icons.settings),
   ];
 
   @override
@@ -90,14 +90,6 @@ class AppShell extends ConsumerWidget {
                       tooltip: 'Sign in',
                       onPressed: () => context.go('/login'),
                       icon: const Icon(Icons.login),
-                    )
-                  else
-                    CircleAvatar(
-                      child: Text(
-                        (auth.user?.displayName ?? 'P')
-                            .substring(0, 1)
-                            .toUpperCase(),
-                      ),
                     ),
                 ],
               ),
@@ -112,7 +104,8 @@ class AppShell extends ConsumerWidget {
 
   int _indexFor(String location) {
     if (location.startsWith('/social')) return 1;
-    if (location.startsWith('/player') ||
+    if (location.startsWith('/settings') ||
+        location.startsWith('/player') ||
         location.startsWith('/profile') ||
         location.startsWith('/about') ||
         location.startsWith('/privacy') ||

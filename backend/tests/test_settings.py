@@ -36,6 +36,9 @@ def _production_settings(settings: Settings) -> Settings:
         cognito_client_id="client-id",
         cognito_hosted_ui_base="https://life.auth.ap-east-1.amazoncognito.com",
         cognito_oauth_callback_url="https://api.example.com/v1/auth/google/callback",
+        avatar_bucket_name="private-avatars",
+        public_api_base_url="https://api.example.com",
+        avatar_cleanup_queue_url="https://sqs.ap-east-1.amazonaws.com/123/avatar-cleanup",
     )
 
 

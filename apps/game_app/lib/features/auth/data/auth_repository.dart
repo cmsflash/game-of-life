@@ -3,6 +3,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/api_client.dart';
 import 'auth_models.dart';
+import 'profile_avatar.dart';
 import 'session_store.dart';
 
 abstract interface class BrowserLauncher {
@@ -39,6 +40,9 @@ abstract interface class AuthRepository {
   Future<AppUser> exchangeGoogleCode(String code);
   Future<void> logout();
   Future<void> deleteAccount();
+  Future<AvatarDocument> uploadAvatar(ProfileAvatarUpload upload);
+  Future<AvatarDocument> removeAvatar();
+  Future<void> cacheUser(AppUser user);
 }
 
 class ApiAuthRepository implements AuthRepository {
@@ -62,9 +66,10 @@ class ApiAuthRepository implements AuthRepository {
   Future<AppUser?> restore() async {
     final stored = await _sessionStore.readSession();
     if (stored == null) return null;
+    AppUser? cached;
     if (stored.userJson != null) {
       try {
-        return AppUser.fromJson(stored.userJson!);
+        cached = AppUser.fromJson(stored.userJson!);
       } catch (_) {
         // Fall through and ask the API for the canonical profile.
       }
@@ -82,8 +87,13 @@ class ApiAuthRepository implements AuthRepository {
       );
       return user;
     } on ApiException catch (error) {
-      if (error.statusCode == 401) await _sessionStore.clearSession();
-      return null;
+      if (error.statusCode == 401) {
+        await _sessionStore.clearSession();
+        return null;
+      }
+      return cached;
+    } catch (_) {
+      return cached;
     }
   }
 
@@ -220,6 +230,40 @@ class ApiAuthRepository implements AuthRepository {
   Future<void> deleteAccount() async {
     await _api.delete('/v1/me');
     await _sessionStore.clearSession();
+  }
+
+  @override
+  Future<AvatarDocument> uploadAvatar(ProfileAvatarUpload upload) async {
+    final response = await _api.postMultipart(
+      '/v1/me/avatar',
+      field: 'file',
+      bytes: upload.bytes,
+      filename: upload.filename,
+      contentType: upload.contentType,
+    );
+    return AvatarDocument.fromJson(response.data as Map<String, dynamic>);
+  }
+
+  @override
+  Future<AvatarDocument> removeAvatar() async {
+    final response = await _api.delete('/v1/me/avatar');
+    return AvatarDocument.fromJson(response.data as Map<String, dynamic>);
+  }
+
+  @override
+  Future<void> cacheUser(AppUser user) async {
+    final stored = await _sessionStore.readSession();
+    if (stored == null) return;
+    final storedUserId = stored.userJson?['userId'] as String?;
+    if (storedUserId != null && storedUserId != user.id) return;
+    await _sessionStore.writeSession(
+      StoredSession(
+        accessToken: stored.accessToken,
+        refreshToken: stored.refreshToken,
+        expiresAt: stored.expiresAt,
+        userJson: user.toJson(),
+      ),
+    );
   }
 
   Future<AppUser> _saveTokens(Map<String, dynamic> json) async {

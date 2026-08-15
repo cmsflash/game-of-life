@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from uuid import uuid4
 
+from .avatars import AvatarService
 from .engine import Engine
 from .errors import ApiError
 from .models import (
@@ -41,6 +42,7 @@ _CHALLENGE_LIFETIME = timedelta(days=7)
 class SocialService:
     repository: Repository
     engine: Engine
+    avatars: AvatarService
 
     def index_user(self, user: User) -> None:
         normalized = normalize_display_name(user.display_name)
@@ -59,10 +61,10 @@ class SocialService:
     def search(self, user: User, query: str) -> PlayerSearchResponse:
         self._require_metrics_ready()
         normalized = normalize_display_name(query)
-        if len(normalized) < 3 or len(normalized) > 48:
+        if len(normalized) < 1 or len(normalized) > 48:
             raise ApiError(
                 "invalidPlayerSearch",
-                "Search with 3 to 48 display-name characters.",
+                "Search with 1 to 48 display-name characters.",
                 status_code=422,
             )
         self.repository.check_player_search_rate(user.id)
@@ -88,7 +90,6 @@ class SocialService:
     def snapshot(self, user: User) -> SocialSnapshot:
         self._require_metrics_ready()
         version, relations, challenges = self.repository.social_records(user.id)
-        own_profile = self.repository.get_public_player(user.id)
         friends: list[PublicPlayerDocument] = []
         incoming_requests: list[FriendRequestDocument] = []
         outgoing_requests: list[FriendRequestDocument] = []
@@ -129,7 +130,9 @@ class SocialService:
 
         return SocialSnapshot(
             version=version,
-            discoverable=own_profile.discoverable if own_profile is not None else False,
+            # Rolling-client compatibility only. Active profiles are always
+            # searchable during this development phase.
+            discoverable=True,
             friends=sorted(friends, key=lambda value: (value.display_name.casefold(), value.id)),
             incoming_friend_requests=sorted(incoming_requests, key=by_created, reverse=True),
             outgoing_friend_requests=sorted(outgoing_requests, key=by_created, reverse=True),
@@ -305,6 +308,8 @@ class SocialService:
             id=player.id,
             display_name=player.display_name,
             rating=stats.rating,
+            avatar_url=self.avatars.url(player),
+            avatar_version=player.avatar_version,
         )
 
     def _challenge_document(self, challenge: StoredChallenge) -> ChallengeDocument:

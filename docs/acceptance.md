@@ -58,9 +58,16 @@
   private and quick matches. Match documents contain neither login usernames
   nor email addresses, and account deletion replaces the departed player's
   stored name and identifier with `Deleted player`.
-- Player search is case-insensitive prefix search over public display names only,
-  requires explicit opt-in (default off), is capped, and never returns a username
-  or email. Opting out atomically blocks new requests from stale search results.
+- Player search is case-insensitive prefix search over every active public display
+  name, supports one-character names, is capped/rate-limited, and never returns a
+  username or email. The legacy privacy endpoint cannot hide an account.
+- JPEG, PNG, and WebP profile-picture uploads are authenticated, rate-limited,
+  strictly validated, metadata-stripped, fixed-square re-encoded, and published
+  only from private storage through an exact-version public route. Search, Social,
+  challenges, and current match responses show the current version; stale versions
+  return `404`. Account deletion immediately fences delivery, attempts synchronous
+  private cleanup, and leaves any racing/failed object pending or orphaned for the
+  authoritative cleanup worker and lifecycle fallback.
 - Friend requests are race-safe and idempotent; either friend can unfriend. A
   direct challenge is visible only to the two friends, expires after seven days,
   has no join code, and retrying acceptance returns the same active match ID.

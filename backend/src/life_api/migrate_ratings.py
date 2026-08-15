@@ -562,11 +562,8 @@ def backfill_confirmed_profiles(
         ).get("Item")
         if existing is not None:
             try:
-                existing_player = StoredPublicPlayer.model_validate_json(existing["document"])
+                StoredPublicPlayer.model_validate_json(existing["document"])
             except (KeyError, ValueError):
-                invalid += 1
-                continue
-            if existing_player.discoverable:
                 invalid += 1
             continue
         created += 1
@@ -576,7 +573,7 @@ def backfill_confirmed_profiles(
             id=user_id,
             display_name=display_name,
             normalized_display_name=normalized,
-            discoverable=False,
+            discoverable=True,
             discoverability_updated_at=None,
             version=0,
         )
@@ -615,13 +612,31 @@ def backfill_confirmed_profiles(
                                     "SK": "PROFILE",
                                     "entity": "publicPlayer",
                                     "version": 0,
-                                    "discoverable": False,
+                                    "discoverable": True,
                                     "document": player.model_dump_json(by_alias=True),
                                 }
                             ),
                             "ConditionExpression": "attribute_not_exists(PK)",
                         }
                     },
+                    *[
+                        {
+                            "Put": {
+                                "TableName": table.name,
+                                "Item": _serialize(
+                                    {
+                                        "PK": f"SEARCH#{normalized[:length]}",
+                                        "SK": f"{normalized}#{user_id}",
+                                        "entity": "playerSearch",
+                                        "playerId": user_id,
+                                        "document": player.model_dump_json(by_alias=True),
+                                    }
+                                ),
+                                "ConditionExpression": "attribute_not_exists(PK)",
+                            }
+                        }
+                        for length in range(1, min(3, len(normalized)) + 1)
+                    ],
                 ]
             )
         except ClientError as error:

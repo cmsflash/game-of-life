@@ -89,6 +89,7 @@ PATH="$mock_bin:$PATH" \
     --profile test-profile
 
 grep -F -- "flutter build web --release --no-web-resources-cdn --output $mock_build --dart-define=API_BASE_URL=https://api.example.com --dart-define=GOOGLE_SIGN_IN_ENABLED=true" "$mock_log" >/dev/null
+grep -F -- "cloudformation deploy --stack-name life-web-test --template-file $repo_dir/infra/web-template.yaml --parameter-overrides ApiOrigin=https://api.example.com --no-fail-on-empty-changeset" "$mock_log" >/dev/null
 grep -F -- "s3 sync $mock_build/ s3://life-production-web-123456789012/ --delete" "$mock_log" >/dev/null
 grep -F -- "--exclude index.html" "$mock_log" >/dev/null
 grep -F -- "--exclude push-service-worker.js" "$mock_log" >/dev/null

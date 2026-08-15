@@ -1,7 +1,8 @@
 # HTTP API v1
 
 The Flutter application uses one JSON API rooted at `/v1`. Except for health,
-registration, login, password recovery, and Google callbacks, endpoints require
+registration, login, password recovery, Google callbacks, notification config,
+and versioned profile-picture delivery, endpoints require
 `Authorization: Bearer <access token>`.
 
 Errors always use this envelope:
@@ -37,6 +38,8 @@ periods, underscores, or hyphens.
 | `GET` | `/auth/google/callback` | Cognito callback; redirects to the app. |
 | `POST` | `/auth/exchange` | Redeem a one-time `{code}` for a token set. |
 | `GET` | `/me` | Return the authenticated player profile. |
+| `POST` | `/me/avatar` | Upload multipart field `file`; return `{avatarUrl,avatarVersion}`. |
+| `DELETE` | `/me/avatar` | Remove the current picture; return `{avatarUrl:null,avatarVersion}`. |
 | `DELETE` | `/me` | Permanently delete the authenticated account; returns `204`. |
 
 The Google flow uses authorization code plus S256 PKCE, signed state, an exact
@@ -56,16 +59,18 @@ tokens no longer authenticate.
 
 ## Players, friends, challenges, and stats
 
-All routes below require authentication. Player lookup uses only opted-in public
-display names: the server applies NFKC normalization, case folding, and whitespace
-normalization, requires 3–48 characters, returns at most 20 prefix matches, omits
-the caller, and never searches or returns login usernames or email addresses.
+Except for exact-version picture delivery, all routes below require authentication.
+Every active account's display name is publicly searchable during this development
+phase. The server applies NFKC normalization, case folding, and whitespace
+normalization, accepts 1–48 search characters, returns at most 20 prefix matches,
+omits the caller, and never searches or returns login usernames or email addresses.
 
 | Method | Path | Purpose |
 | --- | --- | --- |
-| `GET` | `/players/search?q=…` | Return `{items:[{id,displayName,rating}]}` for discoverable active players. |
-| `GET` | `/social` | Coherent `{version,discoverable,friends,incomingFriendRequests,outgoingFriendRequests,incomingChallenges,outgoingChallenges}` snapshot. |
-| `PATCH` | `/social/discoverability` | Set `{discoverable}` and return `{discoverable,version}`. Default is `false`. |
+| `GET` | `/players/search?q=…` | Return public active-player summaries. |
+| `GET` | `/players/{playerId}/avatar?v=N` | Publicly return the exact current processed WebP or `404`. |
+| `GET` | `/social` | Coherent `{version,discoverable:true,friends,incomingFriendRequests,outgoingFriendRequests,incomingChallenges,outgoingChallenges}` snapshot. |
+| `PATCH` | `/social/discoverability` | Rolling-client compatibility only; always returns `discoverable:true`. |
 | `GET` | `/friends` | List accepted friends. |
 | `POST` | `/friends/requests` | Send `{playerId}`; returns the stable request document. |
 | `POST` | `/friends/requests/{id}/accept` | Recipient accepts; returns `204`. |
@@ -77,11 +82,22 @@ the caller, and never searches or returns login usernames or email addresses.
 | `DELETE` | `/challenges/{id}` | Invited friend declines or challenger cancels; returns `204`. |
 | `GET` | `/stats/me` | Return `{rating,games,wins,losses,draws,kills}`. |
 
-Friendship is one canonical unordered pair, so crossed or retried requests cannot
-create duplicate edges. The target must still be active and discoverable when a
-new request commits; opting out does not hide a display name already shared with
-friends or match opponents. Accounts are limited to 100 friends, 100 pending
-requests, and 20 pending challenges.
+Public player summaries are
+`{id,displayName,rating,avatarUrl,avatarVersion}`. `avatarUrl` is nullable and
+includes its version query. Friendship is one canonical unordered pair, so
+crossed or retried requests cannot create duplicate edges. The target must still
+be active when a new request commits. Accounts are limited to 100 friends, 100
+pending requests, and 20 pending challenges.
+
+Profile-picture upload accepts JPEG, PNG, or WebP transport up to 3 MiB. Before
+reading or decoding, the server enforces a per-account limit of ten upload attempts
+per hour. It verifies the declared and detected type, rejects animation/multiple
+pages, decompression bombs, SVG, invalid images, dimensions above 4096 per side or
+16 megapixels, applies EXIF orientation, center-crops, and re-encodes one 512×512
+WebP without source metadata. Originals are never stored. Successful delivery is
+cacheable for at most 60 seconds with revalidation; a stale version returns `404`.
+Uploaders must have the right to use the picture and must not submit unlawful,
+abusive, or infringing content; the service may reject or remove such content.
 
 A challenge document is `{id,challenger,opponent,createdAt,expiresAt}`. It is
 available only to its two participants, expires functionally after seven days,
@@ -160,7 +176,7 @@ Each account can keep up to five active installations.
 | --- | --- | --- |
 | `POST` | `/matches` | Create a waiting private match. |
 | `POST` | `/matches/join` | Join `{joinCode}` and activate the match. |
-| `GET` | `/matches` | List the current player's matches. |
+| `GET` | `/matches` | List every match associated with the authenticated account, newest first. |
 | `GET` | `/matches/{id}` | Read one match; supports `If-None-Match`. |
 | `DELETE` | `/matches/{id}` | Creator cancels a waiting match. |
 | `POST` | `/matches/{id}/moves` | Place a cell and evolve once. |
@@ -170,8 +186,10 @@ Each account can keep up to five active installations.
 
 Match path IDs use canonical 36-character UUID syntax. Other values are
 rejected before a repository lookup.
-Player summaries contain each participant's public `displayName`, snapshotted
-when the match is formed and associated with the randomly assigned color.
+Stored player summaries contain each participant's public `displayName`,
+snapshotted when the match is formed and associated with the randomly assigned
+color. Responses hydrate the current `avatarUrl` and `avatarVersion` in a bounded
+batch; stored matches never persist expiring or superseded picture URLs.
 Login usernames and email addresses are never included in match documents.
 Deleting an account replaces that participant's stored name and identifier
 with an unlinkable `Deleted player` identity in retained history.
@@ -190,8 +208,10 @@ Move body:
 Resignation has `expectedRevision` and `idempotencyKey`. Idempotency records
 include a request fingerprint: reusing a key for different content returns
 `409 idempotencyConflict`. The engine revision advances only for cell moves;
-the separate match `version` advances for every mutation and is the value used
-by ETags and DynamoDB conditional writes.
+the separate match `version` advances for every mutation and is used by DynamoDB
+conditional writes. Response ETags also include the current presence/version of
+both players' hydrated profile pictures, so changing a picture invalidates an
+otherwise unchanged match response.
 
 Match documents include an optional `lastMove` object with `revision`,
 `player`, `row`, and `column`. It is written atomically with a successful move

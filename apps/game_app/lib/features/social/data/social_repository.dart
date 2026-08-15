@@ -11,7 +11,6 @@ abstract interface class SocialRepository {
   Future<void> createChallenge(String opponentId);
   Future<String> acceptChallenge(String challengeId);
   Future<void> removeChallenge(String challengeId);
-  Future<DiscoverabilityResult> setDiscoverable(bool discoverable);
 }
 
 class ApiSocialRepository implements SocialRepository {
@@ -34,7 +33,6 @@ class ApiSocialRepository implements SocialRepository {
     final social = _map(response.data);
     return SocialOverview(
       version: (social['version'] as num?)?.round() ?? 0,
-      discoverable: social['discoverable'] as bool? ?? false,
       friends: _players(social['friends']),
       incomingFriendRequests: _friendRequests(social['incomingFriendRequests']),
       outgoingFriendRequests: _friendRequests(social['outgoingFriendRequests']),
@@ -103,17 +101,6 @@ class ApiSocialRepository implements SocialRepository {
   @override
   Future<void> removeChallenge(String challengeId) async {
     await _api.delete('/v1/challenges/${Uri.encodeComponent(challengeId)}');
-  }
-
-  @override
-  Future<DiscoverabilityResult> setDiscoverable(bool discoverable) async {
-    final response = await _api.patch(
-      '/v1/social/discoverability',
-      body: {'discoverable': discoverable},
-    );
-    return DiscoverabilityResult.fromJson(
-      response.data as Map<String, dynamic>,
-    );
   }
 }
 

@@ -10,11 +10,15 @@ void main() {
       'rating': -37,
       'username': 'private_fern',
       'email': 'private@example.test',
+      'avatarUrl': 'https://api.example.test/v1/players/player-1/avatar?v=7',
+      'avatarVersion': 7,
     });
 
     expect(player.id, 'player-1');
     expect(player.displayName, 'Fern');
     expect(player.elo, -37);
+    expect(player.avatarVersion, 7);
+    expect(player.avatarUrl, endsWith('avatar?v=7'));
   });
 
   test('public player rejects a missing authoritative rating', () {

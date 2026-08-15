@@ -3,11 +3,15 @@ class PublicPlayer {
     required this.id,
     required this.displayName,
     required this.elo,
+    this.avatarUrl,
+    this.avatarVersion = 0,
   });
 
   final String id;
   final String displayName;
   final int elo;
+  final String? avatarUrl;
+  final int avatarVersion;
 
   factory PublicPlayer.fromJson(Map<String, dynamic> json) {
     final id =
@@ -33,6 +37,8 @@ class PublicPlayer {
       id: id,
       displayName: displayName.trim(),
       elo: rating.round(),
+      avatarUrl: json['avatarUrl'] as String?,
+      avatarVersion: (json['avatarVersion'] as num?)?.round() ?? 0,
     );
   }
 }
@@ -114,7 +120,6 @@ class PlayerChallenge {
 class SocialOverview {
   const SocialOverview({
     this.version = 0,
-    this.discoverable = false,
     this.friends = const [],
     this.incomingFriendRequests = const [],
     this.outgoingFriendRequests = const [],
@@ -123,34 +128,9 @@ class SocialOverview {
   });
 
   final int version;
-  final bool discoverable;
   final List<PublicPlayer> friends;
   final List<FriendRequest> incomingFriendRequests;
   final List<FriendRequest> outgoingFriendRequests;
   final List<PlayerChallenge> incomingChallenges;
   final List<PlayerChallenge> outgoingChallenges;
-}
-
-class DiscoverabilityResult {
-  const DiscoverabilityResult({
-    required this.discoverable,
-    required this.version,
-  });
-
-  final bool discoverable;
-  final int version;
-
-  factory DiscoverabilityResult.fromJson(Map<String, dynamic> json) {
-    final discoverable = json['discoverable'];
-    final version = json['version'];
-    if (discoverable is! bool || version is! num) {
-      throw const FormatException(
-        'Discoverability must include its canonical state and version.',
-      );
-    }
-    return DiscoverabilityResult(
-      discoverable: discoverable,
-      version: version.round(),
-    );
-  }
 }

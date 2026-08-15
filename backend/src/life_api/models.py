@@ -38,6 +38,8 @@ class User(StrictModel):
     email: str
     display_name: str = Field(alias="displayName")
     email_verified: bool = Field(default=False, alias="emailVerified")
+    avatar_url: str | None = Field(default=None, alias="avatarUrl")
+    avatar_version: int = Field(default=0, ge=0, alias="avatarVersion")
 
 
 class TokenSet(StrictModel):
@@ -333,6 +335,13 @@ class PlayerSummary(StrictModel):
 
 class PublicPlayerDocument(PlayerSummary):
     rating: int
+    avatar_url: str | None = Field(default=None, alias="avatarUrl")
+    avatar_version: int = Field(default=0, ge=0, alias="avatarVersion")
+
+
+class MatchPlayerDocument(PlayerSummary):
+    avatar_url: str | None = Field(default=None, alias="avatarUrl")
+    avatar_version: int = Field(default=0, ge=0, alias="avatarVersion")
 
 
 class PlayerSearchResponse(StrictModel):
@@ -398,6 +407,11 @@ class DiscoverabilityDocument(StrictModel):
     version: int = Field(ge=0)
 
 
+class AvatarDocument(StrictModel):
+    avatar_url: str | None = Field(default=None, alias="avatarUrl")
+    avatar_version: int = Field(ge=0, alias="avatarVersion")
+
+
 class StoredChallenge(StrictModel):
     id: str
     challenger: PlayerSummary
@@ -420,7 +434,7 @@ class PlayerStatsDocument(StrictModel):
 
 class SocialSnapshot(StrictModel):
     version: int = Field(ge=0)
-    discoverable: bool = False
+    discoverable: bool = True
     friends: list[PublicPlayerDocument]
     incoming_friend_requests: list[FriendRequestDocument] = Field(alias="incomingFriendRequests")
     outgoing_friend_requests: list[FriendRequestDocument] = Field(alias="outgoingFriendRequests")
@@ -432,12 +446,16 @@ class StoredPublicPlayer(StrictModel):
     id: str
     display_name: str = Field(alias="displayName")
     normalized_display_name: str = Field(alias="normalizedDisplayName")
-    discoverable: bool = False
+    # Retained only so old rows and rolling clients remain readable. Discovery
+    # is now always public for active profiles; false is migrated to true.
+    discoverable: bool = True
     discoverability_updated_at: UtcDateTime | None = Field(
         default=None,
         alias="discoverabilityUpdatedAt",
     )
     version: int = Field(default=0, ge=0)
+    avatar_key: str | None = Field(default=None, alias="avatarKey")
+    avatar_version: int = Field(default=0, ge=0, alias="avatarVersion")
 
 
 class AccountState(StrEnum):
@@ -533,8 +551,8 @@ class MatchDocument(StrictModel):
     join_code: str | None = Field(default=None, alias="joinCode")
     rules: dict[str, Any]
     state: dict[str, Any]
-    black_player: PlayerSummary | None = Field(default=None, alias="blackPlayer")
-    white_player: PlayerSummary | None = Field(default=None, alias="whitePlayer")
+    black_player: MatchPlayerDocument | None = Field(default=None, alias="blackPlayer")
+    white_player: MatchPlayerDocument | None = Field(default=None, alias="whitePlayer")
     your_color: Literal["black", "white"] | None = Field(default=None, alias="yourColor")
     status: MatchStatus
     version: int = Field(ge=0)
@@ -549,7 +567,6 @@ class MatchDocument(StrictModel):
 
 class MatchListResponse(StrictModel):
     items: list[MatchDocument]
-    next_token: str | None = Field(default=None, alias="nextToken")
 
 
 class QuickMatchResponse(StrictModel):

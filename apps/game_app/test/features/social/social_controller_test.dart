@@ -49,6 +49,18 @@ void main() {
     controller.dispose();
   });
 
+  test('one-character display names can be searched', () async {
+    final repository = ScriptedSocialRepository()
+      ..searches.add(Future.value(const [_cedar]));
+    final controller = SocialController(repository)..connectAccount('a');
+
+    await controller.search('C');
+
+    expect(controller.state.searchResults, const [_cedar]);
+    expect(controller.state.error, isNull);
+    controller.dispose();
+  });
+
   test(
     'a slower old refresh cannot replace a newer canonical version',
     () async {
@@ -72,99 +84,6 @@ void main() {
       controller.dispose();
     },
   );
-
-  test(
-    'discoverability is off by default and uses canonical toggle result',
-    () async {
-      final repository = ScriptedSocialRepository()
-        ..discoverability.add(
-          Future.value(
-            const DiscoverabilityResult(discoverable: true, version: 3),
-          ),
-        );
-      final controller = SocialController(repository)..connectAccount('a');
-
-      expect(controller.state.discoverable, isFalse);
-      await controller.setDiscoverable(true);
-
-      expect(controller.state.discoverable, isTrue);
-      expect(controller.state.snapshotVersion, 3);
-      expect(repository.discoverabilityValues, [true]);
-      controller.dispose();
-    },
-  );
-
-  test(
-    'discoverability can be disabled without removing Social data',
-    () async {
-      final repository = ScriptedSocialRepository();
-      repository.discoverability
-        ..add(
-          Future.value(
-            const DiscoverabilityResult(discoverable: true, version: 3),
-          ),
-        )
-        ..add(
-          Future.value(
-            const DiscoverabilityResult(discoverable: false, version: 4),
-          ),
-        );
-      final controller = SocialController(repository)..connectAccount('a');
-
-      await controller.setDiscoverable(true);
-      await controller.setDiscoverable(false);
-
-      expect(controller.state.discoverable, isFalse);
-      expect(controller.state.snapshotVersion, 4);
-      expect(repository.discoverabilityValues, [true, false]);
-      expect(
-        controller.state.notice,
-        contains('Existing friends are unchanged'),
-      );
-      controller.dispose();
-    },
-  );
-
-  test(
-    'failed discoverability toggle rolls back to the canonical value',
-    () async {
-      final repository = ScriptedSocialRepository()
-        ..discoverability.add(
-          Future.error(
-            const ApiException(
-              statusCode: 503,
-              code: 'temporarilyUnavailable',
-              message: 'Try later.',
-            ),
-          ),
-        );
-      final controller = SocialController(repository)..connectAccount('a');
-
-      await controller.setDiscoverable(true);
-
-      expect(controller.state.discoverable, isFalse);
-      expect(controller.state.error, 'Try later.');
-      controller.dispose();
-    },
-  );
-
-  test('account switch ignores a late discoverability response', () async {
-    final repository = ScriptedSocialRepository();
-    final toggle = Completer<DiscoverabilityResult>();
-    repository.discoverability.add(toggle.future);
-    final controller = SocialController(repository)..connectAccount('a');
-
-    final pending = controller.setDiscoverable(true);
-    controller.connectAccount('b');
-    toggle.complete(
-      const DiscoverabilityResult(discoverable: true, version: 2),
-    );
-    await pending;
-
-    expect(controller.state.discoverable, isFalse);
-    expect(controller.state.status, SocialStatus.idle);
-    controller.dispose();
-  });
 
   test(
     'accepted match opens even when the following snapshot reload fails',
@@ -258,8 +177,6 @@ class ScriptedSocialRepository implements SocialRepository {
   final overviews = Queue<Future<SocialOverview>>();
   final searches = Queue<Future<List<PublicPlayer>>>();
   final accepts = Queue<Future<String>>();
-  final discoverability = Queue<Future<DiscoverabilityResult>>();
-  final discoverabilityValues = <bool>[];
   var acceptCalls = 0;
   Object? nextOverviewError;
 
@@ -285,14 +202,6 @@ class ScriptedSocialRepository implements SocialRepository {
     return accepts.isEmpty
         ? Future.value('match-default')
         : accepts.removeFirst();
-  }
-
-  @override
-  Future<DiscoverabilityResult> setDiscoverable(bool value) {
-    discoverabilityValues.add(value);
-    return discoverability.isEmpty
-        ? Future.value(DiscoverabilityResult(discoverable: value, version: 1))
-        : discoverability.removeFirst();
   }
 
   @override

@@ -4,7 +4,9 @@
 
 The CloudFormation stack is the ownership boundary. Its outputs identify the
 API, Lambda function, DynamoDB table, Cognito pool/client, Hosted UI, and SNS
-alarm topic. Use stack outputs instead of copying resource names into scripts.
+alarm topic. It also owns a retained private profile-picture bucket, cleanup
+queue/dead-letter queue, and cleanup worker. Use stack outputs instead of copying
+resource names into scripts.
 When push is enabled, outputs also identify the notification worker and its
 dead-letter queue.
 
@@ -39,10 +41,15 @@ Run these checks after every stack update from at least two networks:
    move before a test reminder fires and verify the old revision sends nothing.
    Use an isolated short-delay operator test only for deployment validation;
    production offsets remain 8, 24, and 72 hours.
-9. With two opted-in disposable accounts, verify normalized prefix search, send
+9. With two disposable accounts, verify one-, two-, and three-character normalized
+   public-display-name prefix search, send
    and accept a friend request, create and accept a direct challenge, and confirm
    a lost-response retry returns the same match ID. Complete it and verify both
    stats records changed once and their rating deltas sum to zero.
+10. Upload, replace, remove, and re-upload a disposable account's picture. Verify
+    the output is a 512×512 WebP, the current version is publicly readable with a
+    60-second revalidating cache bound, each superseded URL returns `404`, and a
+    match GET with its prior ETag returns `200` with the new picture version.
 
 Do not treat a successful test from an overseas VPN or one mainland ISP as a
 reachability guarantee.
@@ -55,14 +62,16 @@ period, plus a notification-worker group when push is enabled:
 - `/aws/lambda/FUNCTION_NAME` for application/runtime logs;
 - `/aws/apigateway/STACK_NAME` for structured request access logs.
 - `/aws/lambda/life-ENVIRONMENT-notifications` for delivery and scheduling failures.
+- `/aws/lambda/life-ENVIRONMENT-avatar-cleanup` for delayed private-object cleanup.
 
 The access log includes request ID, source IP, route, status, response size,
 and integration error, but not authorization headers or request bodies. The
 application must likewise never log access tokens, refresh tokens, passwords,
 confirmation codes, OAuth codes, or full game-auth responses.
 
-Four API alarms publish to `AlarmTopicArn`; push-enabled stacks add alarms for
-notification-worker errors and visible dead-lettered jobs:
+Four API alarms publish to `AlarmTopicArn`; every stack also alarms on
+profile-picture cleanup errors and dead-letter depth, while push-enabled stacks
+add alarms for notification-worker errors and visible dead-lettered jobs:
 
 - five Lambda errors in five minutes;
 - any Lambda throttling in five minutes;
@@ -71,6 +80,9 @@ notification-worker errors and visible dead-lettered jobs:
 - any notification-worker error in five minutes.
 - any notification or reminder that exhausts retries and reaches the
   notification dead-letter queue.
+- any profile-picture cleanup worker error in five minutes;
+- any profile-picture cleanup message that exhausts retries and reaches its
+  dead-letter queue.
 
 If `AlarmNotificationEmail` was supplied, confirm the SNS subscription email;
 unconfirmed subscriptions receive nothing. Production teams should also
@@ -164,6 +176,33 @@ one DynamoDB transaction.
    Repeated transient errors retain the subscription and retry through the
    stream or schedule policy.
 
+### Profile-picture cleanup failures
+
+1. Check `AvatarCleanupFunctionErrorAlarm`,
+   `AvatarCleanupDeadLetterQueueAlarm`, and
+   `/aws/lambda/life-ENVIRONMENT-avatar-cleanup`. Log and queue payloads contain
+   only an owner SHA-256 digest and hashed-prefix object key; do not join either
+   value back to identity-provider data during routine diagnosis.
+2. Read `AvatarCleanupQueueUrl` and `AvatarBucketName` from stack outputs. Confirm
+   the queue event source is enabled, its visible/in-flight counts are falling,
+   the worker can read only `ACCOUNT#…` state/pointer rows, and it can delete only
+   `avatars/…` objects in the private bucket.
+3. Fix IAM, S3, DynamoDB, or worker errors before redriving the cleanup DLQ.
+   The worker rereads the authoritative account fence and picture pointer, so a
+   late redrive keeps the exact current object and deletes only unreferenced ones.
+   Never bulk-delete a prefix based only on a queue message.
+4. Confirm S3 public-access blocking remains fully enabled and both `pending` and
+   `orphan` lifecycle rules remain enabled with approximately one-day expiry.
+   A cleanup message and its DLQ copy can be retained for up to 14 days, but no
+   raw player ID is present.
+5. For a disposable account, replace a picture and verify the old delivery URL
+   immediately returns `404`. If immediate S3 deletion is faulted, confirm a
+   cleanup message exists and the private object normally disappears after redrive
+   or lifecycle processing; investigate the alarm and remove a verified noncurrent
+   key if a cross-store race persists. An account-deletion race may leave a private pre-fence upload
+   until the roughly 15-minute delayed check; the fenced public route must remain
+   `404` throughout.
+
 ## Data protection and recovery
 
 The table uses on-demand capacity, AWS KMS encryption, TTL on `expiresAt`,
@@ -181,12 +220,87 @@ the rolling raw-sub guard expires after one day. Operational backups may retain 
 value until their documented recovery window expires; see
 [`privacy-policy.md`](privacy-policy.md).
 
+Account deletion also atomically fences the public profile and current picture
+pointer, then makes a best-effort synchronous pass over that account's hashed S3
+prefix before deleting the identity. A pre-fence upload can finish its private
+PUT after that pass. It cannot be delivered because the account/profile CAS has
+failed; the already-enqueued authoritative check removes it after about 15
+minutes, with the `pending`/`orphan` lifecycle as an approximately one-day
+fallback. Do not claim that byte removal is synchronous in operator or store
+responses.
+
 Before a schema or repository change:
 
 1. Confirm point-in-time recovery reports `ENABLED`.
 2. Export or back up data if the migration changes stored shapes.
 3. Deploy code capable of reading both old and new records before backfilling.
 4. Use small, resumable batches and measure throttling.
+
+### Public discovery and profile-picture cutover
+
+Use this order for the first public-by-default/profile-picture release. Do not
+publish the matching web or Flutter build early:
+
+1. Deploy the compatible API stack first. Its private retained S3 bucket,
+   cleanup queue/DLQ, cleanup Lambda, lifecycle rules, alarms, public-version
+   delivery route, account fence, and new writers must all exist before data is
+   migrated. Keep the prior client live during this step.
+2. Wait longer than the old API Lambda's maximum invocation time (currently 29
+   seconds) so no old writer can still commit a hidden or first-three-only row.
+3. Read `DynamoTableName` from the stack, confirm point-in-time recovery is
+   enabled, and run the migration without `--apply`:
+
+   ```bash
+   python -m life_api.migrate_public_players \
+     --table-name DYNAMO_TABLE_NAME \
+     --region ap-east-1 \
+     --profile game-of-life
+   ```
+
+   Require `invalid=0` and `conflicts=0`. The plan validates exact profile
+   PK/SK, top-level/document version and public flag, normalized display name,
+   every one- through three-character prefix row, and reports stale or orphaned
+   search rows. Any invalid row blocks all writes and must be investigated.
+4. Repeat with `--apply`:
+
+   ```bash
+   python -m life_api.migrate_public_players \
+     --table-name DYNAMO_TABLE_NAME \
+     --region ap-east-1 \
+     --profile game-of-life \
+     --apply
+   ```
+
+   Each profile update is conditioned on the exact prior
+   document/version and both account-deletion fences. Stale index deletion is
+   conditioned on its exact player/document; orphan deletion is conditioned on
+   the profile still being absent. Concurrent rename, picture, or deletion work
+   therefore wins safely and appears as a conflict to rerun.
+5. Rerun the read-only command from step 3 and require `eligible=0`, `stale_indexes=0`,
+   `orphan_indexes=0`, `invalid=0`, and `conflicts=0`.
+6. With active disposable accounts whose normalized names are one, two, and at
+   least three characters long, verify `/v1/players/search` succeeds using each
+   available prefix and returns the current display name/rating/picture only—no
+   username or email. Verify a deleting/deleted account is absent.
+7. Smoke-test picture upload/replacement/removal, the cleanup queue and DLQ
+   attributes, both cleanup alarms, S3 public-access block, lifecycle rules, and
+   the account-prefix race behavior in the cleanup runbook above.
+8. Update the web stack's `ApiOrigin` and only then publish the web/Flutter
+   build. After CloudFront finishes, inspect the live response header and require
+   the exact API origin (scheme and host only) in `img-src`:
+
+   ```bash
+   curl -fsSI WEB_BASE_URL/ | tr -d '\r' | \
+     grep -F "content-security-policy:" | grep -F "img-src 'self' data: blob: API_ORIGIN;"
+   ```
+
+The compatibility endpoint `PATCH /v1/social/discoverability` remains available
+for rolling clients but always returns `discoverable:true`; new clients expose no
+privacy toggle. The API continues to read legacy false/missing picture fields.
+Rollback only to this compatible API release or newer after migration—an older
+writer could recreate hidden or incomplete prefix rows. A web/Flutter rollback
+is safe because all new public-player and match picture fields are additive and
+nullable, but the deployed CSP must retain the API origin.
 
 ### Legacy match display-name migration
 
@@ -255,7 +369,8 @@ python -m life_api.migrate_ratings finish \
 ```
 
 `plan` also reports missing confirmed-user public profiles; `apply` creates them
-with `discoverable=false`. Completed matches are globally ordered by authoritative
+as public and writes each available one-, two-, and three-character search
+prefix. Completed matches are globally ordered by authoritative
 terminal time and match ID. Each attributable match conditionally writes one
 contiguous `ratingSequence`, both exact stats transitions, reconstructed kills,
 and a participant-free ledger. Legacy histories whose participants were already
@@ -265,7 +380,7 @@ preserves state, result, `createdAt`, and `updatedAt`.
 
 Before `finish --apply`, require `eligible=0`, `would_apply=0`, no orphan or
 malformed ledgers, exact stats/ledger replay, contiguous `globalVersion`, and a
-hidden public profile for every confirmed active Cognito user. The command exits
+public profile for every confirmed active Cognito user. The command exits
 nonzero if finish is incomplete. After ready, verify `/v1/stats/me`, `/v1/social`,
 and a rated terminal result before deploying the matching web release. Never apply
 historical Elo after live rated completions; the control fence is what guarantees

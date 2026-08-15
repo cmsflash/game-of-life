@@ -290,6 +290,91 @@ Resources:
         - Key: Environment
           Value: !Ref EnvironmentName
 
+  AvatarBucket:
+    Type: AWS::S3::Bucket
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      LifecycleConfiguration:
+        Rules:
+          - Id: ExpireUnpublishedAvatarUploads
+            Status: Enabled
+            TagFilters:
+              - Key: state
+                Value: pending
+            ExpirationInDays: 1
+          - Id: ExpireOrphanedAvatars
+            Status: Enabled
+            TagFilters:
+              - Key: state
+                Value: orphan
+            ExpirationInDays: 1
+          - Id: AbortIncompleteMultipartUploads
+            Status: Enabled
+            AbortIncompleteMultipartUpload:
+              DaysAfterInitiation: 1
+      OwnershipControls:
+        Rules:
+          - ObjectOwnership: BucketOwnerEnforced
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      Tags:
+        - Key: Application
+          Value: the-game-of-life
+        - Key: Environment
+          Value: !Ref EnvironmentName
+
+  AvatarBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref AvatarBucket
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: DenyInsecureTransport
+            Effect: Deny
+            Principal: "*"
+            Action: s3:*
+            Resource:
+              - !GetAtt AvatarBucket.Arn
+              - !Sub "${AvatarBucket.Arn}/*"
+            Condition:
+              Bool:
+                aws:SecureTransport: false
+
+  AvatarCleanupDeadLetterQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      MessageRetentionPeriod: 1209600
+      SqsManagedSseEnabled: true
+      Tags:
+        - Key: Application
+          Value: the-game-of-life
+        - Key: Environment
+          Value: !Ref EnvironmentName
+
+  AvatarCleanupQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      MessageRetentionPeriod: 1209600
+      RedrivePolicy:
+        deadLetterTargetArn: !GetAtt AvatarCleanupDeadLetterQueue.Arn
+        maxReceiveCount: 5
+      SqsManagedSseEnabled: true
+      VisibilityTimeout: 900
+      Tags:
+        - Key: Application
+          Value: the-game-of-life
+        - Key: Environment
+          Value: !Ref EnvironmentName
+
   UserPool:
     Type: AWS::Cognito::UserPool
     DeletionPolicy: Retain
@@ -474,6 +559,12 @@ Resources:
           LOCAL_TOKEN_SECRET: !Sub "{{resolve:secretsmanager:${LocalTokenSecret}}}"
           OAUTH_STATE_SECRET: !Sub "{{resolve:secretsmanager:${OAuthStateSecret}}}"
           GOOGLE_LOGIN_ENABLED: !If [HasGoogleIdentityProvider, "true", "false"]
+          AVATAR_BUCKET_NAME: !Ref AvatarBucket
+          AVATAR_CLEANUP_QUEUE_URL: !Ref AvatarCleanupQueue
+          PUBLIC_API_BASE_URL: !If
+            - HasApiCustomDomain
+            - !Sub "https://${ApiCustomDomainName}"
+            - !Sub "https://${HttpApi}.execute-api.${AWS::Region}.${AWS::URLSuffix}/${StageName}"
           PUSH_PROVIDERS: !FindInMap
             - PushProviderModes
             - !Ref PushNotificationMode
@@ -491,6 +582,7 @@ Resources:
               Effect: Allow
               Action:
                 - dynamodb:ConditionCheckItem
+                - dynamodb:BatchGetItem
                 - dynamodb:DeleteItem
                 - dynamodb:GetItem
                 - dynamodb:PutItem
@@ -499,6 +591,126 @@ Resources:
                 - dynamodb:UpdateItem
               Resource:
                 - !GetAtt GameTable.Arn
+            - Sid: ListPlayerAvatarObjects
+              Effect: Allow
+              Action: s3:ListBucket
+              Resource: !GetAtt AvatarBucket.Arn
+              Condition:
+                StringLike:
+                  s3:prefix: "avatars/*"
+            - Sid: ManagePlayerAvatarObjects
+              Effect: Allow
+              Action:
+                - s3:DeleteObject
+                - s3:GetObject
+                - s3:PutObject
+                - s3:GetObjectTagging
+                - s3:PutObjectTagging
+              Resource: !Sub "${AvatarBucket.Arn}/avatars/*"
+            - Sid: EnqueuePlayerAvatarCleanup
+              Effect: Allow
+              Action: sqs:SendMessage
+              Resource: !GetAtt AvatarCleanupQueue.Arn
+
+  AvatarCleanupFunctionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: AvatarCleanupWorker
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Sid: WriteFunctionLogs
+                Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource: !Sub "arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:*"
+              - Sid: WriteXRayTrace
+                Effect: Allow
+                Action:
+                  - xray:PutTelemetryRecords
+                  - xray:PutTraceSegments
+                Resource: "*"
+              - Sid: ConsumeCleanupQueue
+                Effect: Allow
+                Action:
+                  - sqs:ChangeMessageVisibility
+                  - sqs:DeleteMessage
+                  - sqs:GetQueueAttributes
+                  - sqs:ReceiveMessage
+                Resource: !GetAtt AvatarCleanupQueue.Arn
+              - Sid: ReadCurrentAvatarReference
+                Effect: Allow
+                Action: dynamodb:GetItem
+                Resource: !GetAtt GameTable.Arn
+                Condition:
+                  ForAllValues:StringLike:
+                    dynamodb:LeadingKeys:
+                      - "ACCOUNT#*"
+              - Sid: DeleteOrphanedAvatarObject
+                Effect: Allow
+                Action:
+                  - s3:DeleteObject
+                  - s3:PutObjectTagging
+                Resource: !Sub "${AvatarBucket.Arn}/avatars/*"
+      Tags:
+        - Key: Application
+          Value: the-game-of-life
+        - Key: Environment
+          Value: !Ref EnvironmentName
+
+  AvatarCleanupFunction:
+    Type: AWS::Serverless::Function
+    DependsOn: AvatarCleanupFunctionLogGroup
+    Metadata:
+      DockerContext: ..
+      Dockerfile: backend/Dockerfile
+      DockerTag: avatar-cleanup-v1
+    Properties:
+      PackageType: Image
+      ImageConfig:
+        Command:
+          - life_api.avatar_cleanup_handler.handler
+      FunctionName: !Sub "life-${EnvironmentName}-avatar-cleanup"
+      Description: Removes uncommitted and superseded private profile-picture objects.
+      Timeout: 120
+      Role: !GetAtt AvatarCleanupFunctionRole.Arn
+      Environment:
+        Variables:
+          APP_ENV: production
+          APP_COMPONENT: api
+          TABLE_NAME: !Ref GameTable
+          AVATAR_BUCKET_NAME: !Ref AvatarBucket
+      Events:
+        CleanupQueue:
+          Type: SQS
+          Properties:
+            Queue: !GetAtt AvatarCleanupQueue.Arn
+            BatchSize: 10
+            FunctionResponseTypes:
+              - ReportBatchItemFailures
+
+  AvatarCleanupFunctionLogGroup:
+    Type: AWS::Logs::LogGroup
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      LogGroupName: !Sub "/aws/lambda/life-${EnvironmentName}-avatar-cleanup"
+      RetentionInDays: !Ref LogRetentionDays
+      Tags:
+        - Key: Application
+          Value: the-game-of-life
+        - Key: Environment
+          Value: !Ref EnvironmentName
   NotificationDeadLetterQueue:
     Type: AWS::SQS::Queue
     Condition: PushNotificationsEnabled
@@ -993,6 +1205,58 @@ Resources:
         - Key: Environment
           Value: !Ref EnvironmentName
 
+  AvatarCleanupFunctionErrorAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmDescription: Profile-picture cleanup returned an error.
+      Namespace: AWS/Lambda
+      MetricName: Errors
+      Dimensions:
+        - Name: FunctionName
+          Value: !Ref AvatarCleanupFunction
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      DatapointsToAlarm: 1
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref AlarmTopic
+      OKActions:
+        - !Ref AlarmTopic
+      Tags:
+        - Key: Application
+          Value: the-game-of-life
+        - Key: Environment
+          Value: !Ref EnvironmentName
+
+  AvatarCleanupDeadLetterQueueAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmDescription: A profile-picture cleanup exhausted its retries.
+      Namespace: AWS/SQS
+      MetricName: ApproximateNumberOfMessagesVisible
+      Dimensions:
+        - Name: QueueName
+          Value: !GetAtt AvatarCleanupDeadLetterQueue.QueueName
+      Statistic: Maximum
+      Period: 300
+      EvaluationPeriods: 1
+      DatapointsToAlarm: 1
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref AlarmTopic
+      OKActions:
+        - !Ref AlarmTopic
+      Tags:
+        - Key: Application
+          Value: the-game-of-life
+        - Key: Environment
+          Value: !Ref EnvironmentName
+
   NotificationDeadLetterQueueAlarm:
     Type: AWS::CloudWatch::Alarm
     Condition: PushNotificationsEnabled
@@ -1102,6 +1366,12 @@ Outputs:
     Value: !Ref GameTable
   DynamoTableArn:
     Value: !GetAtt GameTable.Arn
+  AvatarBucketName:
+    Description: Private bucket containing processed profile pictures.
+    Value: !Ref AvatarBucket
+  AvatarCleanupQueueUrl:
+    Description: Durable queue for private profile-picture garbage collection.
+    Value: !Ref AvatarCleanupQueue
   CognitoUserPoolId:
     Value: !Ref UserPool
   CognitoClientId:

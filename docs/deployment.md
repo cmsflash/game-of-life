@@ -4,8 +4,9 @@ Production uses two independently deployable stacks:
 
 - [`infra/template.yaml`](../infra/template.yaml) deploys the regional HTTPS
   API, a container Lambda containing the FastAPI service and compiled Dart
-  engine, a retained DynamoDB table, a retained Cognito user pool, and the logs
-  and alarms described in [`operations.md`](operations.md).
+  engine, a retained DynamoDB table, a retained Cognito user pool, a retained
+  private processed-profile-picture bucket with cleanup worker/queues, and the
+  logs and alarms described in [`operations.md`](operations.md).
 - [`infra/web-template.yaml`](../infra/web-template.yaml) deploys the Flutter
   web origin in `us-east-1`: a private versioned S3 bucket, CloudFront with
   origin access control, application-route rewriting, security headers,
@@ -60,8 +61,8 @@ positive reservation only after the regional quota is at least the requested
 reservation plus 10.
 
 The default stack intentionally has deletion protection enabled and retains the
-user pool, table, generated application secrets, and log groups if the stack is
-deleted. For an ephemeral non-production stack, explicitly pass
+user pool, table, private profile-picture bucket, generated application secrets,
+and log groups if the stack is deleted. For an ephemeral non-production stack, explicitly pass
 `EnableDeletionProtection=false`; retention policies still apply.
 
 Retrieve the values needed by the client:
@@ -151,12 +152,13 @@ aws cloudformation deploy \
   --parameter-overrides \
     EnvironmentName=production \
     EnableAccessLogging=false \
+    ApiOrigin=https://api.example.com \
   --no-fail-on-empty-changeset
 ```
 
 To use a custom hostname whose Route 53 public zone is in the same account,
 request or import its certificate in `us-east-1`, validate the certificate,
-then deploy or update with all four parameters:
+then deploy or update with all four domain parameters plus the exact API origin:
 
 ```bash
 aws cloudformation deploy \
@@ -166,6 +168,7 @@ aws cloudformation deploy \
   --parameter-overrides \
     EnvironmentName=production \
     EnableAccessLogging=false \
+    ApiOrigin=https://api.example.com \
     WebCustomDomainName=play.example.com \
     WebCertificateArn=arn:aws:acm:us-east-1:ACCOUNT-ID:certificate/CERTIFICATE-ID \
     CreateRoute53Records=true \
@@ -209,18 +212,26 @@ web release is built with `--google-sign-in-enabled true`. The web client always
 loads the public Web Push key from `/v1/notifications/config`, keeping the API
 stack's VAPID keypair as the single source of truth. The script:
 
-1. resolves the private bucket and distribution from CloudFormation outputs;
-2. runs a release Flutter build with `API_BASE_URL`, the explicit Google
+1. derives the exact scheme/host API origin from `API_BASE_URL` and updates the
+   web stack's narrow `img-src` policy before building;
+2. resolves the private bucket and distribution from CloudFormation outputs;
+3. runs a release Flutter build with `API_BASE_URL`, the explicit Google
    sign-in flag, and CanvasKit packaged locally instead of loaded from Google's
    CDN, while verifying the same-origin fallback-font configuration;
-3. uploads ordinary assets and removes obsolete assets while retaining the
+4. uploads ordinary assets and removes obsolete assets while retaining the
    prior startup shell, then replaces the startup files and stable JavaScript
    bundles only after their dependencies are present;
-4. assigns one-hour cache headers to ordinary assets, no-cache headers to
+5. assigns one-hour cache headers to ordinary assets, no-cache headers to
    startup metadata and `push-service-worker.js`, and browser revalidation with
    one-hour shared-edge caching to stable JavaScript, CanvasKit, WebAssembly,
    and manifest files;
-5. creates a `/*` invalidation and waits until CloudFront reports it complete.
+6. creates a `/*` invalidation and waits until CloudFront reports it complete.
+
+After the invalidation, inspect the live `Content-Security-Policy` header and
+require the exact API origin in `img-src`; a broad `https:` image source is not
+an acceptable substitute. Follow the ordered public-discovery and picture
+cutover in [`operations.md`](operations.md) before the first matching client
+release.
 
 The deployer needs read access to the stack, object list/write/delete access to
 the emitted bucket, and permission to create and read CloudFront invalidations.

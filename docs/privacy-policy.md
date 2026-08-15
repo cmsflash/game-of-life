@@ -24,16 +24,24 @@ only when optional Google sign-in is enabled and the player chooses it.
 The online service stores match rules, board states, moves, results, internal
 player identifiers, public display-name snapshots, Elo ratings, games/wins/
 losses/draws, kill totals, friend relationships and requests, pending friend
-challenges, and short-lived matchmaking records. A player's chosen display name
-is shown to online opponents and retained with match history; login usernames
-and email addresses are not included in match or Social documents.
+challenges, short-lived matchmaking records, and—when uploaded—a processed
+profile picture. A player's chosen display name and current profile picture are
+shown to other players; the display name is retained with match history, while
+matches do not store picture URLs. Login usernames and email addresses are not
+included in match or Social documents.
 
-Appearing in player search is optional and off by default, including for existing
-accounts. If a player opts in, other signed-in players can find the account by a
-case-insensitive public-display-name prefix and see only its public display name,
-opaque player ID, and rating. Opting out removes the search entry and prevents new
-requests from cached results, but existing friends, challenges, and match opponents
-can continue to see the display name already shared with them.
+Every active account appears in player search during this development phase.
+Other signed-in players can find it by a case-insensitive public-display-name
+prefix and see only its public display name, opaque player ID, rating, and current
+profile-picture reference. There is currently no search-privacy preference.
+
+Profile-picture upload accepts a JPEG, PNG, or WebP of up to 3 MiB. The service
+validates and decodes it under strict dimension limits, applies orientation and a
+square crop, and stores only a metadata-stripped 512×512 WebP in a private object
+bucket; the source file is not retained. The versioned delivery route is public so
+the picture can render in shared match and Social interfaces. A previous version
+stops resolving as soon as the authoritative profile changes, although a browser
+or shared cache may retain already-fetched bytes for up to 60 seconds.
 
 If a player grants browser or operating-system notification permission, the signed-
 in application automatically registers or refreshes a random
@@ -55,8 +63,9 @@ exchange codes are not intentionally logged.
 Information is used to provide accounts, recovery, matchmaking, online play,
 friends, challenges, ratings, replays, turn notifications, abuse prevention,
 security, and service operations. Public display names are disclosed to matched
-opponents, friends, request/challenge participants, and—only after opt-in—searchers.
-Other information is disclosed only
+opponents, friends, request/challenge participants, and signed-in searchers.
+Current profile pictures are available through their public versioned delivery
+URLs. Other information is disclosed only
 to infrastructure and identity providers needed for those functions, or when
 legally required. It is not sold and is not used for targeted advertising.
 
@@ -84,14 +93,30 @@ legally required. It is not sold and is not used for targeted advertising.
   may retain a raw recipient ID until their scheduled run and automatic deletion,
   no more than about 72 hours. They recheck the deleted account and authoritative
   match state and cannot deliver after deletion.
+- Every processed picture object receives a delayed cleanup check before its
+  profile pointer can be published. New objects remain `pending`; the worker
+  promotes the exact current pointer to `active` and deletes anything else.
+  Queue and dead-letter records contain only a SHA-256 owner digest
+  and hashed-prefix object key, never the raw account ID, and can remain encrypted
+  for up to 14 days. Replaced, removed, failed, or unpublished objects are deleted
+  immediately when possible; retry plus an approximately one-day pending/orphan
+  lifecycle backstop covers ordinary failures. Cleanup alarms require operator
+  investigation if a rare cross-store race or repeated provider failure persists.
+  Account deletion immediately fences the public profile,
+  picture pointer, and delivery route and makes a best-effort synchronous pass
+  over the private object prefix. An upload that began before that fence can finish
+  a private write after the empty-prefix pass; it never becomes publicly readable,
+  is checked by the durable cleanup worker after about 15 minutes, and remains
+  covered by the approximately one-day pending/orphan lifecycle if immediate or
+  queued deletion fails.
 - Operational logs use a 30-day default retention.
 - DynamoDB point-in-time recovery can retain deleted table data for up to 35
   days before it ages out.
 
-A signed-in player can permanently delete an account from **Player → Delete
+A signed-in player can permanently delete an account from **Settings → Delete
 account**. Deletion removes the identity account and recovery email, cancels
 waiting matches, treats active matches as resignations, removes player/search/
-Social/stats records and push subscriptions, and anonymizes stored display names
+Social/stats records, profile pictures, and push subscriptions, and anonymizes stored display names
 and move identifiers in retained match history. Result ledgers keep only match-
 level scores, kill counts, rating transitions, and ordering—not player IDs.
 Limited operational logs and encrypted

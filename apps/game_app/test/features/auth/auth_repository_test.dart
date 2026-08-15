@@ -3,11 +3,51 @@ import 'dart:convert';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:game_of_life/core/api_client.dart';
 import 'package:game_of_life/features/auth/data/auth_repository.dart';
+import 'package:game_of_life/features/auth/data/profile_avatar.dart';
 import 'package:game_of_life/features/auth/data/session_store.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 
 void main() {
+  test('restore refreshes a cached user with the canonical avatar', () async {
+    final store = MemorySessionStore()
+      ..session = const StoredSession(
+        accessToken: 'access-token',
+        refreshToken: null,
+        userJson: {
+          'userId': 'user-1',
+          'username': 'alice',
+          'displayName': 'Alice',
+        },
+      );
+    final repository = ApiAuthRepository(
+      api: ApiClient(
+        sessionStore: store,
+        httpClient: MockClient(
+          (_) async => http.Response(
+            jsonEncode({
+              'userId': 'user-1',
+              'username': 'alice',
+              'displayName': 'Alice',
+              'avatarUrl':
+                  'https://api.example.test/v1/players/user-1/avatar?v=5',
+              'avatarVersion': 5,
+            }),
+            200,
+          ),
+        ),
+        baseUrl: 'https://api.example.test',
+      ),
+      sessionStore: store,
+      browserLauncher: _FakeBrowser(),
+    );
+
+    final user = await repository.restore();
+
+    expect(user?.avatarVersion, 5);
+    expect((await store.readSession())?.userJson?['avatarVersion'], 5);
+  });
+
   test(
     'registration follows the confirmation-first backend contract',
     () async {
@@ -144,6 +184,90 @@ void main() {
       expect(await store.readSession(), isNotNull);
     },
   );
+
+  test(
+    'avatar upload uses authenticated multipart and parses version',
+    () async {
+      final store = MemorySessionStore()
+        ..session = const StoredSession(
+          accessToken: 'access-token',
+          refreshToken: null,
+          userJson: {
+            'userId': 'user-1',
+            'username': 'alice',
+            'displayName': 'Alice',
+          },
+        );
+      final repository = ApiAuthRepository(
+        api: ApiClient(
+          sessionStore: store,
+          httpClient: MockClient((request) async {
+            expect(request.method, 'POST');
+            expect(request.url.path, '/v1/me/avatar');
+            expect(request.headers['authorization'], 'Bearer access-token');
+            expect(
+              request.headers['content-type'],
+              startsWith('multipart/form-data'),
+            );
+            expect(request.body, contains('name="file"'));
+            expect(request.body, contains('filename="profile.jpg"'));
+            expect(request.body, contains('content-type: image/jpeg'));
+            return http.Response(
+              jsonEncode({
+                'avatarUrl':
+                    'https://api.example.test/v1/players/user-1/avatar?v=6',
+                'avatarVersion': 6,
+              }),
+              200,
+            );
+          }),
+          baseUrl: 'https://api.example.test',
+        ),
+        sessionStore: store,
+        browserLauncher: _FakeBrowser(),
+      );
+
+      final result = await repository.uploadAvatar(
+        ProfileAvatarUpload(
+          bytes: utf8.encode('avatar'),
+          filename: 'profile.jpg',
+          contentType: 'image/jpeg',
+        ),
+      );
+
+      expect(result.version, 6);
+      expect(result.url, endsWith('avatar?v=6'));
+    },
+  );
+
+  test('avatar removal parses the authoritative null document', () async {
+    final store = MemorySessionStore()
+      ..session = const StoredSession(
+        accessToken: 'access-token',
+        refreshToken: null,
+      );
+    final repository = ApiAuthRepository(
+      api: ApiClient(
+        sessionStore: store,
+        httpClient: MockClient((request) async {
+          expect(request.method, 'DELETE');
+          expect(request.url.path, '/v1/me/avatar');
+          return http.Response(
+            jsonEncode({'avatarUrl': null, 'avatarVersion': 7}),
+            200,
+          );
+        }),
+        baseUrl: 'https://api.example.test',
+      ),
+      sessionStore: store,
+      browserLauncher: _FakeBrowser(),
+    );
+
+    final result = await repository.removeAvatar();
+
+    expect(result.url, isNull);
+    expect(result.version, 7);
+  });
 }
 
 class _FakeBrowser implements BrowserLauncher {

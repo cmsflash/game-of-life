@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import '../../../providers.dart';
 import '../../../shared/async_message.dart';
 import '../../../shared/page_frame.dart';
+import '../../../shared/player_avatar.dart';
 import '../../auth/presentation/auth_controller.dart';
 import '../data/social_models.dart';
 import 'social_controller.dart';
@@ -59,7 +60,7 @@ class _SocialScreenState extends ConsumerState<SocialScreen> {
     ref.read(socialControllerProvider.notifier).cancelSearch();
     final query = value.trim();
     if (query.isEmpty) return;
-    if (query.length < 3 || query.length > 48) return;
+    if (query.length > 48) return;
     _searchDebounce = Timer(
       const Duration(milliseconds: 350),
       () => ref.read(socialControllerProvider.notifier).search(query),
@@ -230,29 +231,7 @@ class _PlayerSearch extends ConsumerWidget {
           Text('Find players', style: Theme.of(context).textTheme.titleLarge),
           const SizedBox(height: 5),
           const Text(
-            'Search by public display name. Usernames and email addresses are never shown.',
-          ),
-          const SizedBox(height: 12),
-          SwitchListTile(
-            key: const Key('social-discoverability'),
-            contentPadding: EdgeInsets.zero,
-            secondary: Icon(
-              state.discoverable ? Icons.public : Icons.visibility_off_outlined,
-            ),
-            title: const Text('Appear in player search'),
-            subtitle: Text(
-              state.discoverable
-                  ? 'Signed-in players can find your display name and Elo.'
-                  : 'You are hidden from search. Friends and matched opponents still see the display name already shared with them.',
-            ),
-            value: state.discoverable,
-            onChanged: state.actionId == null
-                ? (value) => unawaited(
-                    ref
-                        .read(socialControllerProvider.notifier)
-                        .setDiscoverable(value),
-                  )
-                : null,
+            'Every signed-in player can be found by public display name. Usernames and email addresses are never shown.',
           ),
           const SizedBox(height: 16),
           TextField(
@@ -262,7 +241,7 @@ class _PlayerSearch extends ConsumerWidget {
             textInputAction: TextInputAction.search,
             decoration: InputDecoration(
               labelText: 'Public display name',
-              hintText: 'Type at least 3 characters',
+              hintText: 'Type a display name',
               prefixIcon: const Icon(Icons.search),
               suffixIcon: state.searching
                   ? const Padding(
@@ -374,7 +353,7 @@ class _IncomingChallengeCard extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) => _SocialActionCard(
     key: Key('incoming-challenge-${challenge.id}'),
-    icon: Icons.sports_esports,
+    player: challenge.player,
     title: 'Challenge from ${challenge.player.displayName}',
     subtitle: _challengeDetails(challenge),
     actions: [
@@ -413,7 +392,7 @@ class _OutgoingChallengeCard extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) => _SocialActionCard(
     key: Key('outgoing-challenge-${challenge.id}'),
-    icon: Icons.outbox_outlined,
+    player: challenge.player,
     title: 'Challenge sent to ${challenge.player.displayName}',
     subtitle: _challengeDetails(challenge),
     actions: [
@@ -470,7 +449,7 @@ class _IncomingFriendRequestCard extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) => _SocialActionCard(
     key: Key('incoming-friend-request-${request.id}'),
-    icon: Icons.person_add_alt,
+    player: request.player,
     title: request.player.displayName,
     subtitle: 'Wants to be friends · Elo ${request.player.elo}',
     actions: [
@@ -512,7 +491,7 @@ class _OutgoingFriendRequestCard extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) => _SocialActionCard(
     key: Key('outgoing-friend-request-${request.id}'),
-    icon: Icons.schedule_send_outlined,
+    player: request.player,
     title: request.player.displayName,
     subtitle: 'Friend request pending · Elo ${request.player.elo}',
     actions: [
@@ -675,8 +654,10 @@ class _PlayerCard extends StatelessWidget {
         children: [
           Row(
             children: [
-              CircleAvatar(
-                child: Text(player.displayName.characters.first.toUpperCase()),
+              PlayerAvatar(
+                displayName: player.displayName,
+                avatarUrl: player.avatarUrl,
+                avatarVersion: player.avatarVersion,
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -703,13 +684,13 @@ class _PlayerCard extends StatelessWidget {
 class _SocialActionCard extends StatelessWidget {
   const _SocialActionCard({
     super.key,
-    required this.icon,
+    required this.player,
     required this.title,
     required this.subtitle,
     required this.actions,
   });
 
-  final IconData icon;
+  final PublicPlayer player;
   final String title;
   final String subtitle;
   final List<Widget> actions;
@@ -721,7 +702,11 @@ class _SocialActionCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon),
+          PlayerAvatar(
+            displayName: player.displayName,
+            avatarUrl: player.avatarUrl,
+            avatarVersion: player.avatarVersion,
+          ),
           const SizedBox(height: 12),
           Text(title, style: Theme.of(context).textTheme.titleLarge),
           const SizedBox(height: 4),

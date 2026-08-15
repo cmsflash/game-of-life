@@ -67,10 +67,12 @@ final routerProvider = Provider<GoRouter>((ref) {
             pageBuilder: (context, state) => _page(state, const SocialScreen()),
           ),
           GoRoute(
-            path: '/player',
-            pageBuilder: (context, state) => _page(state, const PlayerScreen()),
+            path: '/settings',
+            pageBuilder: (context, state) =>
+                _page(state, const SettingsScreen()),
           ),
-          GoRoute(path: '/profile', redirect: (context, state) => '/player'),
+          GoRoute(path: '/player', redirect: (context, state) => '/settings'),
+          GoRoute(path: '/profile', redirect: (context, state) => '/settings'),
           GoRoute(
             path: '/about',
             pageBuilder: (context, state) =>

@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:game_of_life/features/auth/data/auth_models.dart';
 import 'package:game_of_life/features/auth/data/auth_repository.dart';
+import 'package:game_of_life/features/auth/data/profile_avatar.dart';
 import 'package:game_of_life/features/notifications/data/turn_notification_repository.dart';
 import 'package:game_of_life/features/notifications/domain/turn_notifications.dart';
 import 'package:game_of_life/features/notifications/platform/turn_notification_gateway.dart';
@@ -16,6 +17,14 @@ class FakeAuthRepository implements AuthRepository {
   AppUser? current;
   Object? error;
   var loginCalls = 0;
+  var uploadAvatarCalls = 0;
+  var removeAvatarCalls = 0;
+  Completer<AvatarDocument>? avatarGate;
+  AvatarDocument avatarResult = const AvatarDocument(
+    url: 'https://api.example.test/v1/players/user-1/avatar?v=1',
+    version: 1,
+  );
+  Object? avatarError;
 
   @override
   Future<AppUser?> restore() async => current;
@@ -81,6 +90,41 @@ class FakeAuthRepository implements AuthRepository {
     required String code,
     required String newPassword,
   }) async {}
+
+  @override
+  Future<AvatarDocument> uploadAvatar(ProfileAvatarUpload upload) async {
+    uploadAvatarCalls++;
+    if (avatarError != null) throw avatarError!;
+    return avatarGate == null ? avatarResult : avatarGate!.future;
+  }
+
+  @override
+  Future<AvatarDocument> removeAvatar() async {
+    removeAvatarCalls++;
+    if (avatarError != null) throw avatarError!;
+    return avatarGate == null
+        ? AvatarDocument(url: null, version: avatarResult.version + 1)
+        : avatarGate!.future;
+  }
+
+  @override
+  Future<void> cacheUser(AppUser user) async {
+    if (current?.id == user.id) current = user;
+  }
+}
+
+class FakeProfileAvatarPicker implements ProfileAvatarPicker {
+  ProfileAvatarUpload? result;
+  Object? error;
+  Completer<ProfileAvatarUpload?>? gate;
+  var calls = 0;
+
+  @override
+  Future<ProfileAvatarUpload?> pick() async {
+    calls++;
+    if (error != null) throw error!;
+    return gate == null ? result : gate!.future;
+  }
 }
 
 class FakeTurnNotificationRepository implements TurnNotificationRepository {
@@ -313,7 +357,6 @@ class FakeSocialRepository implements SocialRepository {
   final createdChallenges = <String>[];
   final acceptedChallenges = <String>[];
   final removedChallenges = <String>[];
-  final discoverabilityChanges = <bool>[];
 
   @override
   Future<SocialOverview> getOverview() async {
@@ -374,25 +417,6 @@ class FakeSocialRepository implements SocialRepository {
   Future<void> removeChallenge(String challengeId) async {
     _throwMutationError();
     removedChallenges.add(challengeId);
-  }
-
-  @override
-  Future<DiscoverabilityResult> setDiscoverable(bool discoverable) async {
-    _throwMutationError();
-    discoverabilityChanges.add(discoverable);
-    overview = SocialOverview(
-      version: overview.version + 1,
-      discoverable: discoverable,
-      friends: overview.friends,
-      incomingFriendRequests: overview.incomingFriendRequests,
-      outgoingFriendRequests: overview.outgoingFriendRequests,
-      incomingChallenges: overview.incomingChallenges,
-      outgoingChallenges: overview.outgoingChallenges,
-    );
-    return DiscoverabilityResult(
-      discoverable: discoverable,
-      version: overview.version,
-    );
   }
 }
 

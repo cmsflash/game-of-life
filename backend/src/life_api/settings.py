@@ -62,6 +62,9 @@ class Settings:
     notification_schedule_group_name: str | None = None
     notification_dead_letter_queue_arn: str | None = None
     app_component: str = "api"
+    avatar_bucket_name: str | None = None
+    public_api_base_url: str | None = None
+    avatar_cleanup_queue_url: str | None = None
 
     @property
     def is_production(self) -> bool:
@@ -117,6 +120,9 @@ class Settings:
                 os.getenv("NOTIFICATION_DEAD_LETTER_QUEUE_ARN") or None
             ),
             app_component=os.getenv("APP_COMPONENT", "api").strip().lower(),
+            avatar_bucket_name=os.getenv("AVATAR_BUCKET_NAME") or None,
+            public_api_base_url=os.getenv("PUBLIC_API_BASE_URL") or None,
+            avatar_cleanup_queue_url=os.getenv("AVATAR_CLEANUP_QUEUE_URL") or None,
         )
         settings.validate()
         return settings
@@ -206,6 +212,9 @@ class Settings:
                 "COGNITO_CLIENT_ID": self.cognito_client_id,
                 "COGNITO_HOSTED_UI_BASE": self.cognito_hosted_ui_base,
                 "COGNITO_OAUTH_CALLBACK_URL": self.cognito_oauth_callback_url,
+                "AVATAR_BUCKET_NAME": self.avatar_bucket_name,
+                "PUBLIC_API_BASE_URL": self.public_api_base_url,
+                "AVATAR_CLEANUP_QUEUE_URL": self.avatar_cleanup_queue_url,
             }
             missing = [name for name, value in required.items() if not value]
             if missing:
@@ -227,6 +236,7 @@ class Settings:
 
         assert self.cognito_hosted_ui_base
         assert self.cognito_oauth_callback_url
+        assert self.public_api_base_url
         _validate_production_https_url(
             "COGNITO_HOSTED_UI_BASE",
             self.cognito_hosted_ui_base,
@@ -235,6 +245,11 @@ class Settings:
         _validate_production_https_url(
             "COGNITO_OAUTH_CALLBACK_URL",
             self.cognito_oauth_callback_url,
+            origin_only=False,
+        )
+        _validate_production_https_url(
+            "PUBLIC_API_BASE_URL",
+            self.public_api_base_url,
             origin_only=False,
         )
 

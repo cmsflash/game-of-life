@@ -4,6 +4,7 @@ import json
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
+import pytest
 from boto3.dynamodb.types import TypeDeserializer
 from botocore.exceptions import ClientError
 
@@ -126,6 +127,27 @@ class ConfirmedCognito:
                     "Attributes": [
                         {"Name": "sub", "Value": "deleting-user"},
                         {"Name": "name", "Value": "Public Name"},
+                    ],
+                }
+            ]
+        }
+
+
+class NamedConfirmedCognito:
+    def __init__(self, display_name: str) -> None:
+        self.display_name = display_name
+
+    def list_users(self, **kwargs: Any) -> dict[str, Any]:
+        del kwargs
+        return {
+            "Users": [
+                {
+                    "Username": "confirmed-login",
+                    "Enabled": True,
+                    "UserStatus": "CONFIRMED",
+                    "Attributes": [
+                        {"Name": "sub", "Value": "confirmed-user"},
+                        {"Name": "name", "Value": self.display_name},
                     ],
                 }
             ]
@@ -319,7 +341,7 @@ def test_match_cas_uses_exact_legacy_json_instead_of_reserialized_defaults() -> 
     assert TypeDeserializer().deserialize(expected) == raw
 
 
-def test_profile_backfill_checks_legacy_deletion_guard_and_defaults_private() -> None:
+def test_profile_backfill_checks_legacy_deletion_guard_before_public_indexing() -> None:
     table = MemoryTable([])
     client = LegacyGuardRejectingClient()
 
@@ -333,6 +355,38 @@ def test_profile_backfill_checks_legacy_deletion_guard_and_defaults_private() ->
 
     assert report.profiles_created == 0
     assert all(not item.get("PK", "").startswith("PLAYER#") for item in table.items)
+
+
+@pytest.mark.parametrize(
+    ("display_name", "expected_partitions"),
+    [
+        ("Q", {"SEARCH#q"}),
+        ("Li", {"SEARCH#l", "SEARCH#li"}),
+        ("Alice", {"SEARCH#a", "SEARCH#al", "SEARCH#ali"}),
+    ],
+)
+def test_profile_backfill_writes_all_available_public_search_prefixes(
+    display_name: str,
+    expected_partitions: set[str],
+) -> None:
+    client = RecordingClient()
+
+    report = backfill_confirmed_profiles(
+        MemoryTable([]),
+        client,
+        NamedConfirmedCognito(display_name),
+        "pool-id",
+        apply=True,
+    )
+
+    assert report.profiles_created == 1
+    deserializer = TypeDeserializer()
+    partitions = {
+        str(deserializer.deserialize(operation["Put"]["Item"]["PK"]))
+        for operation in client.transactions[0]
+        if operation.get("Put", {}).get("Item", {}).get("entity") == {"S": "playerSearch"}
+    }
+    assert partitions == expected_partitions
 
 
 def _finished_table(*, control_version: int = 1, corrupt_zero_stats: bool = False) -> MemoryTable:

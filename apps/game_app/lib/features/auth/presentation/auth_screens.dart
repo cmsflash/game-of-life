@@ -167,7 +167,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   Widget build(BuildContext context) {
     final state = ref.watch(authControllerProvider);
     return AuthPageShell(
-      title: 'Create your player',
+      title: 'Create your account',
       subtitle:
           'Username and password work anywhere. Email confirms and recovers your account.',
       child: AutofillGroup(
@@ -211,7 +211,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                 decoration: const InputDecoration(
                   labelText: 'Display name',
                   helperText:
-                      'Shown to friends and opponents; player search is a separate opt-in',
+                      'Public to signed-in players in search, friends, and matches',
                   prefixIcon: Icon(Icons.badge_outlined),
                 ),
               ),

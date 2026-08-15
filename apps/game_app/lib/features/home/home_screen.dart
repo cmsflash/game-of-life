@@ -9,6 +9,7 @@ import 'package:go_router/go_router.dart';
 import '../../providers.dart';
 import '../../shared/async_message.dart';
 import '../../shared/page_frame.dart';
+import '../../shared/player_avatar.dart';
 import '../auth/presentation/auth_controller.dart';
 import '../game/domain/game_session.dart';
 import '../game/presentation/local_games_controller.dart';
@@ -646,6 +647,9 @@ class _CurrentGameItem {
     this.localGameId,
     this.joinCode,
     this.waitingRoomId,
+    this.avatarName,
+    this.avatarUrl,
+    this.avatarVersion = 0,
   });
 
   factory _CurrentGameItem.local(LocalGameSummary summary) {
@@ -695,6 +699,9 @@ class _CurrentGameItem {
     waitingRoomId: match.status == 'waiting' && match.joinCode != null
         ? match.id
         : null,
+    avatarName: match.status == 'waiting' ? null : match.opponentName,
+    avatarUrl: match.opponentAvatarUrl,
+    avatarVersion: match.opponentAvatarVersion,
   );
 
   final String id;
@@ -709,6 +716,9 @@ class _CurrentGameItem {
   final String? localGameId;
   final String? joinCode;
   final String? waitingRoomId;
+  final String? avatarName;
+  final String? avatarUrl;
+  final int avatarVersion;
 
   static int compare(_CurrentGameItem a, _CurrentGameItem b) {
     final priority = a.priority.compareTo(b.priority);
@@ -740,15 +750,22 @@ class _CurrentGameCard extends ConsumerWidget {
           padding: const EdgeInsets.all(20),
           child: Row(
             children: [
-              CircleAvatar(
-                backgroundColor: item.emphasized
-                    ? scheme.tertiary
-                    : scheme.secondaryContainer,
-                foregroundColor: item.emphasized
-                    ? scheme.onTertiary
-                    : scheme.onSecondaryContainer,
-                child: Icon(item.icon),
-              ),
+              if (item.avatarName != null)
+                PlayerAvatar(
+                  displayName: item.avatarName!,
+                  avatarUrl: item.avatarUrl,
+                  avatarVersion: item.avatarVersion,
+                )
+              else
+                CircleAvatar(
+                  backgroundColor: item.emphasized
+                      ? scheme.tertiary
+                      : scheme.secondaryContainer,
+                  foregroundColor: item.emphasized
+                      ? scheme.onTertiary
+                      : scheme.onSecondaryContainer,
+                  child: Icon(item.icon),
+                ),
               const SizedBox(width: 16),
               Expanded(
                 child: Column(

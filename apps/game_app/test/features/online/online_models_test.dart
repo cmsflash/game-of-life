@@ -16,6 +16,28 @@ void main() {
     expect(summary.joinCode, 'LIFE42');
   });
 
+  test('match summaries expose the opponent avatar snapshot', () {
+    final summary = OnlineMatchSummary.fromJson({
+      'matchId': 'match-avatar',
+      'status': 'active',
+      'yourColor': 'black',
+      'players': [
+        {'userId': 'alice', 'displayName': 'Alice', 'color': 'black'},
+        {
+          'userId': 'bob',
+          'displayName': 'Bob',
+          'color': 'white',
+          'avatarUrl': 'https://api.example.test/v1/players/bob/avatar?v=9',
+          'avatarVersion': 9,
+        },
+      ],
+    });
+
+    expect(summary.opponentName, 'Bob');
+    expect(summary.opponentAvatarVersion, 9);
+    expect(summary.opponentAvatarUrl, endsWith('avatar?v=9'));
+  });
+
   test('decodes packed two-bit server boards', () {
     final values = List<int>.filled(400, 0)
       ..[0] = 1
@@ -44,6 +66,8 @@ void main() {
           'username': 'bob',
           'displayName': 'Bob',
           'color': 'white',
+          'avatarUrl': 'https://api.example.test/v1/players/b/avatar?v=2',
+          'avatarVersion': 2,
         },
       ],
       'board': {
@@ -60,6 +84,7 @@ void main() {
     expect(match.blackPopulation, 2);
     expect(match.whitePopulation, 1);
     expect(match.isYourTurn, isTrue);
+    expect(match.playerFor(engine.Player.white)?.avatarVersion, 2);
   });
 
   test('accepts the alternate nested state document shape', () {

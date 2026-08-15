@@ -8,6 +8,7 @@ import 'package:go_router/go_router.dart';
 import '../../../core/api_client.dart';
 import '../../../providers.dart';
 import '../../../shared/game_play_layout.dart';
+import '../../../shared/player_avatar.dart';
 import '../../game/domain/move_preview.dart';
 import '../../game/presentation/game_view_settings_dialog.dart';
 import '../../game/presentation/life_board.dart';
@@ -404,6 +405,8 @@ class _OnlineGamePanel extends StatelessWidget {
           active: match.nextPlayer == match.yourColor,
           onCommit: preview != null && match.isYourTurn ? onCommit : null,
           busy: submitting && preview != null,
+          avatarUrl: yourPlayer?.avatarUrl,
+          avatarVersion: yourPlayer?.avatarVersion ?? 0,
         ),
         SizedBox(height: compact ? 8 : 10),
         _OnlinePlayerTile(
@@ -414,6 +417,8 @@ class _OnlineGamePanel extends StatelessWidget {
               ? displayBoard.population(engine.CellState.black)
               : displayBoard.population(engine.CellState.white),
           active: match.nextPlayer == opponent?.color,
+          avatarUrl: opponent?.avatarUrl,
+          avatarVersion: opponent?.avatarVersion ?? 0,
         ),
         SizedBox(height: compact ? 8 : 12),
         Card(
@@ -450,6 +455,8 @@ class _OnlinePlayerTile extends StatelessWidget {
     required this.active,
     this.onCommit,
     this.busy = false,
+    this.avatarUrl,
+    this.avatarVersion = 0,
   });
 
   final String name;
@@ -459,6 +466,8 @@ class _OnlinePlayerTile extends StatelessWidget {
   final bool active;
   final VoidCallback? onCommit;
   final bool busy;
+  final String? avatarUrl;
+  final int avatarVersion;
 
   @override
   Widget build(BuildContext context) {
@@ -486,6 +495,13 @@ class _OnlinePlayerTile extends StatelessWidget {
             markerSize: markerSize,
           ),
           SizedBox(width: compact ? 6 : 8),
+          PlayerAvatar(
+            displayName: name,
+            avatarUrl: avatarUrl,
+            avatarVersion: avatarVersion,
+            radius: compact ? 15 : 17,
+          ),
+          SizedBox(width: compact ? 7 : 9),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,

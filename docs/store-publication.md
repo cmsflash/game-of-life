@@ -36,8 +36,8 @@ placeholders in a store record.
 
 ## Review package
 
-- Phone and tablet screenshots showing home, local setup, a live match, online
-  lobby, profile, privacy policy, and account deletion.
+- Phone and tablet screenshots showing Home, local setup, a live match, Social,
+  Settings, profile-picture management, privacy policy, and account deletion.
 - Android feature graphic and final adaptive-icon preview.
 - Review notes explaining that local play needs no account and how reviewers
   can exercise online play with two test accounts.
@@ -45,17 +45,21 @@ placeholders in a store record.
 - Completed Apple privacy nutrition labels and Google Play Data Safety form
   consistent with [`privacy-policy.md`](privacy-policy.md).
 - Age-rating, privacy, and user-generated-content answers reflecting that an
-  online opponent, friend/request/challenge participant, and—only after search
-  opt-in—searcher can see a player's user-authored display name and rating.
+  online opponent, friend/request/challenge participant, or signed-in searcher
+  can see a player's user-authored display name, rating, and current picture.
+- Review notes and policy answers must state that picture uploaders need the
+  necessary rights, unlawful/abusive/infringing pictures are prohibited, and the
+  service may reject or remove them.
 - A reviewed store-compliance plan for display-name moderation, reporting,
   friend-request/challenge spam controls, blocking, and abuse response. The
   current Social backend does not add complete report/block/moderation product
   controls; treat any controls required by the target store
   as a publication blocker rather than answering that no shared user-authored
   content exists.
-- Privacy/data-safety answers covering opt-in public-name discovery, Social graph
-  and challenge records, Elo and game/kill statistics, automatically refreshed
-  push registrations after OS permission, and anonymized retained match aggregates.
+- Privacy/data-safety answers covering public-by-default display-name discovery,
+  processed profile pictures, Social graph and challenge records, Elo and
+  game/kill statistics, automatically refreshed push registrations after OS
+  permission, and anonymized retained match aggregates.
 
 ## Verification
 

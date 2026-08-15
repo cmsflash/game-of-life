@@ -57,13 +57,25 @@ class Repository(Protocol):
 
     def set_player_discoverability(self, user_id: str, discoverable: bool) -> tuple[bool, int]: ...
 
+    def set_player_avatar(
+        self,
+        user_id: str,
+        *,
+        avatar_key: str | None,
+        expected_profile_version: int,
+    ) -> StoredPublicPlayer: ...
+
     def get_public_player(self, player_id: str) -> StoredPublicPlayer | None: ...
+
+    def get_public_players(self, player_ids: set[str]) -> dict[str, StoredPublicPlayer]: ...
 
     def search_public_players(
         self, normalized_prefix: str, *, limit: int
     ) -> list[StoredPublicPlayer]: ...
 
     def check_player_search_rate(self, user_id: str) -> None: ...
+
+    def check_avatar_upload_rate(self, user_id: str) -> None: ...
 
     def get_player_stats(self, player_id: str) -> StoredPlayerStats: ...
 
@@ -248,6 +260,7 @@ class InMemoryRepository:
         )
         self._metrics_ledgers: dict[str, MatchMetricsLedger] = {}
         self._search_rates: dict[tuple[str, int], int] = {}
+        self._avatar_upload_rates: dict[tuple[str, int], int] = {}
         self._lock = threading.RLock()
 
     def account_state(self, user_id: str) -> AccountState:
@@ -267,17 +280,23 @@ class InMemoryRepository:
             if existing is None:
                 self._public_players[player.id] = player.model_copy(
                     update={
-                        "discoverable": False,
-                        "discoverability_updated_at": None,
+                        "discoverable": True,
                         "version": 0,
                     },
                     deep=True,
                 )
-            else:
+            elif (
+                existing.display_name != player.display_name
+                or existing.normalized_display_name != player.normalized_display_name
+                or not existing.discoverable
+                or existing.discoverability_updated_at is not None
+            ):
                 self._public_players[player.id] = existing.model_copy(
                     update={
                         "display_name": player.display_name,
                         "normalized_display_name": player.normalized_display_name,
+                        "discoverable": True,
+                        "discoverability_updated_at": None,
                         "version": existing.version + 1,
                     },
                     deep=True,
@@ -290,19 +309,43 @@ class InMemoryRepository:
             player = self._public_players.get(user_id)
             if player is None:
                 raise ApiError("playerUnavailable", "That player is unavailable.", status_code=404)
-            if player.discoverable == discoverable:
-                return discoverable, self._social_versions.get(user_id, 0)
-            self._public_players[user_id] = player.model_copy(
+            if not player.discoverable:
+                self._public_players[user_id] = player.model_copy(
+                    update={"discoverable": True, "version": player.version + 1},
+                    deep=True,
+                )
+            # Rolling-client compatibility only. Search privacy is not
+            # configurable during this development phase.
+            del discoverable
+            return True, self._social_versions.get(user_id, 0)
+
+    def set_player_avatar(
+        self,
+        user_id: str,
+        *,
+        avatar_key: str | None,
+        expected_profile_version: int,
+    ) -> StoredPublicPlayer:
+        with self._lock:
+            self._require_active(user_id)
+            player = self._public_players.get(user_id)
+            if player is None:
+                raise ApiError("playerUnavailable", "That player is unavailable.", status_code=404)
+            if player.version != expected_profile_version:
+                raise ApiError(
+                    "profileConflict", "The player profile changed. Retry.", status_code=409
+                )
+            updated = player.model_copy(
                 update={
-                    "discoverable": discoverable,
-                    "discoverability_updated_at": datetime.now(UTC),
+                    "avatar_key": avatar_key,
+                    "avatar_version": player.avatar_version + 1,
                     "version": player.version + 1,
+                    "discoverable": True,
                 },
                 deep=True,
             )
-            version = self._social_versions.get(user_id, 0) + 1
-            self._social_versions[user_id] = version
-            return discoverable, version
+            self._public_players[user_id] = updated
+            return updated.model_copy(deep=True)
 
     def get_public_player(self, player_id: str) -> StoredPublicPlayer | None:
         with self._lock:
@@ -310,6 +353,13 @@ class InMemoryRepository:
                 return None
             player = self._public_players.get(player_id)
             return player.model_copy(deep=True) if player is not None else None
+
+    def get_public_players(self, player_ids: set[str]) -> dict[str, StoredPublicPlayer]:
+        return {
+            player_id: player
+            for player_id in player_ids
+            if (player := self.get_public_player(player_id)) is not None
+        }
 
     def search_public_players(
         self, normalized_prefix: str, *, limit: int
@@ -319,7 +369,6 @@ class InMemoryRepository:
                 player.model_copy(deep=True)
                 for player in self._public_players.values()
                 if player.normalized_display_name.startswith(normalized_prefix)
-                and player.discoverable
                 and self.account_state(player.id) == AccountState.active
             ]
         return sorted(matches, key=lambda value: (value.normalized_display_name, value.id))[:limit]
@@ -332,6 +381,19 @@ class InMemoryRepository:
             if count > 30:
                 raise ApiError("playerSearchRateLimited", "Search again later.", status_code=429)
             self._search_rates[key] = count
+
+    def check_avatar_upload_rate(self, user_id: str) -> None:
+        with self._lock:
+            hour = int(datetime.now(UTC).timestamp()) // 3600
+            key = (user_id, hour)
+            count = self._avatar_upload_rates.get(key, 0) + 1
+            if count > 10:
+                raise ApiError(
+                    "avatarUploadRateLimited",
+                    "Too many profile-picture uploads. Try again later.",
+                    status_code=429,
+                )
+            self._avatar_upload_rates[key] = count
 
     def get_player_stats(self, player_id: str) -> StoredPlayerStats:
         with self._lock:
@@ -375,7 +437,7 @@ class InMemoryRepository:
             key = _pair_key(relation.first_player_id, relation.second_player_id)
             target_id = relation.other(relation.requester_id)
             target = self._public_players.get(target_id)
-            if target is None or not target.discoverable:
+            if target is None:
                 raise ApiError("playerUnavailable", "That player is unavailable.", status_code=404)
             current = self._social_relations.get(key)
             if current is not None:
@@ -1261,6 +1323,9 @@ class InMemoryRepository:
             self._search_rates = {
                 key: count for key, count in self._search_rates.items() if key[0] != user_id
             }
+            self._avatar_upload_rates = {
+                key: count for key, count in self._avatar_upload_rates.items() if key[0] != user_id
+            }
 
             installation_ids = [
                 installation_id
@@ -1277,9 +1342,8 @@ class DynamoRepository:
     """Single-table DynamoDB implementation used by the Lambda deployment."""
 
     def __init__(self, settings: Settings) -> None:
-        self._table = boto3.resource("dynamodb", region_name=settings.aws_region).Table(
-            settings.table_name
-        )
+        self._dynamodb = boto3.resource("dynamodb", region_name=settings.aws_region)
+        self._table = self._dynamodb.Table(settings.table_name)
         # Transaction payloads below use explicit DynamoDB AttributeValue maps.
         # A resource-backed Table client installs an additional serializer and
         # would encode those maps a second time (for example, S keys as M).
@@ -1321,12 +1385,20 @@ class DynamoRepository:
         return {"PK": f"PLAYER#{user_id}", "SK": "STATS"}
 
     @staticmethod
-    def _search_key(player: StoredPublicPlayer) -> dict[str, str]:
-        prefix = player.normalized_display_name[:3]
-        return {
-            "PK": f"SEARCH#{prefix}",
-            "SK": f"{player.normalized_display_name}#{player.id}",
-        }
+    def _avatar_pointer_key(user_id: str) -> dict[str, str]:
+        digest = hashlib.sha256(user_id.encode()).hexdigest()
+        return {"PK": f"ACCOUNT#{digest}", "SK": "AVATAR"}
+
+    @staticmethod
+    def _search_keys(player: StoredPublicPlayer) -> list[dict[str, str]]:
+        name = player.normalized_display_name
+        return [
+            {
+                "PK": f"SEARCH#{name[:length]}",
+                "SK": f"{name}#{player.id}",
+            }
+            for length in range(1, min(3, len(name)) + 1)
+        ]
 
     @staticmethod
     def _pair_partition(first_id: str, second_id: str) -> str:
@@ -1516,18 +1588,24 @@ class DynamoRepository:
                     ),
                 }
             },
+            {
+                "Delete": {
+                    "TableName": self._table_name,
+                    "Key": _serialize(self._avatar_pointer_key(user_id)),
+                }
+            },
         ]
         if profile_item is not None:
             profile = StoredPublicPlayer.model_validate_json(profile_item["document"])
-            if profile.discoverable:
-                transaction.append(
-                    {
-                        "Delete": {
-                            "TableName": self._table_name,
-                            "Key": _serialize(self._search_key(profile)),
-                        }
+            transaction.extend(
+                {
+                    "Delete": {
+                        "TableName": self._table_name,
+                        "Key": _serialize(key),
                     }
-                )
+                }
+                for key in self._search_keys(profile)
+            )
         self._client.transact_write_items(TransactItems=transaction)
         # The profile may have changed after the pre-fence read but before this
         # transaction won. Once ACCOUNT_STATE is deleting, profile/index writes
@@ -1539,10 +1617,10 @@ class DynamoRepository:
             current_profile = StoredPublicPlayer.model_validate_json(
                 current_profile_item["document"]
             )
-            if current_profile.discoverable:
+            for key in self._search_keys(current_profile):
                 try:
                     self._table.delete_item(
-                        Key=self._search_key(current_profile),
+                        Key=key,
                         ConditionExpression="playerId = :playerId",
                         ExpressionAttributeValues={":playerId": user_id},
                     )
@@ -1560,40 +1638,90 @@ class DynamoRepository:
                 if existing_item is not None
                 else None
             )
-            stored = player.model_copy(
-                update={
-                    "discoverable": existing.discoverable if existing is not None else False,
-                    "discoverability_updated_at": (
-                        existing.discoverability_updated_at if existing is not None else None
-                    ),
-                    "version": existing.version + 1 if existing is not None else 0,
-                },
-                deep=True,
+            profile_changed = existing is None or (
+                existing.display_name != player.display_name
+                or existing.normalized_display_name != player.normalized_display_name
+                or not existing.discoverable
+                or existing.discoverability_updated_at is not None
             )
-            profile_condition = (
-                "attribute_not_exists(PK)" if existing is None else "#version = :expectedVersion"
-            )
-            profile_put: dict[str, Any] = {
-                "TableName": self._table_name,
-                "Item": _serialize(
-                    {
-                        **self._profile_key(player.id),
-                        "entity": "publicPlayer",
-                        "version": stored.version,
-                        "discoverable": stored.discoverable,
-                        "document": stored.model_dump_json(by_alias=True),
-                    }
-                ),
-                "ConditionExpression": profile_condition,
-            }
-            if existing is not None:
-                profile_put["ExpressionAttributeNames"] = {"#version": "version"}
-                profile_put["ExpressionAttributeValues"] = _serialize_values(
-                    {":expectedVersion": existing.version}
+            if existing is None:
+                stored = player.model_copy(
+                    update={
+                        "discoverable": True,
+                        "discoverability_updated_at": None,
+                        "version": 0,
+                        "avatar_key": None,
+                        "avatar_version": 0,
+                    },
+                    deep=True,
                 )
+            elif profile_changed:
+                stored = existing.model_copy(
+                    update={
+                        "display_name": player.display_name,
+                        "normalized_display_name": player.normalized_display_name,
+                        "discoverable": True,
+                        "discoverability_updated_at": None,
+                        "version": existing.version + 1,
+                    },
+                    deep=True,
+                )
+            else:
+                # Login and /me may index the same authenticated profile from
+                # several tabs. A literal no-op avoids racing an avatar CAS and
+                # needlessly consuming a DynamoDB transaction. The public
+                # cutover migration is responsible for repairing legacy rows.
+                return
+            if existing is None:
+                profile_operation: dict[str, Any] = {
+                    "Put": {
+                        "TableName": self._table_name,
+                        "Item": _serialize(
+                            {
+                                **self._profile_key(player.id),
+                                "entity": "publicPlayer",
+                                "version": stored.version,
+                                "discoverable": True,
+                                "document": stored.model_dump_json(by_alias=True),
+                            }
+                        ),
+                        "ConditionExpression": "attribute_not_exists(PK)",
+                    }
+                }
+            else:
+                guard = {
+                    "ConditionExpression": (
+                        "#version = :expectedVersion AND #document = :expectedDocument"
+                    ),
+                    "ExpressionAttributeNames": {
+                        "#version": "version",
+                        "#document": "document",
+                    },
+                    "ExpressionAttributeValues": _serialize_values(
+                        {
+                            ":expectedVersion": existing.version,
+                            ":expectedDocument": str(existing_item["document"]),
+                        }
+                    ),
+                }
+                profile_operation = {
+                    "Put": {
+                        "TableName": self._table_name,
+                        "Item": _serialize(
+                            {
+                                **self._profile_key(player.id),
+                                "entity": "publicPlayer",
+                                "version": stored.version,
+                                "discoverable": True,
+                                "document": stored.model_dump_json(by_alias=True),
+                            }
+                        ),
+                        **guard,
+                    }
+                }
             transaction: list[dict[str, Any]] = [
                 *self._account_conditions(player.id),
-                {"Put": profile_put},
+                profile_operation,
                 {
                     "Update": {
                         "TableName": self._table_name,
@@ -1621,31 +1749,35 @@ class DynamoRepository:
                     }
                 },
             ]
-            if existing is not None and existing.discoverable:
-                if self._search_key(existing) != self._search_key(stored):
-                    transaction.append(
-                        {
-                            "Delete": {
-                                "TableName": self._table_name,
-                                "Key": _serialize(self._search_key(existing)),
-                            }
-                        }
-                    )
-                transaction.append(
+            new_search_keys = self._search_keys(stored)
+            new_search_pairs = {(value["PK"], value["SK"]) for value in new_search_keys}
+            if existing is not None:
+                transaction.extend(
                     {
-                        "Put": {
+                        "Delete": {
                             "TableName": self._table_name,
-                            "Item": _serialize(
-                                {
-                                    **self._search_key(stored),
-                                    "entity": "playerSearch",
-                                    "playerId": stored.id,
-                                    "document": stored.model_dump_json(by_alias=True),
-                                }
-                            ),
+                            "Key": _serialize(key),
                         }
                     }
+                    for key in self._search_keys(existing)
+                    if (key["PK"], key["SK"]) not in new_search_pairs
                 )
+            transaction.extend(
+                {
+                    "Put": {
+                        "TableName": self._table_name,
+                        "Item": _serialize(
+                            {
+                                **key,
+                                "entity": "playerSearch",
+                                "playerId": stored.id,
+                                "document": stored.model_dump_json(by_alias=True),
+                            }
+                        ),
+                    }
+                }
+                for key in new_search_keys
+            )
             try:
                 self._client.transact_write_items(TransactItems=transaction)
                 return
@@ -1670,7 +1802,38 @@ class DynamoRepository:
             return None
         return StoredPublicPlayer.model_validate_json(item["document"])
 
+    def get_public_players(self, player_ids: set[str]) -> dict[str, StoredPublicPlayer]:
+        if not player_ids:
+            return {}
+        keys: list[dict[str, str]] = []
+        now = int(datetime.now(UTC).timestamp())
+        for player_id in sorted(player_ids):
+            keys.extend(
+                [
+                    self._profile_key(player_id),
+                    self._account_key(player_id),
+                    {"PK": f"USER#{player_id}", "SK": "ACCOUNT_DELETED"},
+                ]
+            )
+        items = self._batch_get(keys)
+        by_key = {(str(item["PK"]), str(item["SK"])): item for item in items}
+        found: dict[str, StoredPublicPlayer] = {}
+        for player_id in player_ids:
+            account = by_key.get(
+                (f"ACCOUNT#{hashlib.sha256(player_id.encode()).hexdigest()}", "STATE")
+            )
+            legacy = by_key.get((f"USER#{player_id}", "ACCOUNT_DELETED"))
+            if account is not None and account.get("state") != AccountState.active.value:
+                continue
+            if legacy is not None and int(legacy.get("expiresAt", 0)) > now:
+                continue
+            item = by_key.get((f"PLAYER#{player_id}", "PROFILE"))
+            if item is not None and isinstance(item.get("document"), str):
+                found[player_id] = StoredPublicPlayer.model_validate_json(item["document"])
+        return found
+
     def set_player_discoverability(self, user_id: str, discoverable: bool) -> tuple[bool, int]:
+        del discoverable
         for _ in range(4):
             item = self._table.get_item(Key=self._profile_key(user_id), ConsistentRead=True).get(
                 "Item"
@@ -1679,12 +1842,12 @@ class DynamoRepository:
                 raise ApiError("playerUnavailable", "That player is unavailable.", status_code=404)
             player = StoredPublicPlayer.model_validate_json(item["document"])
             state = self._social_state(user_id)
-            if player.discoverable == discoverable:
-                return discoverable, state["version"]
+            if player.discoverable:
+                return True, state["version"]
             updated = player.model_copy(
                 update={
-                    "discoverable": discoverable,
-                    "discoverability_updated_at": datetime.now(UTC),
+                    "discoverable": True,
+                    "discoverability_updated_at": None,
                     "version": player.version + 1,
                 }
             )
@@ -1698,7 +1861,7 @@ class DynamoRepository:
                                 **self._profile_key(user_id),
                                 "entity": "publicPlayer",
                                 "version": updated.version,
-                                "discoverable": discoverable,
+                                "discoverable": True,
                                 "document": updated.model_dump_json(by_alias=True),
                             }
                         ),
@@ -1711,13 +1874,13 @@ class DynamoRepository:
                 },
                 self._social_state_update(user_id, version=state["version"]),
             ]
-            search_operation = (
+            transaction.extend(
                 {
                     "Put": {
                         "TableName": self._table_name,
                         "Item": _serialize(
                             {
-                                **self._search_key(updated),
+                                **key,
                                 "entity": "playerSearch",
                                 "playerId": user_id,
                                 "document": updated.model_dump_json(by_alias=True),
@@ -1725,18 +1888,11 @@ class DynamoRepository:
                         ),
                     }
                 }
-                if discoverable
-                else {
-                    "Delete": {
-                        "TableName": self._table_name,
-                        "Key": _serialize(self._search_key(player)),
-                    }
-                }
+                for key in self._search_keys(updated)
             )
-            transaction.append(search_operation)
             try:
                 self._client.transact_write_items(TransactItems=transaction)
-                return discoverable, state["version"] + 1
+                return True, state["version"] + 1
             except ClientError as error:
                 if error.response["Error"]["Code"] != "TransactionCanceledException":
                     raise
@@ -1748,26 +1904,130 @@ class DynamoRepository:
                     ) from error
         raise ApiError("socialConflict", "The social profile changed. Retry.", status_code=409)
 
+    def set_player_avatar(
+        self,
+        user_id: str,
+        *,
+        avatar_key: str | None,
+        expected_profile_version: int,
+    ) -> StoredPublicPlayer:
+        item = self._table.get_item(Key=self._profile_key(user_id), ConsistentRead=True).get("Item")
+        if item is None:
+            raise ApiError("playerUnavailable", "That player is unavailable.", status_code=404)
+        player = StoredPublicPlayer.model_validate_json(item["document"])
+        if player.version != expected_profile_version:
+            raise ApiError("profileConflict", "The player profile changed. Retry.", status_code=409)
+        updated = player.model_copy(
+            update={
+                "avatar_key": avatar_key,
+                "avatar_version": player.avatar_version + 1,
+                "version": player.version + 1,
+                "discoverable": True,
+                "discoverability_updated_at": None,
+            },
+            deep=True,
+        )
+        transaction = [
+            *self._account_conditions(user_id),
+            {
+                "Put": {
+                    "TableName": self._table_name,
+                    "Item": _serialize(
+                        {
+                            **self._profile_key(user_id),
+                            "entity": "publicPlayer",
+                            "version": updated.version,
+                            "discoverable": True,
+                            "document": updated.model_dump_json(by_alias=True),
+                        }
+                    ),
+                    "ConditionExpression": "#version = :version",
+                    "ExpressionAttributeNames": {"#version": "version"},
+                    "ExpressionAttributeValues": _serialize_values(
+                        {":version": expected_profile_version}
+                    ),
+                }
+            },
+            *[
+                {
+                    "Put": {
+                        "TableName": self._table_name,
+                        "Item": _serialize(
+                            {
+                                **key,
+                                "entity": "playerSearch",
+                                "playerId": user_id,
+                                "document": updated.model_dump_json(by_alias=True),
+                            }
+                        ),
+                    }
+                }
+                for key in self._search_keys(updated)
+            ],
+        ]
+        transaction.append(
+            {
+                "Put": {
+                    "TableName": self._table_name,
+                    "Item": _serialize(
+                        {
+                            **self._avatar_pointer_key(user_id),
+                            "entity": "avatarPointer",
+                            "avatarKey": avatar_key,
+                            "avatarVersion": updated.avatar_version,
+                        }
+                    ),
+                }
+            }
+            if avatar_key is not None
+            else {
+                "Delete": {
+                    "TableName": self._table_name,
+                    "Key": _serialize(self._avatar_pointer_key(user_id)),
+                }
+            }
+        )
+        try:
+            self._client.transact_write_items(TransactItems=transaction)
+        except ClientError as error:
+            if error.response["Error"]["Code"] != "TransactionCanceledException":
+                raise
+            if self.account_state(user_id) == AccountState.deleting:
+                raise ApiError(
+                    "accountDeleting",
+                    "That account is being deleted.",
+                    status_code=409,
+                ) from error
+            raise ApiError(
+                "profileConflict", "The player profile changed. Retry.", status_code=409
+            ) from error
+        return updated
+
     def search_public_players(
         self, normalized_prefix: str, *, limit: int
     ) -> list[StoredPublicPlayer]:
-        prefix = normalized_prefix[:3]
+        prefix = normalized_prefix[: min(3, len(normalized_prefix))]
         query: dict[str, Any] = {
             "KeyConditionExpression": Key("PK").eq(f"SEARCH#{prefix}")
             & Key("SK").begins_with(normalized_prefix),
             "ConsistentRead": True,
+            "Limit": max(limit * 2, 20),
         }
         found: list[StoredPublicPlayer] = []
+        seen: set[str] = set()
         while len(found) < limit:
             response = self._table.query(**query)
-            for item in response.get("Items", []):
-                player = self.get_public_player(str(item["playerId"]))
+            candidates = [str(item["playerId"]) for item in response.get("Items", [])]
+            profiles = self.get_public_players(set(candidates))
+            for player_id in candidates:
+                player = profiles.get(player_id)
                 if (
                     player is not None
-                    and player.discoverable
                     and player.normalized_display_name.startswith(normalized_prefix)
+                    and player_id not in seen
                 ):
                     found.append(player)
+                    seen.add(player_id)
                     if len(found) == limit:
                         break
             last_key = response.get("LastEvaluatedKey")
@@ -1796,6 +2056,31 @@ class DynamoRepository:
             if error.response["Error"]["Code"] == "ConditionalCheckFailedException":
                 raise ApiError(
                     "playerSearchRateLimited", "Search again later.", status_code=429
+                ) from error
+            raise
+
+    def check_avatar_upload_rate(self, user_id: str) -> None:
+        hour = int(datetime.now(UTC).timestamp()) // 3600
+        try:
+            self._table.update_item(
+                Key={"PK": f"RATE#{user_id}", "SK": f"AVATAR_UPLOAD#{hour}"},
+                UpdateExpression=(
+                    "SET entity = :entity, expiresAt = :expiresAt ADD requestCount :one"
+                ),
+                ConditionExpression=("attribute_not_exists(requestCount) OR requestCount < :limit"),
+                ExpressionAttributeValues={
+                    ":entity": "avatarUploadRate",
+                    ":expiresAt": (hour + 2) * 3600,
+                    ":one": 1,
+                    ":limit": 10,
+                },
+            )
+        except ClientError as error:
+            if error.response["Error"]["Code"] == "ConditionalCheckFailedException":
+                raise ApiError(
+                    "avatarUploadRateLimited",
+                    "Too many profile-picture uploads. Try again later.",
+                    status_code=429,
                 ) from error
             raise
 
@@ -1981,8 +2266,7 @@ class DynamoRepository:
                 "ConditionCheck": {
                     "TableName": self._table_name,
                     "Key": _serialize(self._profile_key(target_id)),
-                    "ConditionExpression": "discoverable = :true",
-                    "ExpressionAttributeValues": _serialize_values({":true": True}),
+                    "ConditionExpression": "attribute_exists(PK)",
                 }
             },
             {
@@ -2041,7 +2325,7 @@ class DynamoRepository:
             ):
                 return recovered
             target = self.get_public_player(target_id)
-            if target is None or not target.discoverable:
+            if target is None:
                 raise ApiError(
                     "playerUnavailable", "That player is unavailable.", status_code=404
                 ) from error
@@ -2746,10 +3030,38 @@ class DynamoRepository:
             if not last_key:
                 break
             query["ExclusiveStartKey"] = last_key
-        matches = [self.get_match(item["matchId"]) for item in items]
+        match_items = self._batch_get(
+            [{"PK": f"MATCH#{item['matchId']!s}", "SK": "STATE"} for item in items]
+        )
+        matches = [self._parse_match(item) for item in match_items]
         return sorted(
             (match for match in matches if match), key=lambda item: item.updated_at, reverse=True
         )
+
+    def _batch_get(self, keys: list[dict[str, str]]) -> list[dict[str, Any]]:
+        found: list[dict[str, Any]] = []
+        for offset in range(0, len(keys), 100):
+            pending = keys[offset : offset + 100]
+            for _ in range(4):
+                response = self._dynamodb.batch_get_item(
+                    RequestItems={
+                        self._table_name: {
+                            "Keys": pending,
+                            "ConsistentRead": True,
+                        }
+                    }
+                )
+                found.extend(response.get("Responses", {}).get(self._table_name, []))
+                pending = (
+                    response.get("UnprocessedKeys", {}).get(self._table_name, {}).get("Keys", [])
+                )
+                if not pending:
+                    break
+            if pending:
+                raise ApiError(
+                    "databaseBusy", "Player data is temporarily unavailable.", status_code=503
+                )
+        return found
 
     def join_match(self, match: StoredMatch, joining_user_id: str) -> None:
         try:

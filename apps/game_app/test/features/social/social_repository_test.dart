@@ -60,12 +60,6 @@ void main() {
       baseUrl: 'https://api.example.test',
       httpClient: MockClient((request) async {
         requests.add(request);
-        if (request.url.path == '/v1/social/discoverability') {
-          return http.Response(
-            jsonEncode({'discoverable': true, 'version': 9}),
-            200,
-          );
-        }
         if (request.url.path.endsWith('/accept') &&
             request.url.path.startsWith('/v1/challenges/')) {
           return http.Response(jsonEncode({'matchId': 'match-7'}), 200);
@@ -82,7 +76,6 @@ void main() {
     await repository.createChallenge('player 3');
     expect(await repository.acceptChallenge('challenge 1'), 'match-7');
     await repository.removeChallenge('challenge 2');
-    final discoverability = await repository.setDiscoverable(true);
 
     expect(requests.map((request) => '${request.method} ${request.url.path}'), [
       'POST /v1/friends/requests',
@@ -92,14 +85,10 @@ void main() {
       'POST /v1/challenges',
       'POST /v1/challenges/challenge%201/accept',
       'DELETE /v1/challenges/challenge%202',
-      'PATCH /v1/social/discoverability',
     ]);
     expect(jsonDecode(requests[0].body), {'playerId': 'player 1'});
     expect(jsonDecode(requests[4].body), {'opponentId': 'player 3'});
     expect((jsonDecode(requests[4].body) as Map).containsKey('rules'), isFalse);
-    expect(jsonDecode(requests[7].body), {'discoverable': true});
-    expect(discoverability.discoverable, isTrue);
-    expect(discoverability.version, 9);
   });
 
   test('stats repository parses the authoritative completed record', () async {
@@ -134,7 +123,13 @@ final _socialJson = {
   'version': 8,
   'discoverable': false,
   'friends': [
-    {'id': 'briar', 'displayName': 'Briar', 'rating': 1301},
+    {
+      'id': 'briar',
+      'displayName': 'Briar',
+      'rating': 1301,
+      'avatarUrl': 'https://api.example.test/v1/players/briar/avatar?v=4',
+      'avatarVersion': 4,
+    },
   ],
   'incomingFriendRequests': [
     {

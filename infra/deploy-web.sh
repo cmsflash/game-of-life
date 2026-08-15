@@ -76,10 +76,12 @@ if [[ "$aws_region" != "us-east-1" ]]; then
   exit 2
 fi
 
-if [[ ! "$api_base_url" =~ ^https://[^[:space:]]+$ ]]; then
+if [[ ! "$api_base_url" =~ ^(https://([A-Za-z0-9]([A-Za-z0-9.-]*[A-Za-z0-9])?)(:[0-9]{1,5})?)(/[^?#[:space:]]*)?$ ]]; then
   echo "--api-base-url must be an HTTPS URL." >&2
   exit 2
 fi
+
+api_origin="${BASH_REMATCH[1]}"
 
 if [[ "$api_base_url" == */ ]]; then
   echo "--api-base-url must not have a trailing slash." >&2
@@ -128,6 +130,13 @@ aws_cli=(aws --no-cli-pager --region "$aws_region")
 if [[ -n "$aws_profile" ]]; then
   aws_cli+=(--profile "$aws_profile")
 fi
+
+echo "Updating the web security policy for API origin $api_origin"
+"${aws_cli[@]}" cloudformation deploy \
+  --stack-name "$stack_name" \
+  --template-file "$repo_dir/infra/web-template.yaml" \
+  --parameter-overrides "ApiOrigin=$api_origin" \
+  --no-fail-on-empty-changeset
 
 stack_output() {
   local output_key="$1"

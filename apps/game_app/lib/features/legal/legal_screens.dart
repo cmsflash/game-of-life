@@ -123,8 +123,8 @@ class _AboutContent extends StatelessWidget {
                 launchUrl(_supportUri, mode: LaunchMode.externalApplication),
             trailing: signedIn
                 ? OutlinedButton(
-                    onPressed: () => context.go('/player'),
-                    child: const Text('Player'),
+                    onPressed: () => context.go('/settings'),
+                    child: const Text('Settings'),
                   )
                 : OutlinedButton(
                     onPressed: () => context.go('/login'),
@@ -238,7 +238,7 @@ class _AccountDeletionContent extends StatelessWidget {
         const _LegalSection(
           data: _LegalSectionData(
             'How to delete',
-            'Sign in, open Player, choose Delete account, and confirm the '
+            'Sign in, open Settings, choose Delete account, and confirm the '
                 'permanent action. On the web, the same steps are available '
                 'from this application’s hosted version.',
           ),
@@ -263,11 +263,9 @@ class _AccountDeletionContent extends StatelessWidget {
         const SizedBox(height: 22),
         FilledButton.icon(
           onPressed: () =>
-              context.go(signedIn ? '/player' : '/login?returnTo=/player'),
+              context.go(signedIn ? '/settings' : '/login?returnTo=/settings'),
           icon: Icon(signedIn ? Icons.person_outline : Icons.login),
-          label: Text(
-            signedIn ? 'Open player settings' : 'Sign in to delete account',
-          ),
+          label: Text(signedIn ? 'Open settings' : 'Sign in to delete account'),
         ),
       ],
     ),
@@ -299,14 +297,30 @@ const _privacySections = [
   ),
   _LegalSectionData(
     'Public profile and Social',
-    'If you explicitly enable “Appear in player search,” your display name '
-        'and current Elo rating are searchable by signed-in players. It is off '
-        'by default and can be disabled later without removing existing '
-        'friends or matches. Friends and matched opponents can still see the '
-        'display name already shared with them. Search results and Social do not expose your '
+    'Your display name, profile picture, and current Elo rating are searchable '
+        'by signed-in players. Search results and Social do not expose your '
         'username or email address. The service stores friend relationships, '
         'incoming and outgoing requests, and pending rated challenges so you '
         'can play directly with friends. Challenges expire after seven days.',
+  ),
+  _LegalSectionData(
+    'Profile picture storage and delivery',
+    'Your uploaded profile picture is stored as a private object at rest. The '
+        'service shares it through a public, versioned API photo URL. Replacing '
+        'or removing a picture makes its old URL immediately fail closed with '
+        'a 404 response, although shared caches may retain a prior response for '
+        'up to 60 seconds. Failed or superseded upload objects are deleted '
+        'immediately on a best-effort basis. Account deletion immediately '
+        'prevents public delivery and makes a best-effort attempt to remove its '
+        'private objects. A private object left by a racing or failed deletion '
+        'remains inaccessible; normal cleanup checks it after about 15 minutes. '
+        'Pending or orphan-tagged objects become eligible for storage lifecycle '
+        'cleanup after about one day; that timing is not a guaranteed deletion '
+        'deadline for every rare race. Durable retries and alarms cover rare '
+        'promotion or cleanup races for operator remediation. Cleanup and '
+        'dead-letter queue metadata contains only an identity-free owner digest '
+        'and object key and may remain up to the configured maximum, currently '
+        '14 days.',
   ),
   _LegalSectionData(
     'Game, rating, and service data',
@@ -343,9 +357,9 @@ const _privacySections = [
     'Use and sharing',
     'Data is used to provide accounts, matchmaking, online play, recovery, '
         'Social, ratings and stats, abuse prevention, security, and service '
-        'operations. When you opt in, display names and ratings are shared with '
-        'signed-in players through public search. They are also shared as '
-        'needed with existing friends and online opponents. Other data '
+        'operations. Display names, profile pictures, and ratings are shared '
+        'with signed-in players through public search and with existing '
+        'friends and online opponents. Other data '
         'is shared only with '
         'infrastructure and identity providers needed to operate those '
         'functions, or when legally required. It is not sold and is not used '
@@ -372,7 +386,7 @@ const _privacySections = [
     'You can play locally without an account, decline optional Google sign-in, '
         'use browser or system settings to disable notifications, sign out to '
         'remove the local session and notification subscription, or '
-        'permanently delete the account from Player. The service operator is '
+        'permanently delete the account from Settings. The service operator is '
         'Shen Zhuoran / CMSFlash. '
         'For privacy or support questions, use '
         'https://cmsflash.github.io/contact/.',
@@ -391,11 +405,26 @@ const _termsSections = [
     'Fair play',
     'Do not automate abusive traffic, exploit defects, interfere with other '
         'players, probe accounts, or attempt to manipulate server-authoritative '
-        'match results or ratings. If you opt into player search, your display '
-        'name and Elo rating are visible there to signed-in players. Your '
-        'display name and rating are also visible to friends and opponents, so the display name '
+        'match results or ratings. Your display name, profile picture, and Elo '
+        'rating are visible in player search to signed-in players and are also '
+        'visible to friends and opponents, so the display name '
         'must not impersonate, threaten, harass, or contain abusive content. '
         'Your username and email address are not presented to opponents.',
+  ),
+  _LegalSectionData(
+    'Profile picture rights and rules',
+    'If you upload a profile picture, you confirm that you own it or have '
+        'permission to use it. You grant the service a limited, non-exclusive, '
+        'worldwide, royalty-free license solely to receive, scan, process, '
+        'crop, re-encode, host, reproduce, and publicly display your current '
+        'profile picture as needed to operate the service. This license ends '
+        'when you remove the picture or delete your account, subject only to '
+        'the cache, cleanup, and backup retention disclosed in the Privacy '
+        'Policy. Do not upload a picture that is unlawful, abusive, hateful, '
+        'threatening, impersonating, privacy-invasive, sexually exploitative, '
+        'or that infringes intellectual-property or other rights. The service '
+        'may remove or disable a picture and restrict access when reasonably '
+        'needed for a violation, security need, or legal requirement.',
   ),
   _LegalSectionData(
     'Service availability',

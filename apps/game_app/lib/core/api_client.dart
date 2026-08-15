@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:http/http.dart' as http;
+import 'package:http_parser/http_parser.dart';
 
 import '../features/auth/data/session_store.dart';
 import 'config.dart';
@@ -102,6 +103,21 @@ class ApiClient {
     Map<String, String?> query = const {},
   }) => request('DELETE', path, body: body, query: query, idempotent: true);
 
+  Future<ApiResponse> postMultipart(
+    String path, {
+    required String field,
+    required List<int> bytes,
+    required String filename,
+    required String contentType,
+  }) => _postMultipart(
+    path,
+    field: field,
+    bytes: bytes,
+    filename: filename,
+    contentType: contentType,
+    retryAuthentication: true,
+  );
+
   Future<ApiResponse> request(
     String method,
     String path, {
@@ -191,6 +207,63 @@ class ApiClient {
         message: 'The server could not be reached. Check your connection.',
       );
     }
+  }
+
+  Future<ApiResponse> _postMultipart(
+    String path, {
+    required String field,
+    required List<int> bytes,
+    required String filename,
+    required String contentType,
+    required bool retryAuthentication,
+  }) async {
+    final request = http.MultipartRequest('POST', _uri(path, const {}))
+      ..headers['Accept'] = 'application/json';
+    final session = await _sessionStore.readSession();
+    if (session?.accessToken != null) {
+      request.headers['Authorization'] = 'Bearer ${session!.accessToken}';
+    }
+    request.files.add(
+      http.MultipartFile.fromBytes(
+        field,
+        bytes,
+        filename: filename,
+        contentType: MediaType.parse(contentType),
+      ),
+    );
+    late http.Response response;
+    try {
+      response = await http.Response.fromStream(
+        await _http.send(request).timeout(_requestTimeout),
+      ).timeout(_requestTimeout);
+    } on TimeoutException {
+      throw const ApiException(
+        statusCode: 0,
+        code: 'requestTimeout',
+        message: 'The server took too long to respond. Please try again.',
+      );
+    } on http.ClientException {
+      throw const ApiException(
+        statusCode: 0,
+        code: 'networkUnavailable',
+        message: 'The server could not be reached. Check your connection.',
+      );
+    }
+    if (response.statusCode == 401) {
+      if (retryAuthentication && await _refreshSession()) {
+        return _postMultipart(
+          path,
+          field: field,
+          bytes: bytes,
+          filename: filename,
+          contentType: contentType,
+          retryAuthentication: false,
+        );
+      }
+      await _sessionStore.clearSession();
+      _sessionExpired.add(null);
+    }
+    return _decode(response);
   }
 
   ApiResponse _decode(http.Response response) {

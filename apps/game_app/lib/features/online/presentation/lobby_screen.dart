@@ -7,6 +7,7 @@ import '../../../core/theme.dart';
 import '../../../providers.dart';
 import '../../../shared/async_message.dart';
 import '../../../shared/page_frame.dart';
+import '../../../shared/player_avatar.dart';
 import '../../auth/presentation/auth_controller.dart';
 import '../data/online_models.dart';
 import 'lobby_controller.dart';
@@ -467,10 +468,17 @@ class OnlineMatchCard extends StatelessWidget {
         padding: const EdgeInsets.all(20),
         child: Row(
           children: [
-            CircleAvatar(
-              backgroundColor: Theme.of(context).colorScheme.primaryContainer,
-              child: const Icon(Icons.public),
-            ),
+            if (match.status == 'waiting')
+              CircleAvatar(
+                backgroundColor: Theme.of(context).colorScheme.primaryContainer,
+                child: const Icon(Icons.public),
+              )
+            else
+              PlayerAvatar(
+                displayName: match.opponentName,
+                avatarUrl: match.opponentAvatarUrl,
+                avatarVersion: match.opponentAvatarVersion,
+              ),
             const SizedBox(width: 16),
             Expanded(
               child: Column(

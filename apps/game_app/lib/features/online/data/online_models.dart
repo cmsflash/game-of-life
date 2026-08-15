@@ -8,12 +8,16 @@ class OnlinePlayer {
     required this.username,
     required this.displayName,
     required this.color,
+    this.avatarUrl,
+    this.avatarVersion = 0,
   });
 
   final String id;
   final String username;
   final String displayName;
   final engine.Player color;
+  final String? avatarUrl;
+  final int avatarVersion;
 
   factory OnlinePlayer.fromJson(
     Map<String, dynamic> json,
@@ -25,6 +29,8 @@ class OnlinePlayer {
       username: username,
       displayName: json['displayName'] as String? ?? username,
       color: _player(json['color']) ?? fallbackColor,
+      avatarUrl: json['avatarUrl'] as String?,
+      avatarVersion: (json['avatarVersion'] as num?)?.round() ?? 0,
     );
   }
 }
@@ -40,6 +46,8 @@ class OnlineMatchSummary {
     this.blackPopulation,
     this.whitePopulation,
     this.joinCode,
+    this.opponentAvatarUrl,
+    this.opponentAvatarVersion = 0,
   });
 
   final String id;
@@ -51,20 +59,29 @@ class OnlineMatchSummary {
   final int? blackPopulation;
   final int? whitePopulation;
   final String? joinCode;
+  final String? opponentAvatarUrl;
+  final int opponentAvatarVersion;
 
   factory OnlineMatchSummary.fromJson(Map<String, dynamic> json) {
     final state = json['state'] as Map<String, dynamic>?;
     final players = _parsePlayers(json);
     final yourColor = _player(json['yourColor']);
     final opponent = players.where((player) => player.color != yourColor);
+    final otherPlayer = opponent.isEmpty ? null : opponent.first;
     final counts = json['liveCounts'] as Map<String, dynamic>?;
     return OnlineMatchSummary(
       id: json['matchId'] as String? ?? json['id'] as String? ?? '',
       status: json['status'] as String? ?? 'active',
       updatedAt: DateTime.tryParse(json['updatedAt'] as String? ?? ''),
-      opponentName: opponent.isNotEmpty
-          ? opponent.first.displayName
+      opponentName: otherPlayer != null
+          ? otherPlayer.displayName
           : json['opponentName'] as String? ?? 'Opponent',
+      opponentAvatarUrl:
+          otherPlayer?.avatarUrl ?? json['opponentAvatarUrl'] as String?,
+      opponentAvatarVersion:
+          otherPlayer?.avatarVersion ??
+          (json['opponentAvatarVersion'] as num?)?.round() ??
+          0,
       yourColor: yourColor,
       yourTurn:
           json['yourTurn'] as bool? ??

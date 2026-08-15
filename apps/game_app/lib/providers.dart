@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'core/api_client.dart';
 import 'features/auth/data/auth_repository.dart';
+import 'features/auth/data/profile_avatar.dart';
 import 'features/auth/data/session_store.dart';
 import 'features/auth/presentation/auth_controller.dart';
 import 'features/game/data/game_view_settings_store.dart';
@@ -37,6 +38,10 @@ final authRepositoryProvider = Provider<AuthRepository>(
     sessionStore: ref.watch(sessionStoreProvider),
     browserLauncher: SystemBrowserLauncher(),
   ),
+);
+
+final profileAvatarPickerProvider = Provider<ProfileAvatarPicker>(
+  (ref) => DeviceProfileAvatarPicker(),
 );
 
 final authControllerProvider = StateNotifierProvider<AuthController, AuthState>(

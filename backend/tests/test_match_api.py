@@ -6,6 +6,14 @@ from conftest import register_and_login
 from fastapi.testclient import TestClient
 
 
+def _assert_match_etag(response: Any, version: int) -> str:
+    etag = str(response.headers["etag"])
+    assert etag.startswith(f'"{version}-p')
+    assert etag.endswith('"')
+    assert len(etag) == len(str(version)) + 20
+    return etag
+
+
 def _create_active_match(
     client: TestClient,
 ) -> tuple[dict[str, Any], dict[str, str], dict[str, str]]:
@@ -23,7 +31,7 @@ def _create_active_match(
     bob_headers = {"Authorization": bob_auth}
     created = client.post("/v1/matches", json={}, headers=alice_headers)
     assert created.status_code == 201
-    assert created.headers["etag"] == '"0"'
+    _assert_match_etag(created, 0)
     waiting = created.json()
     joined = client.post(
         "/v1/matches/join",
@@ -31,7 +39,7 @@ def _create_active_match(
         headers=bob_headers,
     )
     assert joined.status_code == 200
-    assert joined.headers["etag"] == '"1"'
+    _assert_match_etag(joined, 1)
     document = joined.json()
     assert {
         document["blackPlayer"]["displayName"],
@@ -65,7 +73,7 @@ def test_private_match_move_idempotency_etag_history_replay_and_resign(
         },
     )
     assert moved.status_code == 200
-    assert moved.headers["etag"] == '"2"'
+    moved_etag = _assert_match_etag(moved, 2)
     assert moved.json()["state"]["revision"] == 1
     assert moved.json()["lastMove"] == {
         "revision": 1,
@@ -84,7 +92,7 @@ def test_private_match_move_idempotency_etag_history_replay_and_resign(
         },
     )
     assert repeated.status_code == 200
-    assert repeated.headers["etag"] == '"2"'
+    assert repeated.headers["etag"] == moved_etag
     assert repeated.json()["state"]["revision"] == 1
     assert repeated.json()["lastMove"] == moved.json()["lastMove"]
     conflicting_reuse = client.post(
@@ -115,11 +123,11 @@ def test_private_match_move_idempotency_etag_history_replay_and_resign(
 
     current = client.get(f"/v1/matches/{match_id}", headers=white_headers)
     assert current.status_code == 200
-    assert current.headers["etag"] == '"2"'
+    assert current.headers["etag"] == moved_etag
     assert current.json()["lastMove"] == moved.json()["lastMove"]
     unchanged = client.get(
         f"/v1/matches/{match_id}",
-        headers={**white_headers, "If-None-Match": '"2"'},
+        headers={**white_headers, "If-None-Match": moved_etag},
     )
     assert unchanged.status_code == 304
 
@@ -136,7 +144,7 @@ def test_private_match_move_idempotency_etag_history_replay_and_resign(
         json={"expectedRevision": 1, "idempotencyKey": "resign-000001"},
     )
     assert resigned.status_code == 200
-    assert resigned.headers["etag"] == '"3"'
+    resigned_etag = _assert_match_etag(resigned, 3)
     assert resigned.json()["status"] == "completed"
     assert resigned.json()["lastMove"] == moved.json()["lastMove"]
     assert resigned.json()["result"] == {
@@ -146,17 +154,17 @@ def test_private_match_move_idempotency_etag_history_replay_and_resign(
     }
     changed_after_resignation = client.get(
         f"/v1/matches/{match_id}",
-        headers={**white_headers, "If-None-Match": '"2"'},
+        headers={**white_headers, "If-None-Match": moved_etag},
     )
     assert changed_after_resignation.status_code == 200
-    assert changed_after_resignation.headers["etag"] == '"3"'
+    assert changed_after_resignation.headers["etag"] == resigned_etag
     repeated_resignation = client.post(
         f"/v1/matches/{match_id}/resign",
         headers=white_headers,
         json={"expectedRevision": 1, "idempotencyKey": "resign-000001"},
     )
     assert repeated_resignation.status_code == 200
-    assert repeated_resignation.headers["etag"] == '"3"'
+    assert repeated_resignation.headers["etag"] == resigned_etag
     assert repeated_resignation.json()["version"] == 3
 
 
@@ -184,6 +192,81 @@ def test_stale_revision_and_match_authorization(client: TestClient) -> None:
         headers={"Authorization": eve_auth},
     )
     assert forbidden.status_code == 403
+
+
+def test_match_etag_changes_with_current_public_display_name(client: TestClient) -> None:
+    match, alice_headers, _ = _create_active_match(client)
+    first = client.get(f"/v1/matches/{match['id']}", headers=alice_headers)
+    first_etag = first.headers["etag"]
+    alice = next(
+        player
+        for player in (first.json()["blackPlayer"], first.json()["whitePlayer"])
+        if player["displayName"] == "Alice Strategist"
+    )
+    repository = client.app.state.services.repository
+    profile = repository.get_public_player(alice["id"])
+    assert profile is not None
+    repository.upsert_public_player(
+        profile.model_copy(
+            update={
+                "display_name": "Alice Renamed",
+                "normalized_display_name": "alice renamed",
+            }
+        )
+    )
+
+    changed = client.get(
+        f"/v1/matches/{match['id']}",
+        headers={**alice_headers, "If-None-Match": first_etag},
+    )
+    assert changed.status_code == 200
+    assert changed.headers["etag"] != first_etag
+    assert any(
+        player["displayName"] == "Alice Renamed"
+        for player in (changed.json()["blackPlayer"], changed.json()["whitePlayer"])
+    )
+    unchanged = client.get(
+        f"/v1/matches/{match['id']}",
+        headers={**alice_headers, "If-None-Match": changed.headers["etag"]},
+    )
+    assert unchanged.status_code == 304
+
+
+def test_match_list_preserves_all_memberships_beyond_fifty(client: TestClient) -> None:
+    _, alice_auth = register_and_login(client, "alice", display_name="Alice Strategist")
+    _, bob_auth = register_and_login(client, "bob", display_name="Bob Builder")
+    alice_headers = {"Authorization": alice_auth}
+    bob_headers = {"Authorization": bob_auth}
+    match_ids: list[str] = []
+    for _ in range(51):
+        created = client.post("/v1/matches", json={}, headers=alice_headers)
+        assert created.status_code == 201
+        joined = client.post(
+            "/v1/matches/join",
+            json={"joinCode": created.json()["joinCode"]},
+            headers=bob_headers,
+        )
+        assert joined.status_code == 200
+        match_ids.append(str(joined.json()["id"]))
+
+    for index, match_id in enumerate(match_ids[:2]):
+        completed = client.post(
+            f"/v1/matches/{match_id}/resign",
+            json={
+                "expectedRevision": 0,
+                "idempotencyKey": f"bulk-resign-{index:08d}",
+            },
+            headers=bob_headers,
+        )
+        assert completed.status_code == 200
+
+    response = client.get("/v1/matches", headers=alice_headers)
+
+    assert response.status_code == 200
+    assert "nextToken" not in response.json()
+    assert {item["id"] for item in response.json()["items"]} == set(match_ids)
+    assert len(response.json()["items"]) == 51
+    assert sum(item["status"] == "completed" for item in response.json()["items"]) == 2
 
 
 def test_quick_match_pairs_compatible_players(client: TestClient) -> None:

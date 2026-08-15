@@ -19,24 +19,21 @@ def _account(
     return tokens["user"], {"Authorization": authorization}
 
 
-def test_discoverability_is_opt_in_and_stale_results_cannot_create_requests(
+def test_discovery_is_public_and_legacy_privacy_patch_is_a_no_op(
     client: TestClient,
 ) -> None:
     _, alice = _account(client, "alice", "Alice Strategist")
     bob_user, bob = _account(client, "bob", "Bob Builder")
 
-    assert client.get("/v1/social", headers=bob).json()["discoverable"] is False
-    assert client.get("/v1/players/search", params={"q": "bob"}, headers=alice).json() == {
-        "items": []
-    }
+    assert client.get("/v1/social", headers=bob).json()["discoverable"] is True
 
-    enabled = client.patch(
+    legacy_disabled = client.patch(
         "/v1/social/discoverability",
-        json={"discoverable": True},
+        json={"discoverable": False},
         headers=bob,
     )
-    assert enabled.status_code == 200
-    assert enabled.json()["discoverable"] is True
+    assert legacy_disabled.status_code == 200
+    assert legacy_disabled.json()["discoverable"] is True
     found = client.get(
         "/v1/players/search",
         params={"q": "  BOB   bu"},
@@ -49,25 +46,20 @@ def test_discoverability_is_opt_in_and_stale_results_cannot_create_requests(
                 "id": bob_user["id"],
                 "displayName": "Bob Builder",
                 "rating": 1200,
+                "avatarUrl": None,
+                "avatarVersion": 0,
             }
         ]
     }
     assert "username" not in found.text
     assert "email" not in found.text
 
-    disabled = client.patch(
-        "/v1/social/discoverability",
-        json={"discoverable": False},
-        headers=bob,
-    )
-    assert disabled.status_code == 200
-    stale_request = client.post(
+    request = client.post(
         "/v1/friends/requests",
         json={"playerId": bob_user["id"]},
         headers=alice,
     )
-    assert stale_request.status_code == 404
-    assert stale_request.json()["error"]["code"] == "playerUnavailable"
+    assert request.status_code == 201
 
 
 def test_friend_challenge_is_private_idempotent_and_updates_rated_stats(
@@ -98,6 +90,8 @@ def test_friend_challenge_is_private_idempotent_and_updates_rated_stats(
         "id": alice_user["id"],
         "displayName": "Alice Strategist",
         "rating": 1200,
+        "avatarUrl": None,
+        "avatarVersion": 0,
     }
 
     assert (
@@ -172,3 +166,21 @@ def test_friend_challenge_is_private_idempotent_and_updates_rated_stats(
     assert alice_stats["losses"] + bob_stats["losses"] == 1
     assert alice_stats["rating"] + bob_stats["rating"] == 2400
     assert alice_stats["kills"] == bob_stats["kills"] == 0
+
+
+def test_search_indexes_one_two_and_three_character_name_prefixes(client: TestClient) -> None:
+    _, seeker = _account(client, "seeker", "Search Player")
+    players = [
+        _account(client, "shortone", "Q")[0],
+        _account(client, "shorttwo", "Li")[0],
+        _account(client, "shortthree", "Zed")[0],
+    ]
+
+    for query, expected in zip(("q", "li", "zed"), players, strict=True):
+        response = client.get(
+            "/v1/players/search",
+            params={"q": query},
+            headers=seeker,
+        )
+        assert response.status_code == 200
+        assert [item["id"] for item in response.json()["items"]] == [expected["id"]]

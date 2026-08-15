@@ -8,6 +8,7 @@ from datetime import UTC, datetime
 from typing import Any
 from uuid import uuid4
 
+from .avatars import AvatarService, InMemoryAvatarObjectStore
 from .engine import Engine
 from .errors import ApiError
 from .models import (
@@ -16,6 +17,7 @@ from .models import (
     MatchDocument,
     MatchMetricsLedger,
     MatchOrigin,
+    MatchPlayerDocument,
     MatchRulesRequest,
     MatchStatus,
     MoveEvent,
@@ -26,6 +28,7 @@ from .models import (
     ReplayResponse,
     ResignRequest,
     StoredMatch,
+    StoredPublicPlayer,
     User,
 )
 from .ratings import accumulated_kills, build_metrics_ledger, deaths_by_credit
@@ -36,6 +39,15 @@ from .repository import Repository
 class MatchService:
     repository: Repository
     engine: Engine
+    avatars: AvatarService | None = None
+
+    def __post_init__(self) -> None:
+        if self.avatars is None:
+            self.avatars = AvatarService(
+                self.repository,
+                InMemoryAvatarObjectStore(),
+                "http://testserver",
+            )
 
     def create(self, user: User, request: CreateMatchRequest) -> MatchDocument:
         return self._create_waiting(user, request.rules)
@@ -272,7 +284,15 @@ class MatchService:
         return self.document(match, user.id)
 
     def list_matches(self, user: User) -> list[MatchDocument]:
-        return [self.document(match, user.id) for match in self.repository.list_matches(user.id)]
+        matches = self.repository.list_matches(user.id)
+        player_ids = {
+            player.id
+            for match in matches
+            for player in (match.black_player, match.white_player)
+            if player is not None and not player.id.startswith("deleted-")
+        }
+        profiles = self.repository.get_public_players(player_ids)
+        return [self.document(match, user.id, profiles=profiles) for match in matches]
 
     def cancel_waiting(self, user: User, match_id: str) -> None:
         match = self._authorized_match(user, match_id)
@@ -551,14 +571,20 @@ class MatchService:
             completed_at=match.completed_at,
         )
 
-    def document(self, match: StoredMatch, user_id: str) -> MatchDocument:
+    def document(
+        self,
+        match: StoredMatch,
+        user_id: str,
+        *,
+        profiles: dict[str, StoredPublicPlayer] | None = None,
+    ) -> MatchDocument:
         return MatchDocument(
             id=match.id,
             join_code=(None if match.origin == MatchOrigin.friend_challenge else match.join_code),
             rules=match.rules,
             state=match.state,
-            black_player=self._public_player(match.black_player),
-            white_player=self._public_player(match.white_player),
+            black_player=self._public_player(match.black_player, profiles=profiles),
+            white_player=self._public_player(match.white_player, profiles=profiles),
             your_color=match.color_for(user_id),
             status=match.status,
             version=match.version,
@@ -605,15 +631,38 @@ class MatchService:
             else (second_player, first_player)
         )
 
-    @staticmethod
     def _public_player(
+        self,
         player: PlayerSummary | None,
-    ) -> PlayerSummary | None:
+        *,
+        profiles: dict[str, StoredPublicPlayer] | None = None,
+    ) -> MatchPlayerDocument | None:
         if player is None:
             return None
         if player.id.startswith("deleted-"):
-            return player.model_copy(update={"display_name": "Deleted player"})
-        return player
+            return MatchPlayerDocument(
+                id=player.id,
+                display_name="Deleted player",
+            )
+        current = (
+            profiles.get(player.id)
+            if profiles is not None
+            else self.repository.get_public_player(player.id)
+        )
+        if current is None:
+            return MatchPlayerDocument(id=player.id, display_name=player.display_name)
+        return MatchPlayerDocument(
+            id=current.id,
+            display_name=current.display_name,
+            avatar_url=self._avatars.url(current),
+            avatar_version=current.avatar_version,
+        )
+
+    @property
+    def _avatars(self) -> AvatarService:
+        if self.avatars is None:
+            raise AssertionError("avatar service was not initialized")
+        return self.avatars
 
     def _terminal_metrics(
         self,

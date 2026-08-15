@@ -133,11 +133,25 @@ with an unlinkable `Deleted player` identity.
 
 ## Social graph, discovery, and ratings
 
-Public profiles are private-by-default directory records. Opting into search
-transactionally adds a normalized, three-character-sharded prefix-index row;
-opting out or starting account deletion removes it. Search queries DynamoDB rather
-than scanning, rate-limits each subject, caps responses, and returns only opaque ID,
-display name, and rating. Login username and email never enter the index.
+Every active public profile is indexed by normalized display-name prefixes of
+length one, two, and three (where available), so even one-character names are
+findable without scanning. Search rate-limits each subject, caps responses, batch-
+hydrates canonical profiles behind account-state fences, and returns only opaque
+ID, display name, rating, and versioned picture reference. Login username and email
+never enter the index. Account deletion removes every prefix row.
+
+Uploaded pictures are authenticated, rate-limited, decoded under strict size/type
+bounds, and re-encoded as fixed 512×512 WebP before entering a retained private S3
+bucket. A profile transaction publishes only a random server-owned key and updates
+a SHA-256-keyed current-avatar pointer. A new object remains `pending` through its
+pointer transaction and gets a durable identity-free delayed SQS check. A replaced,
+removed, or deleting account's old key is queued and tagged `orphan` before the
+pointer fence. The worker promotes an exact current pointer to `active` and deletes
+anything else; request-side deletion is only an optimization. Pending/orphan
+lifecycle expiry, queue retries, an alarmed DLQ, and operator remediation cover
+cross-store and Lambda crash windows without allowing an unreferenced request to
+create an active object. Match responses batch-hydrate current picture versions
+rather than persisting picture URLs in matches.
 
 Friendship uses one canonical unordered-pair record plus one projection per user.
 Conditional transactions update both projections, both bounded counters, and both

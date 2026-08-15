@@ -5,15 +5,24 @@ import 'package:go_router/go_router.dart';
 import '../../../providers.dart';
 import '../../../shared/async_message.dart';
 import '../../../shared/page_frame.dart';
+import '../../../shared/player_avatar.dart';
 import '../../notifications/presentation/turn_notification_preference_card.dart';
 import '../../stats/presentation/player_metrics_panel.dart';
+import '../data/profile_avatar.dart';
 import 'auth_controller.dart';
 
-class PlayerScreen extends ConsumerWidget {
-  const PlayerScreen({super.key});
+class SettingsScreen extends ConsumerStatefulWidget {
+  const SettingsScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<SettingsScreen> createState() => _SettingsScreenState();
+}
+
+class _SettingsScreenState extends ConsumerState<SettingsScreen> {
+  var _pickingAvatar = false;
+
+  @override
+  Widget build(BuildContext context) {
     final auth = ref.watch(authControllerProvider);
     final user = auth.status == AuthStatus.signedIn ? auth.user : null;
     return PageFrame(
@@ -22,11 +31,11 @@ class PlayerScreen extends ConsumerWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           SectionHeading(
-            eyebrow: 'Player',
-            title: user == null ? 'Make Life your own' : 'Your corner of Life',
+            eyebrow: 'Settings',
+            title: user == null ? 'Make Life your own' : 'Your Life account',
             description: user == null
                 ? 'Sign in for online play, or learn more about the game and how your data is handled.'
-                : 'Your account travels with you between mobile, web, and desktop.',
+                : 'Manage the account and preferences that travel with you between mobile, web, and desktop.',
           ),
           const SizedBox(height: 28),
           if (user == null)
@@ -49,7 +58,7 @@ class PlayerScreen extends ConsumerWidget {
                     ),
                     const SizedBox(height: 18),
                     FilledButton.icon(
-                      onPressed: () => context.go('/login?returnTo=/player'),
+                      onPressed: () => context.go('/login?returnTo=/settings'),
                       icon: const Icon(Icons.login),
                       label: const Text('Sign in'),
                     ),
@@ -64,16 +73,26 @@ class PlayerScreen extends ConsumerWidget {
                 child: Column(
                   children: [
                     Row(
+                      crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
-                        CircleAvatar(
-                          radius: 34,
-                          child: Text(
-                            (user.displayName.isEmpty
-                                    ? 'P'
-                                    : user.displayName.substring(0, 1))
-                                .toUpperCase(),
-                            style: Theme.of(context).textTheme.headlineMedium,
-                          ),
+                        Stack(
+                          alignment: Alignment.center,
+                          children: [
+                            PlayerAvatar(
+                              key: const Key('settings-avatar'),
+                              displayName: user.displayName,
+                              avatarUrl: user.avatarUrl,
+                              avatarVersion: user.avatarVersion,
+                              radius: 42,
+                            ),
+                            if (auth.avatarBusy)
+                              const SizedBox.square(
+                                dimension: 84,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 3,
+                                ),
+                              ),
+                          ],
                         ),
                         const SizedBox(width: 18),
                         Expanded(
@@ -91,6 +110,88 @@ class PlayerScreen extends ConsumerWidget {
                         ),
                       ],
                     ),
+                    const SizedBox(height: 18),
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: Wrap(
+                        spacing: 10,
+                        runSpacing: 10,
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        children: [
+                          FilledButton.icon(
+                            key: const Key('choose-profile-picture'),
+                            onPressed:
+                                _pickingAvatar || auth.avatarBusy || auth.busy
+                                ? null
+                                : _chooseAvatar,
+                            icon: _pickingAvatar
+                                ? const SizedBox.square(
+                                    dimension: 18,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                    ),
+                                  )
+                                : const Icon(
+                                    Icons.add_photo_alternate_outlined,
+                                  ),
+                            label: Text(
+                              user.avatarUrl == null
+                                  ? 'Choose picture'
+                                  : 'Change picture',
+                            ),
+                          ),
+                          if (user.avatarUrl != null)
+                            OutlinedButton.icon(
+                              key: const Key('remove-profile-picture'),
+                              onPressed: auth.avatarBusy || auth.busy
+                                  ? null
+                                  : () => ref
+                                        .read(authControllerProvider.notifier)
+                                        .removeAvatar(),
+                              icon: const Icon(Icons.delete_outline),
+                              label: const Text('Remove'),
+                            ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    const Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text('JPEG, PNG, or WebP · Maximum 3 MB'),
+                    ),
+                    const SizedBox(height: 4),
+                    const Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        'Shown publicly in player search, friends, and online matches.',
+                      ),
+                    ),
+                    if (auth.avatarError != null ||
+                        auth.avatarNotice != null) ...[
+                      const SizedBox(height: 14),
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: AsyncMessage(
+                          error: auth.avatarError,
+                          notice: auth.avatarNotice,
+                        ),
+                      ),
+                      if (auth.avatarError != null) ...[
+                        const SizedBox(height: 8),
+                        Align(
+                          alignment: Alignment.centerLeft,
+                          child: TextButton.icon(
+                            key: const Key('retry-profile-picture'),
+                            onPressed:
+                                _pickingAvatar || auth.avatarBusy || auth.busy
+                                ? null
+                                : _chooseAvatar,
+                            icon: const Icon(Icons.refresh),
+                            label: const Text('Try another picture'),
+                          ),
+                        ),
+                      ],
+                    ],
                     const SizedBox(height: 24),
                     const Divider(),
                     if (user.email != null)
@@ -104,7 +205,7 @@ class PlayerScreen extends ConsumerWidget {
                       ListTile(
                         contentPadding: EdgeInsets.zero,
                         leading: const Icon(Icons.calendar_today_outlined),
-                        title: const Text('Player since'),
+                        title: const Text('Member since'),
                         subtitle: Text(
                           '${user.createdAt!.year}-${user.createdAt!.month.toString().padLeft(2, '0')}-${user.createdAt!.day.toString().padLeft(2, '0')}',
                         ),
@@ -277,10 +378,50 @@ class PlayerScreen extends ConsumerWidget {
         .deleteAccount();
     if (deleted && context.mounted) context.go('/');
   }
+
+  Future<void> _chooseAvatar() async {
+    if (_pickingAvatar) return;
+    final accountId = ref.read(authControllerProvider).user?.id;
+    if (accountId == null) return;
+    setState(() => _pickingAvatar = true);
+    try {
+      final upload = await ref.read(profileAvatarPickerProvider).pick();
+      if (!mounted || upload == null) return;
+      final auth = ref.read(authControllerProvider);
+      if (auth.status != AuthStatus.signedIn || auth.user?.id != accountId) {
+        return;
+      }
+      await ref.read(authControllerProvider.notifier).uploadAvatar(upload);
+    } on ProfileAvatarPickException catch (error) {
+      if (!mounted || ref.read(authControllerProvider).user?.id != accountId) {
+        return;
+      }
+      ref
+          .read(authControllerProvider.notifier)
+          .reportAvatarError(error.message);
+    } catch (_) {
+      if (!mounted || ref.read(authControllerProvider).user?.id != accountId) {
+        return;
+      }
+      ref
+          .read(authControllerProvider.notifier)
+          .reportAvatarError(
+            'The picture could not be opened. Choose another and try again.',
+          );
+    } finally {
+      if (mounted) setState(() => _pickingAvatar = false);
+    }
+  }
+}
+
+/// Kept for source compatibility while `/player` remains a legacy route.
+@Deprecated('Use SettingsScreen instead.')
+class PlayerScreen extends SettingsScreen {
+  const PlayerScreen({super.key});
 }
 
 /// Kept for source compatibility while `/profile` remains a legacy route.
-@Deprecated('Use PlayerScreen instead.')
-class ProfileScreen extends PlayerScreen {
+@Deprecated('Use SettingsScreen instead.')
+class ProfileScreen extends SettingsScreen {
   const ProfileScreen({super.key});
 }

@@ -1,19 +1,33 @@
 from __future__ import annotations
 
+import hashlib
 import logging
 from collections.abc import Awaitable, Callable
 from typing import Annotated, Any, cast
 from uuid import uuid4
 
-from fastapi import Depends, FastAPI, Header, Path, Query, Request, Response, status
+from fastapi import (
+    Depends,
+    FastAPI,
+    File,
+    Header,
+    Path,
+    Query,
+    Request,
+    Response,
+    UploadFile,
+    status,
+)
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, RedirectResponse
 from pydantic import BaseModel
 
 from .auth import IdentityProvider, build_identity_provider
+from .avatars import build_avatar_service
 from .engine import Engine, build_engine
 from .errors import ApiError, error_payload, install_error_handlers
 from .models import (
+    AvatarDocument,
     ChallengeAcceptResponse,
     ChallengeDocument,
     ChallengeListResponse,
@@ -79,9 +93,10 @@ class AppServices:
         self.repository = repository
         self.identity = identity
         self.engine = engine
+        self.avatars = build_avatar_service(settings, repository)
         self.oauth = GoogleOAuthService(settings, identity, repository)
-        self.matches = MatchService(repository, engine)
-        self.social = SocialService(repository, engine)
+        self.matches = MatchService(repository, engine, self.avatars)
+        self.social = SocialService(repository, engine, self.avatars)
         self.notifications = PushSubscriptionService(repository, settings)
 
 
@@ -206,7 +221,7 @@ def create_app(
         response.headers["X-Request-Id"] = request.state.request_id
         response.headers["X-Content-Type-Options"] = "nosniff"
         response.headers["Referrer-Policy"] = "no-referrer"
-        response.headers["Cache-Control"] = "no-store"
+        response.headers.setdefault("Cache-Control", "no-store")
         return response
 
     @app.get("/v1/health", response_model=HealthResponse, tags=["system"])
@@ -253,6 +268,7 @@ def create_app(
         tokens = services.identity.login(request.username, request.password)
         if services.repository.account_state(tokens.user.id).value == "active":
             services.social.index_user(tokens.user)
+            tokens = tokens.model_copy(update={"user": services.avatars.user_document(tokens.user)})
         return tokens
 
     @app.post(
@@ -264,6 +280,7 @@ def create_app(
         tokens = services.identity.refresh(request.refresh_token)
         if services.repository.account_state(tokens.user.id).value == "active":
             services.social.index_user(tokens.user)
+            tokens = tokens.model_copy(update={"user": services.avatars.user_document(tokens.user)})
         return tokens
 
     @app.post(
@@ -333,12 +350,37 @@ def create_app(
         tokens = services.oauth.exchange(request.code)
         if services.repository.account_state(tokens.user.id).value == "active":
             services.social.index_user(tokens.user)
+            tokens = tokens.model_copy(update={"user": services.avatars.user_document(tokens.user)})
         return tokens
 
     @app.get("/v1/me", response_model=User, tags=["profile"])
     def me(user: CurrentUser, services: Services) -> User:
         services.social.index_user(user)
-        return user
+        return services.avatars.user_document(user)
+
+    @app.post("/v1/me/avatar", response_model=AvatarDocument, tags=["profile"])
+    def upload_avatar(
+        user: CurrentUser,
+        services: Services,
+        file: Annotated[UploadFile, File()],
+    ) -> AvatarDocument:
+        return services.avatars.upload(user, file)
+
+    @app.delete("/v1/me/avatar", response_model=AvatarDocument, tags=["profile"])
+    def remove_avatar(user: CurrentUser, services: Services) -> AvatarDocument:
+        return services.avatars.remove(user)
+
+    @app.get("/v1/players/{player_id}/avatar", tags=["profile"])
+    def player_avatar(
+        player_id: PlayerId,
+        services: Services,
+        version: Annotated[int, Query(alias="v", ge=1)],
+    ) -> Response:
+        return Response(
+            content=services.avatars.image(player_id, version),
+            media_type="image/webp",
+            headers={"Cache-Control": "public, max-age=60, must-revalidate"},
+        )
 
     @app.get("/v1/stats/me", response_model=PlayerStatsDocument, tags=["social"])
     def my_stats(user: CurrentUser, services: Services) -> PlayerStatsDocument:
@@ -346,7 +388,7 @@ def create_app(
 
     @app.get("/v1/players/search", response_model=PlayerSearchResponse, tags=["social"])
     def search_players(
-        q: Annotated[str, Query(min_length=3, max_length=48)],
+        q: Annotated[str, Query(min_length=1, max_length=48)],
         user: CurrentUser,
         services: Services,
     ) -> PlayerSearchResponse:
@@ -476,7 +518,14 @@ def create_app(
         services: Services,
         authorization: Annotated[str, Header()],
     ) -> Response:
-        services.matches.delete_account_data(user)
+        prepared_avatar = services.avatars.prepare_account_deletion(user.id)
+        try:
+            services.matches.delete_account_data(user)
+        except Exception:
+            if services.repository.account_state(user.id).value == "active":
+                services.avatars.restore_prepared_avatar(prepared_avatar)
+            raise
+        services.avatars.delete_user_objects(user.id)
         services.identity.delete_account(authorization.removeprefix("Bearer ").strip())
         return Response(status_code=status.HTTP_204_NO_CONTENT)
 
@@ -708,7 +757,22 @@ def _json(model: BaseModel) -> Any:
 
 
 def _etag(document: MatchDocument) -> str:
-    return f'"{document.version}"'
+    players = (document.black_player, document.white_player)
+    player_state = "|".join(
+        "-"
+        if player is None
+        else ":".join(
+            (
+                player.id,
+                player.display_name,
+                str(player.avatar_version),
+                "present" if player.avatar_url is not None else "absent",
+            )
+        )
+        for player in players
+    )
+    digest = hashlib.sha256(player_state.encode()).hexdigest()[:16]
+    return f'"{document.version}-p{digest}"'
 
 
 app = create_app()

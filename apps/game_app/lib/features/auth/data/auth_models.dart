@@ -6,6 +6,8 @@ class AppUser {
     this.email,
     this.rating,
     this.createdAt,
+    this.avatarUrl,
+    this.avatarVersion = 0,
   });
 
   final String id;
@@ -14,6 +16,8 @@ class AppUser {
   final String? email;
   final int? rating;
   final DateTime? createdAt;
+  final String? avatarUrl;
+  final int avatarVersion;
 
   factory AppUser.fromJson(Map<String, dynamic> json) {
     final username = json['username'] as String? ?? 'player';
@@ -24,6 +28,8 @@ class AppUser {
       email: json['email'] as String?,
       rating: (json['rating'] as num?)?.round(),
       createdAt: DateTime.tryParse(json['createdAt'] as String? ?? ''),
+      avatarUrl: json['avatarUrl'] as String?,
+      avatarVersion: (json['avatarVersion'] as num?)?.round() ?? 0,
     );
   }
 
@@ -34,7 +40,27 @@ class AppUser {
     'email': email,
     'rating': rating,
     'createdAt': createdAt?.toIso8601String(),
+    'avatarUrl': avatarUrl,
+    'avatarVersion': avatarVersion,
   };
+
+  AppUser copyWith({
+    String? avatarUrl,
+    bool clearAvatarUrl = false,
+    int? avatarVersion,
+  }) {
+    assert(avatarUrl == null || !clearAvatarUrl);
+    return AppUser(
+      id: id,
+      username: username,
+      displayName: displayName,
+      email: email,
+      rating: rating,
+      createdAt: createdAt,
+      avatarUrl: clearAvatarUrl ? null : avatarUrl ?? this.avatarUrl,
+      avatarVersion: avatarVersion ?? this.avatarVersion,
+    );
+  }
 }
 
 class RegistrationResult {

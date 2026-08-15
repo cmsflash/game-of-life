@@ -16,6 +16,7 @@ from life_api.models import (
     PushProviderName,
     StoredChallenge,
     StoredMatch,
+    StoredPublicPlayer,
     StoredPushSubscription,
 )
 from life_api.repository import DynamoRepository, InMemoryRepository
@@ -70,6 +71,51 @@ class LegacyQueueTable(EmptyTable):
         }
 
 
+class ProfileTable(EmptyTable):
+    def __init__(self, profile: StoredPublicPlayer) -> None:
+        self.profile = profile
+
+    def get_item(self, **kwargs: Any) -> dict[str, Any]:
+        if kwargs["Key"] == {"PK": f"PLAYER#{self.profile.id}", "SK": "PROFILE"}:
+            return {
+                "Item": {
+                    "PK": f"PLAYER#{self.profile.id}",
+                    "SK": "PROFILE",
+                    "entity": "publicPlayer",
+                    "version": self.profile.version,
+                    "discoverable": self.profile.discoverable,
+                    "document": self.profile.model_dump_json(by_alias=True),
+                }
+            }
+        return {}
+
+
+class SearchTable(EmptyTable):
+    def __init__(self, player_ids: list[str]) -> None:
+        self.player_ids = player_ids
+        self.get_calls = 0
+
+    def get_item(self, **kwargs: Any) -> dict[str, Any]:
+        del kwargs
+        self.get_calls += 1
+        raise AssertionError("search hydration must not issue sequential GetItem calls")
+
+    def query(self, **kwargs: Any) -> dict[str, Any]:
+        del kwargs
+        return {
+            "Items": [
+                {
+                    "PK": "SEARCH#ali",
+                    "SK": f"alice#{player_id}",
+                    "entity": "playerSearch",
+                    "playerId": player_id,
+                    "document": "legacy-snapshot",
+                }
+                for player_id in self.player_ids
+            ]
+        }
+
+
 class TableResource:
     def __init__(self, table: EmptyTable) -> None:
         self.table = table
@@ -77,6 +123,23 @@ class TableResource:
     def Table(self, name: str) -> EmptyTable:
         del name
         return self.table
+
+
+class BatchResource(TableResource):
+    def __init__(self, table: EmptyTable, items: list[dict[str, Any]]) -> None:
+        super().__init__(table)
+        self.items = {(str(item["PK"]), str(item["SK"])): item for item in items}
+        self.batch_calls = 0
+
+    def batch_get_item(self, **kwargs: Any) -> dict[str, Any]:
+        self.batch_calls += 1
+        request = kwargs["RequestItems"]["test"]
+        found = [
+            self.items[(str(key["PK"]), str(key["SK"]))]
+            for key in request["Keys"]
+            if (str(key["PK"]), str(key["SK"])) in self.items
+        ]
+        return {"Responses": {"test": found}, "UnprocessedKeys": {}}
 
 
 def test_dynamo_transactions_use_the_low_level_client(
@@ -109,6 +172,92 @@ def test_dynamo_transactions_use_the_low_level_client(
         "PK": {"S": account_pk},
         "SK": {"S": "STATE"},
     }
+
+
+def test_unchanged_public_profile_upsert_is_a_literal_no_op(
+    monkeypatch,
+    settings: Settings,
+) -> None:
+    profile = StoredPublicPlayer(
+        id="user-1",
+        display_name="Alice Example",
+        normalized_display_name="alice example",
+        discoverable=True,
+        version=7,
+        avatar_key="avatars/owner/avatar.webp",
+        avatar_version=4,
+    )
+    client = RecordingClient()
+    monkeypatch.setattr(
+        boto3,
+        "resource",
+        lambda *args, **kwargs: TableResource(ProfileTable(profile)),
+    )
+    monkeypatch.setattr(boto3, "client", lambda *args, **kwargs: client)
+    repository = DynamoRepository(settings)
+
+    repository.upsert_public_player(
+        StoredPublicPlayer(
+            id=profile.id,
+            display_name=profile.display_name,
+            normalized_display_name=profile.normalized_display_name,
+        )
+    )
+
+    assert client.transactions == []
+
+
+def test_player_search_batch_hydrates_and_filters_stale_or_deleting_rows(
+    monkeypatch,
+    settings: Settings,
+) -> None:
+    active = StoredPublicPlayer(
+        id="active-player",
+        display_name="Alice Active",
+        normalized_display_name="alice active",
+    )
+    renamed = StoredPublicPlayer(
+        id="renamed-player",
+        display_name="Bob Renamed",
+        normalized_display_name="bob renamed",
+    )
+    deleting = StoredPublicPlayer(
+        id="deleting-player",
+        display_name="Alice Deleting",
+        normalized_display_name="alice deleting",
+    )
+    table = SearchTable([active.id, renamed.id, deleting.id])
+    profile_items = [
+        {
+            "PK": f"PLAYER#{profile.id}",
+            "SK": "PROFILE",
+            "entity": "publicPlayer",
+            "document": profile.model_dump_json(by_alias=True),
+        }
+        for profile in (active, renamed, deleting)
+    ]
+    deleting_digest = hashlib.sha256(deleting.id.encode()).hexdigest()
+    resource = BatchResource(
+        table,
+        [
+            *profile_items,
+            {
+                "PK": f"ACCOUNT#{deleting_digest}",
+                "SK": "STATE",
+                "entity": "accountState",
+                "state": "deleting",
+            },
+        ],
+    )
+    monkeypatch.setattr(boto3, "resource", lambda *args, **kwargs: resource)
+    monkeypatch.setattr(boto3, "client", lambda *args, **kwargs: RecordingClient())
+    repository = DynamoRepository(settings)
+
+    found = repository.search_public_players("ali", limit=20)
+
+    assert [profile.id for profile in found] == [active.id]
+    assert resource.batch_calls == 1
+    assert table.get_calls == 0
 
 
 def test_matchmaking_queue_stores_public_name_only_on_candidate_and_utc_epoch_ttls(
