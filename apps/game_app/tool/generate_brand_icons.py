@@ -7,6 +7,7 @@ import argparse
 import hashlib
 import io
 import json
+import string
 from pathlib import Path
 
 import PIL
@@ -365,6 +366,35 @@ def _validate_generated_assets(assets: dict[Path, bytes]) -> None:
             raise ValueError("Google Play icon must be 32-bit and fully opaque")
 
     with Image.open(
+        io.BytesIO(assets[Path("assets/brand/app_icon_ios_1024.png")])
+    ) as canonical_icon:
+        expected_cells = (
+            ((361, 361), SPROUT),
+            ((663, 361), PAPER),
+            ((361, 663), PAPER),
+            ((663, 663), SPROUT),
+        )
+        for position, expected_hex in expected_cells:
+            expected_rgb = tuple(bytes.fromhex(expected_hex.removeprefix("#")))
+            if canonical_icon.getpixel(position) != expected_rgb:
+                raise ValueError(
+                    "canonical icon must use the two-player diagonal 2x2 layout"
+                )
+        expected_background = tuple(bytes.fromhex(INK.removeprefix("#")))
+        if canonical_icon.getpixel((0, 0)) != expected_background:
+            raise ValueError("canonical opaque icon must use the ink background")
+
+    for path in (
+        Path("assets/brand/app_icon.svg"),
+        Path("android/app/src/main/res/drawable/ic_launcher_foreground.xml"),
+    ):
+        artwork = assets[path].decode()
+        if artwork.count(SPROUT) != 2 or artwork.count(PAPER) != 2:
+            raise ValueError(f"invalid two-player cell colors in {path}")
+        if "#FF765E" in artwork or "#7FC8FF" in artwork:
+            raise ValueError(f"legacy accent color remains in {path}")
+
+    with Image.open(
         io.BytesIO(assets[Path("windows/runner/resources/app_icon.ico")])
     ) as icon:
         expected_sizes = {16, 24, 32, 48, 64, 128, 256}
@@ -388,6 +418,83 @@ def _manifest_bytes(assets: dict[Path, bytes]) -> bytes:
     return (json.dumps(hashes, indent=2, sort_keys=True) + "\n").encode()
 
 
+def _read_committed_assets(expected_paths: set[Path]) -> dict[Path, bytes]:
+    manifest_path = APP_ROOT / "assets/brand/app_icon_assets.sha256.json"
+    manifest_value = json.loads(manifest_path.read_text())
+    if not isinstance(manifest_value, dict) or not all(
+        isinstance(path, str) and isinstance(digest, str)
+        for path, digest in manifest_value.items()
+    ):
+        raise ValueError("brand icon hash manifest must map paths to SHA-256 strings")
+
+    expected_names = {path.as_posix() for path in expected_paths}
+    actual_names = set(manifest_value)
+    if actual_names != expected_names:
+        missing = sorted(expected_names - actual_names)
+        extra = sorted(actual_names - expected_names)
+        raise ValueError(
+            f"brand icon hash manifest inventory differs: missing={missing}, extra={extra}"
+        )
+
+    committed: dict[Path, bytes] = {}
+    for relative in sorted(expected_paths, key=lambda path: path.as_posix()):
+        expected_digest = manifest_value[relative.as_posix()]
+        if (
+            len(expected_digest) != 64
+            or expected_digest != expected_digest.lower()
+            or any(character not in string.hexdigits for character in expected_digest)
+        ):
+            raise ValueError(f"invalid SHA-256 digest for {relative}")
+        content = (APP_ROOT / relative).read_bytes()
+        actual_digest = hashlib.sha256(content).hexdigest()
+        if actual_digest != expected_digest:
+            raise ValueError(
+                f"committed brand icon does not match its hash: {relative}"
+            )
+        committed[relative] = content
+    return committed
+
+
+def _validate_generated_matches_committed(
+    generated: dict[Path, bytes],
+    committed: dict[Path, bytes],
+) -> None:
+    for path in sorted(generated, key=lambda item: item.as_posix()):
+        if path.suffix == ".png":
+            with (
+                Image.open(io.BytesIO(generated[path])) as generated_image,
+                Image.open(io.BytesIO(committed[path])) as committed_image,
+            ):
+                if (
+                    generated_image.mode != committed_image.mode
+                    or generated_image.size != committed_image.size
+                    or generated_image.tobytes() != committed_image.tobytes()
+                ):
+                    raise ValueError(
+                        f"generated raster artwork differs from committed {path}"
+                    )
+        elif path.suffix == ".ico":
+            with (
+                Image.open(io.BytesIO(generated[path])) as generated_icon,
+                Image.open(io.BytesIO(committed[path])) as committed_icon,
+            ):
+                generated_sizes = generated_icon.ico.sizes()
+                committed_sizes = committed_icon.ico.sizes()
+                if generated_sizes != committed_sizes:
+                    raise ValueError(
+                        f"generated ICO frames differ from committed {path}"
+                    )
+                for size in generated_sizes:
+                    generated_frame = generated_icon.ico.getimage(size).convert("RGBA")
+                    committed_frame = committed_icon.ico.getimage(size).convert("RGBA")
+                    if generated_frame.tobytes() != committed_frame.tobytes():
+                        raise ValueError(
+                            f"generated ICO artwork differs from committed {path} at {size}"
+                        )
+        elif generated[path] != committed[path]:
+            raise ValueError(f"generated source artwork differs from committed {path}")
+
+
 def write_assets() -> None:
     assets = build_assets()
     _validate_generated_assets(assets)
@@ -401,20 +508,19 @@ def write_assets() -> None:
 
 
 def check_assets() -> int:
-    assets = build_assets()
-    _validate_generated_assets(assets)
-    assets[Path("assets/brand/app_icon_assets.sha256.json")] = _manifest_bytes(assets)
-    mismatches = [
-        relative
-        for relative, content in assets.items()
-        if not (APP_ROOT / relative).exists()
-        or (APP_ROOT / relative).read_bytes() != content
-    ]
-    if mismatches:
-        for relative in mismatches:
-            print(f"out of date: {relative}")
+    try:
+        generated = build_assets()
+        _validate_generated_assets(generated)
+        committed = _read_committed_assets(set(generated))
+        _validate_generated_assets(committed)
+        _validate_generated_matches_committed(generated, committed)
+    except (OSError, ValueError) as error:
+        print(f"brand icon verification failed: {error}")
         return 1
-    print(f"brand icons are current ({len(assets) - 1} generated assets)")
+    print(
+        "brand icons verified "
+        f"({len(committed)} committed hashes; generated semantics valid)"
+    )
     return 0
 
 

@@ -38,12 +38,16 @@ committed platform assets with:
 ../../.venv/bin/python tool/generate_brand_icons.py --check
 ```
 
-The renderer version is pinned so the committed assets are byte-for-byte
-reproducible in CI. `assets/brand/play_store_icon_512.png` is the opaque,
-full-square Google Play listing export; the store applies its own mask and
-shadow. Android adaptive, themed, and notification icons and the web
-notification badge are generated separately from the same cell geometry so
-each platform can apply its own mask safely.
+The renderer version is pinned for stable local generation. CI regenerates and
+validates the canonical geometry, dimensions, formats, colors, and platform
+constraints, then independently verifies every committed artifact against the
+checked-in SHA-256 manifest. Generated and committed decoded pixels must match;
+only raster container/compression bytes may differ across platforms.
+`assets/brand/play_store_icon_512.png` is the opaque, full-square Google Play
+listing export; the store applies its own mask and shadow. Android adaptive,
+themed, and notification icons and the web notification badge are generated
+separately from the same cell geometry so each platform can apply its own mask
+safely.
 
 ## Run
 

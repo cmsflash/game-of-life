@@ -70,7 +70,7 @@ jobs:
           python-version: '3.12'
           cache: pip
           cache-dependency-path: apps/game_app/tool/requirements-brand-icons.txt
-      - name: Verify generated brand icons
+      - name: Verify generated and committed brand icons
         run: |
           python -m pip install -r apps/game_app/tool/requirements-brand-icons.txt
           python apps/game_app/tool/generate_brand_icons.py --check
