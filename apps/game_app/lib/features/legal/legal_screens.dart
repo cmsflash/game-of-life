@@ -330,7 +330,9 @@ const _privacySections = [
         'remote game is rated; local games are unrated and excluded from '
         'online stats. Win rate uses all completed remote games, including '
         'draws in its denominator. A kill is every opponent-colored cell that '
-        'dies, regardless of which player caused the death. '
+        'dies, regardless of which player caused the death. Kill totals update '
+        'during active games after each accepted rated move; Elo, wins, losses, '
+        'draws, and total-game counts update when the match ends. '
         'Security and reliability logs may include time, route, status, '
         'request ID, source IP address, and device or platform category; '
         'request bodies and authentication secrets are not intentionally '
@@ -440,9 +442,11 @@ const _termsSections = [
   ),
   _LegalSectionData(
     'Game records',
-    'The server is authoritative for online moves and outcomes. Completed '
-        'remote games update Elo and aggregate stats. Win rate includes draws '
-        'in total completed games. A kill is an opponent-colored cell death, '
+    'The server is authoritative for online moves and outcomes. Kill totals '
+        'update during active games after each accepted rated move; Elo, wins, '
+        'losses, draws, and total-game counts update when a remote game ends. '
+        'Win rate includes draws in total completed games. A kill is an '
+        'opponent-colored cell death, '
         'regardless of which player caused it. Match records may be retained '
         'in anonymized form for replay and rating integrity, security, dispute '
         'investigation, and aggregate operations.',

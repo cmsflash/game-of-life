@@ -72,8 +72,10 @@
   direct challenge is visible only to the two friends, expires after seven days,
   has no join code, and retrying acceptance returns the same active match ID.
 - Every private, quick, and accepted friend-challenge match is rated. Local games
-  are neither uploaded nor rated. A terminal result updates both ratings and
-  games/wins/losses/draws/kills exactly once; rating deltas sum to zero.
+  are neither uploaded nor rated. Accepted moves update each player's visible total
+  kills while the game is still active. A terminal result updates both ratings and
+  games/wins/losses/draws plus finalized kill storage exactly once without changing
+  the already-visible kill total; rating deltas sum to zero.
 - Each Black-cell death credits White and each White-cell death credits Black,
   regardless of mover or prior contribution.
 - After OS/browser permission is granted, sign-in automatically registers turn

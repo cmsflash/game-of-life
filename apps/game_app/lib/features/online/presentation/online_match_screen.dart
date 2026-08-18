@@ -9,6 +9,7 @@ import '../../../core/api_client.dart';
 import '../../../providers.dart';
 import '../../../shared/game_play_layout.dart';
 import '../../../shared/player_avatar.dart';
+import '../../auth/presentation/auth_controller.dart';
 import '../../game/domain/move_preview.dart';
 import '../../game/presentation/game_view_settings_dialog.dart';
 import '../../game/presentation/life_board.dart';
@@ -33,6 +34,8 @@ class _OnlineMatchScreenState extends ConsumerState<OnlineMatchScreen> {
   var _submitting = false;
   var _requestInFlight = false;
   var _completionRefreshSent = false;
+  String? _statsRefreshAccountId;
+  var _latestStatsRefreshRevision = -1;
 
   @override
   void initState() {
@@ -56,18 +59,26 @@ class _OnlineMatchScreenState extends ConsumerState<OnlineMatchScreen> {
           .getMatch(widget.matchId, etag: force ? null : _match?.etag);
       if (!mounted) return;
       var completedTransition = false;
+      var observedNewRevision = false;
+      var appliedRevision = -1;
       setState(() {
         final current = _match;
         if (updated != null &&
             (current == null || updated.revision >= current.revision)) {
           completedTransition = _becameTerminal(current, updated);
+          observedNewRevision = updated.revision > (current?.revision ?? 0);
+          appliedRevision = updated.revision;
           if (!_previewStillValid(updated)) _preview = null;
           _match = updated;
         }
         _loading = false;
         _error = null;
       });
-      if (completedTransition) _refreshRatedRecord();
+      if (completedTransition) {
+        _refreshCompletedRecord(appliedRevision);
+      } else if (observedNewRevision) {
+        _refreshStatsForRevision(appliedRevision);
+      }
     } catch (error) {
       if (!mounted) return;
       setState(() {
@@ -150,7 +161,11 @@ class _OnlineMatchScreenState extends ConsumerState<OnlineMatchScreen> {
           _match = updated;
           _preview = null;
         });
-        if (completedTransition) _refreshRatedRecord();
+        if (completedTransition) {
+          _refreshCompletedRecord(updated.revision);
+        } else {
+          _refreshStatsForRevision(updated.revision);
+        }
       }
     } on ApiException catch (error) {
       if (error.code == 'staleRevision' || error.code == 'REVISION_MISMATCH') {
@@ -289,7 +304,11 @@ class _OnlineMatchScreenState extends ConsumerState<OnlineMatchScreen> {
       if (mounted) {
         final completedTransition = _becameTerminal(_match, updated);
         setState(() => _match = updated);
-        if (completedTransition) _refreshRatedRecord();
+        if (completedTransition) {
+          _refreshCompletedRecord(updated.revision);
+        } else {
+          _refreshStatsForRevision(updated.revision);
+        }
       }
     } on ApiException catch (error) {
       if (mounted) setState(() => _error = error.message);
@@ -301,10 +320,30 @@ class _OnlineMatchScreenState extends ConsumerState<OnlineMatchScreen> {
       updated.status != 'waiting' &&
       current?.isActive != false;
 
-  void _refreshRatedRecord() {
+  void _refreshStatsForRevision(int revision, {bool force = false}) {
+    final auth = ref.read(authControllerProvider);
+    final accountId = auth.user?.id;
+    if (auth.status != AuthStatus.signedIn || accountId == null) return;
+    if (!force &&
+        _statsRefreshAccountId == accountId &&
+        revision <= _latestStatsRefreshRevision) {
+      return;
+    }
+    _statsRefreshAccountId = accountId;
+    _latestStatsRefreshRevision = revision;
+    unawaited(
+      ref
+          .read(playerStatsControllerProvider.notifier)
+          .refreshForAccount(accountId),
+    );
+  }
+
+  void _refreshCompletedRecord(int revision) {
     if (_completionRefreshSent) return;
     _completionRefreshSent = true;
-    unawaited(ref.read(playerStatsControllerProvider.notifier).refresh());
+    // A resignation changes terminal metrics without advancing the move
+    // revision, so completion must refresh even when this revision was seen.
+    _refreshStatsForRevision(revision, force: true);
     unawaited(ref.read(socialControllerProvider.notifier).refresh());
   }
 }

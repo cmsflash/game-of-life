@@ -63,8 +63,10 @@ chosen public display name, while login usernames and email addresses stay out
 of match documents. Every active online account is searchable by its public
 display name during this development phase; players can optionally upload a
 processed profile picture for Social and match views.
-Authenticated remote matches are rated with server-authoritative Elo, result,
-and kill statistics; device-local games remain private and unrated.
+Authenticated remote matches are rated with server-authoritative statistics:
+kill totals update during active games after each accepted move, while Elo,
+wins, losses, draws, and total-game counts update when the match ends.
+Device-local games remain private and unrated.
 
 Before submitting a binary, complete the operator-specific values, store
 assets, reviewer package, signing, and clean-device checks in

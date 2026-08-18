@@ -905,6 +905,11 @@ void main() {
       expect(find.text('-24'), findsOneWidget);
       expect(find.text('60%'), findsOneWidget);
       expect(find.text('42'), findsOneWidget);
+      expect(find.text('Total kills'), findsOneWidget);
+      expect(
+        find.textContaining('Total kills update after every rated move'),
+        findsOneWidget,
+      );
       expect(stats.calls, 1);
       final metricsTop = tester
           .getTopLeft(find.byKey(const Key('player-metrics')))

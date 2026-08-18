@@ -70,7 +70,10 @@ class _PlayerMetricsPanelState extends ConsumerState<PlayerMetricsPanel> {
                   ),
                   const SizedBox(height: 3),
                   const Text(
-                    'Completed online games count. Local games are unrated. '
+                    'Elo, wins, losses, draws, and total games update when a '
+                    'rated online game ends. Total kills update after every '
+                    'rated move, including during active games. Local games '
+                    'are unrated. '
                     'A kill is every opponent cell that dies, no matter who caused it.',
                   ),
                 ],
@@ -105,7 +108,8 @@ class _PlayerMetricsPanelState extends ConsumerState<PlayerMetricsPanel> {
           if (stats.isEmpty) ...[
             const SizedBox(height: 10),
             const Text(
-              'Your Elo starts at 1200. Finish a rated online game to build your record.',
+              'Your Elo starts at 1200. Finish a rated online game to build your '
+              'result record; kills update after every move.',
             ),
           ],
           if (state.status == PlayerStatsStatus.failed) ...[
@@ -132,7 +136,7 @@ class _MetricsGrid extends StatelessWidget {
       ('Win rate', _percent(stats.winRate), Icons.percent),
       ('Victories', '${stats.victories}', Icons.emoji_events_outlined),
       ('Total games', '${stats.totalGames}', Icons.sports_esports_outlined),
-      ('Kills', '${stats.kills}', Icons.flash_on_outlined),
+      ('Total kills', '${stats.kills}', Icons.flash_on_outlined),
     ];
     return LayoutBuilder(
       builder: (context, constraints) {

@@ -32,6 +32,7 @@ from .models import (
     StoredSocialRelation,
     User,
 )
+from .ratings import accumulated_kills
 from .repository import Repository
 
 _SEARCH_LIMIT = 20
@@ -84,8 +85,45 @@ class SocialService:
             wins=stored.wins,
             losses=stored.losses,
             draws=stored.draws,
-            kills=stored.kills,
+            kills=stored.kills + self._active_kills(user.id),
         )
+
+    def _active_kills(self, user_id: str) -> int:
+        total = 0
+        for match in self.repository.list_matches(user_id):
+            if match.status != MatchStatus.active or not match.rated:
+                continue
+            players = (match.black_player, match.white_player)
+            if any(player is None or player.id.startswith("deleted-") for player in players):
+                continue
+            color = match.color_for(user_id)
+            if color is None:
+                continue
+            black_kills, white_kills = self._match_kills(match)
+            total += black_kills if color == "black" else white_kills
+        return total
+
+    def _match_kills(self, match: StoredMatch) -> tuple[int, int]:
+        if match.kill_counts_complete:
+            return match.black_kills, match.white_kills
+        moves = [
+            move for move in self.repository.list_moves(match.id) if move.revision <= match.revision
+        ]
+        expected_revisions = list(range(1, match.revision + 1))
+        if [move.revision for move in moves] != expected_revisions:
+            raise ApiError(
+                "invalidMatchMetrics",
+                "The active match history is incomplete.",
+                status_code=500,
+            )
+        try:
+            return accumulated_kills([move.delta for move in moves])
+        except ValueError as error:
+            raise ApiError(
+                "invalidMatchMetrics",
+                "The active match history has invalid kill data.",
+                status_code=500,
+            ) from error
 
     def snapshot(self, user: User) -> SocialSnapshot:
         self._require_metrics_ready()

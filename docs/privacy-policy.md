@@ -30,6 +30,10 @@ shown to other players; the display name is retained with match history, while
 matches do not store picture URLs. Login usernames and email addresses are not
 included in match or Social documents.
 
+Kill totals update during active games after each accepted rated move. Elo,
+wins, losses, draws, and total-game counts update when a rated match ends. Local
+games do not contribute to online statistics.
+
 Every active account appears in player search during this development phase.
 Other signed-in players can find it by a case-insensitive public-display-name
 prefix and see only its public display name, opaque player ID, rating, and current

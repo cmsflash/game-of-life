@@ -168,7 +168,14 @@ The global sequence serializes Elo updates across concurrently finishing matches
 Rating begins at 1200, uses K=32 and symmetric half-away-from-zero rounding, and is
 an unbounded signed integer with exactly inverse deltas. Kill counters accumulate
 from authoritative death colors on every move: Black deaths credit White and White
-deaths credit Black.
+deaths credit Black. Durable player-stat rows retain finalized-match kills. A
+personal stats read first loads that finalized row, then strongly reads the player's
+active rated match snapshots and adds the cumulative counter for the player's color.
+This ordering cannot double-count the atomic active-to-terminal handoff; a terminal
+commit between the two reads can only produce a transient undercount until the next
+refresh. Legacy active snapshots without a complete cached counter reconstruct it
+from a strongly consistent, contiguous move history, capped at the snapshot revision
+to tolerate a concurrent later move.
 
 The `CONTROL#METRICS` record fails closed when missing. During the initial
 chronological backfill it is `backfilling`: nonterminal play continues, but terminal

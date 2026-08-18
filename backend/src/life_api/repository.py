@@ -3021,7 +3021,8 @@ class DynamoRepository:
         items: list[dict[str, Any]] = []
         query: dict[str, Any] = {
             "KeyConditionExpression": Key("PK").eq(f"USER#{user_id}")
-            & Key("SK").begins_with("MATCH#")
+            & Key("SK").begins_with("MATCH#"),
+            "ConsistentRead": True,
         }
         while True:
             response = self._table.query(**query)
@@ -3514,7 +3515,8 @@ class DynamoRepository:
         items: list[dict[str, Any]] = []
         query: dict[str, Any] = {
             "KeyConditionExpression": Key("PK").eq(f"MATCH#{match_id}")
-            & Key("SK").begins_with("MOVE#")
+            & Key("SK").begins_with("MOVE#"),
+            "ConsistentRead": True,
         }
         while True:
             response = self._table.query(**query)

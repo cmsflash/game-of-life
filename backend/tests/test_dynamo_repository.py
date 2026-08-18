@@ -43,6 +43,15 @@ class EmptyTable:
         return {}
 
 
+class RecordingQueryTable(EmptyTable):
+    def __init__(self) -> None:
+        self.queries: list[dict[str, Any]] = []
+
+    def query(self, **kwargs: Any) -> dict[str, Any]:
+        self.queries.append(kwargs)
+        return {"Items": []}
+
+
 class LegacyDeletionGuardTable(EmptyTable):
     def get_item(self, **kwargs: Any) -> dict[str, Any]:
         if kwargs["Key"] == {"PK": "USER#user-1", "SK": "ACCOUNT_DELETED"}:
@@ -437,6 +446,23 @@ def test_nonterminal_moves_are_fenced_when_either_account_is_deleting() -> None:
         )
 
     assert captured.value.code == "accountDeleting"
+
+
+def test_match_and_move_lists_use_strongly_consistent_reads(
+    monkeypatch,
+    settings: Settings,
+) -> None:
+    table = RecordingQueryTable()
+    resource = BatchResource(table, [])
+    monkeypatch.setattr(boto3, "resource", lambda *args, **kwargs: resource)
+    monkeypatch.setattr(boto3, "client", lambda *args, **kwargs: RecordingClient())
+    repository = DynamoRepository(settings)
+
+    assert repository.list_matches("user-1") == []
+    assert repository.list_moves("match-1") == []
+
+    assert len(table.queries) == 2
+    assert all(query["ConsistentRead"] is True for query in table.queries)
 
 
 def test_expired_challenge_cleanup_tolerates_ttl_deleted_pointer(

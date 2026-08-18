@@ -48,6 +48,19 @@ void main() {
     controller.dispose();
   });
 
+  test('account-fenced refresh connects before loading live kills', () async {
+    final repository = ScriptedStatsRepository();
+    repository.responses.add(Future.value(_stats(elo: 1200, kills: 7)));
+    final controller = PlayerStatsController(repository);
+
+    await controller.refreshForAccount('a');
+
+    expect(controller.state.status, PlayerStatsStatus.ready);
+    expect(controller.state.stats?.kills, 7);
+    expect(repository.calls, 1);
+    controller.dispose();
+  });
+
   test(
     'failed refresh keeps the last record and exposes retry error',
     () async {
@@ -92,15 +105,19 @@ void main() {
   });
 }
 
-PlayerStats _stats({required int elo, int wins = 0, int games = 0}) =>
-    PlayerStats(
-      elo: elo,
-      victories: wins,
-      totalGames: games,
-      kills: 0,
-      losses: games - wins,
-      draws: 0,
-    );
+PlayerStats _stats({
+  required int elo,
+  int wins = 0,
+  int games = 0,
+  int kills = 0,
+}) => PlayerStats(
+  elo: elo,
+  victories: wins,
+  totalGames: games,
+  kills: kills,
+  losses: games - wins,
+  draws: 0,
+);
 
 class ScriptedStatsRepository implements PlayerStatsRepository {
   final responses = Queue<Future<PlayerStats>>();

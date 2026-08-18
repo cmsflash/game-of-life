@@ -2,15 +2,18 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:game_engine/game_engine.dart' as engine;
+import 'package:game_of_life/features/auth/data/auth_models.dart';
+import 'package:game_of_life/features/auth/presentation/auth_controller.dart';
+import 'package:game_of_life/features/game/presentation/life_board.dart';
 import 'package:game_of_life/features/online/data/online_models.dart';
 import 'package:game_of_life/features/online/data/online_repository.dart';
 import 'package:game_of_life/features/online/presentation/online_match_screen.dart';
-import 'package:game_of_life/features/game/presentation/life_board.dart';
 import 'package:game_of_life/features/stats/data/player_stats.dart';
 import 'package:game_of_life/features/stats/data/player_stats_repository.dart';
 import 'package:game_of_life/features/stats/presentation/player_stats_controller.dart';
 import 'package:game_of_life/providers.dart';
 
+import '../../fakes.dart';
 import '../../support/game_play_layout_test_support.dart';
 
 void main() {
@@ -48,9 +51,18 @@ void main() {
   ) async {
     configureGameViewport(tester, gameLayoutViewports.last);
     final repository = _MatchRepository(_activeMatch());
+    final auth = await _signedInAuthController();
+    final stats = _CountingStatsRepository();
     await tester.pumpWidget(
       ProviderScope(
-        overrides: [onlineRepositoryProvider.overrideWithValue(repository)],
+        overrides: [
+          authControllerProvider.overrideWith((ref) => auth),
+          onlineRepositoryProvider.overrideWithValue(repository),
+          playerStatsRepositoryProvider.overrideWithValue(stats),
+          playerStatsControllerProvider.overrideWith(
+            (ref) => PlayerStatsController(stats),
+          ),
+        ],
         child: const MaterialApp(home: OnlineMatchScreen(matchId: 'match-1')),
       ),
     );
@@ -81,9 +93,18 @@ void main() {
   ) async {
     configureGameViewport(tester, gameLayoutViewports.last);
     final repository = _MatchRepository(_activeMatch());
+    final auth = await _signedInAuthController();
+    final stats = _CountingStatsRepository();
     await tester.pumpWidget(
       ProviderScope(
-        overrides: [onlineRepositoryProvider.overrideWithValue(repository)],
+        overrides: [
+          authControllerProvider.overrideWith((ref) => auth),
+          onlineRepositoryProvider.overrideWithValue(repository),
+          playerStatsRepositoryProvider.overrideWithValue(stats),
+          playerStatsControllerProvider.overrideWith(
+            (ref) => PlayerStatsController(stats),
+          ),
+        ],
         child: const MaterialApp(home: OnlineMatchScreen(matchId: 'match-1')),
       ),
     );
@@ -106,15 +127,95 @@ void main() {
     expect(find.byKey(const Key('commit-move')), findsNothing);
   });
 
+  testWidgets(
+    'a successful nonterminal move refreshes live kills for the signed-in account',
+    (tester) async {
+      configureGameViewport(tester, gameLayoutViewports.last);
+      final repository = _MatchRepository(_activeMatch());
+      final auth = await _signedInAuthController();
+      final stats = _CountingStatsRepository();
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            authControllerProvider.overrideWith((ref) => auth),
+            onlineRepositoryProvider.overrideWithValue(repository),
+            playerStatsRepositoryProvider.overrideWithValue(stats),
+            playerStatsControllerProvider.overrideWith(
+              (ref) => PlayerStatsController(stats),
+            ),
+          ],
+          child: const MaterialApp(home: OnlineMatchScreen(matchId: 'match-1')),
+        ),
+      );
+      await tester.pump();
+      await tester.pump();
+      expect(stats.calls, 0);
+
+      await tester.tap(find.byKey(const ValueKey('life-cell-8-9')));
+      await tester.pump();
+      await tester.tap(find.byKey(const Key('commit-move')));
+      await tester.pump();
+      await tester.pump();
+
+      expect(repository.match.isActive, isTrue);
+      expect(stats.calls, 1);
+      expect(
+        ProviderScope.containerOf(
+          tester.element(find.byType(OnlineMatchScreen)),
+        ).read(playerStatsControllerProvider).stats?.kills,
+        3,
+      );
+    },
+  );
+
+  testWidgets(
+    'polling refreshes live kills once for each newly observed revision',
+    (tester) async {
+      configureGameViewport(tester, gameLayoutViewports.last);
+      final repository = _MatchRepository(_activeMatch());
+      final auth = await _signedInAuthController();
+      final stats = _CountingStatsRepository();
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            authControllerProvider.overrideWith((ref) => auth),
+            onlineRepositoryProvider.overrideWithValue(repository),
+            playerStatsRepositoryProvider.overrideWithValue(stats),
+            playerStatsControllerProvider.overrideWith(
+              (ref) => PlayerStatsController(stats),
+            ),
+          ],
+          child: const MaterialApp(home: OnlineMatchScreen(matchId: 'match-1')),
+        ),
+      );
+      await tester.pump();
+      await tester.pump();
+      expect(stats.calls, 0);
+
+      await repository.submitMove('match-1', revision: 0, row: 8, column: 9);
+      await tester.tap(find.byTooltip('Refresh'));
+      await tester.pump();
+      await tester.pump();
+      expect(stats.calls, 1);
+
+      await tester.tap(find.byTooltip('Refresh'));
+      await tester.pump();
+      await tester.pump();
+      expect(stats.calls, 1);
+    },
+  );
+
   testWidgets('terminal match refreshes the rated record exactly once', (
     tester,
   ) async {
     configureGameViewport(tester, gameLayoutViewports.last);
     final repository = _MatchRepository(_activeMatch());
+    final auth = await _signedInAuthController();
     final stats = _CountingStatsRepository();
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
+          authControllerProvider.overrideWith((ref) => auth),
           onlineRepositoryProvider.overrideWithValue(repository),
           playerStatsRepositoryProvider.overrideWithValue(stats),
           playerStatsControllerProvider.overrideWith((ref) {
@@ -147,10 +248,12 @@ void main() {
   ) async {
     configureGameViewport(tester, gameLayoutViewports.last);
     final repository = _MatchRepository(_completedMatch(_activeMatch()));
+    final auth = await _signedInAuthController();
     final stats = _CountingStatsRepository();
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
+          authControllerProvider.overrideWith((ref) => auth),
           onlineRepositoryProvider.overrideWithValue(repository),
           playerStatsRepositoryProvider.overrideWithValue(stats),
           playerStatsControllerProvider.overrideWith((ref) {
@@ -172,6 +275,58 @@ void main() {
     await tester.pump();
     expect(stats.calls, 1);
   });
+
+  testWidgets(
+    'resignation refreshes terminal stats when the move revision does not advance',
+    (tester) async {
+      configureGameViewport(tester, gameLayoutViewports.last);
+      final repository = _MatchRepository(_activeMatch());
+      await repository.submitMove('match-1', revision: 0, row: 8, column: 9);
+      final auth = await _signedInAuthController();
+      final stats = _CountingStatsRepository();
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            authControllerProvider.overrideWith((ref) => auth),
+            onlineRepositoryProvider.overrideWithValue(repository),
+            playerStatsRepositoryProvider.overrideWithValue(stats),
+            playerStatsControllerProvider.overrideWith(
+              (ref) => PlayerStatsController(stats),
+            ),
+          ],
+          child: const MaterialApp(home: OnlineMatchScreen(matchId: 'match-1')),
+        ),
+      );
+      await tester.pump();
+      await tester.pump();
+      expect(repository.match.revision, 1);
+      expect(stats.calls, 1);
+
+      await tester.tap(find.byType(PopupMenuButton<String>));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Resign match'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(FilledButton, 'Resign'));
+      await tester.pump();
+      await tester.pump();
+
+      expect(repository.match.status, 'completed');
+      expect(repository.match.revision, 1);
+      expect(stats.calls, 2);
+    },
+  );
+}
+
+Future<AuthController> _signedInAuthController() async {
+  final repository = FakeAuthRepository()
+    ..current = const AppUser(
+      id: 'player-a',
+      username: 'player-a',
+      displayName: 'Nora',
+    );
+  final controller = AuthController(repository);
+  await controller.restore();
+  return controller;
 }
 
 OnlineMatch _activeMatch() {
@@ -281,6 +436,22 @@ class _MatchRepository implements OnlineRepository {
       nextPlayer: turn.state.toMove,
       lastMove: engine.Coordinate(row, column),
       result: turn.state.outcome?.toJson(),
+    );
+  }
+
+  @override
+  Future<OnlineMatch> resign(String id, int revision) async {
+    return match = OnlineMatch(
+      id: match.id,
+      status: 'completed',
+      revision: match.revision,
+      board: match.board,
+      rules: match.rules,
+      players: match.players,
+      blackPopulation: match.blackPopulation,
+      whitePopulation: match.whitePopulation,
+      yourColor: match.yourColor,
+      result: const {'type': 'win', 'winner': 'white', 'reason': 'resignation'},
     );
   }
 

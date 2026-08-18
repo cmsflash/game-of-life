@@ -63,6 +63,11 @@ class PlayerStatsController extends StateNotifier<PlayerStatsState> {
 
   Future<void> refresh() => load(force: true);
 
+  Future<void> refreshForAccount(String accountId) {
+    connectAccount(accountId);
+    return refresh();
+  }
+
   void disconnectAccount() {
     if (_accountId == null && state.status == PlayerStatsStatus.idle) return;
     _accountId = null;
