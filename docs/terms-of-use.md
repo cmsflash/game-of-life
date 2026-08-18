@@ -1,6 +1,6 @@
 # Terms of Use
 
-Effective August 14, 2026.
+Effective August 18, 2026.
 
 These terms apply to online accounts and the online game service. Mandatory
 consumer rights in a player's jurisdiction are not limited by these terms.
@@ -51,9 +51,11 @@ All authenticated remote matches are rated; local games are not. Ratings and
 statistics are informational competitive records, may be corrected after defects
 or abuse, and are not money, prizes, or property. The service uses an unbounded
 integer Elo system and credits kills by the color of each cell that dies, not by
-which player placed or last influenced it. Kill totals update after each accepted
-rated move, including during active games; Elo, wins, losses, draws, and
-total-game counts update when the match ends.
+which player moved, placed, or last influenced it. Spawn totals count evolution
+births by the born cell's color on either player's turn and exclude manual
+placement. Kill and spawn totals update after each accepted rated move, including
+during active games; Elo, wins, losses, draws, and total-game counts update when
+the match ends.
 
 Turn notifications are registered automatically after the player grants browser
 or operating-system permission and signs in. They are advisory and may be delayed,

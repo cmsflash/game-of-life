@@ -20,6 +20,7 @@ from .models import (
     MatchOrigin,
     MatchRulesRequest,
     MatchStatus,
+    MoveEvent,
     PlayerSearchResponse,
     PlayerStatsDocument,
     PlayerSummary,
@@ -32,7 +33,7 @@ from .models import (
     StoredSocialRelation,
     User,
 )
-from .ratings import accumulated_kills
+from .ratings import accumulated_kills, accumulated_spawns
 from .repository import Repository
 
 _SEARCH_LIMIT = 20
@@ -79,43 +80,57 @@ class SocialService:
     def stats(self, user: User) -> PlayerStatsDocument:
         self._require_metrics_ready()
         stored = self.repository.get_player_stats(user.id)
+        active_kills, spawn_overlay = self._metrics_overlays(user.id)
         return PlayerStatsDocument(
             rating=stored.rating,
             games=stored.games,
             wins=stored.wins,
             losses=stored.losses,
             draws=stored.draws,
-            kills=stored.kills + self._active_kills(user.id),
+            kills=stored.kills + active_kills,
+            spawns=stored.spawns + spawn_overlay,
         )
 
-    def _active_kills(self, user_id: str) -> int:
-        total = 0
+    def _metrics_overlays(self, user_id: str) -> tuple[int, int]:
+        active_kills = 0
+        spawns = 0
         for match in self.repository.list_matches(user_id):
-            if match.status != MatchStatus.active or not match.rated:
-                continue
-            players = (match.black_player, match.white_player)
-            if any(player is None or player.id.startswith("deleted-") for player in players):
+            if not match.rated:
                 continue
             color = match.color_for(user_id)
             if color is None:
                 continue
-            black_kills, white_kills = self._match_kills(match)
-            total += black_kills if color == "black" else white_kills
-        return total
+            if match.status == MatchStatus.active:
+                players = (match.black_player, match.white_player)
+                if any(player is None or player.id.startswith("deleted-") for player in players):
+                    continue
+                black_kills, white_kills = self._match_kills(match)
+                active_kills += black_kills if color == "black" else white_kills
+                black_spawns, white_spawns = self._match_spawns(match)
+                spawns += black_spawns if color == "black" else white_spawns
+                continue
+            if match.status != MatchStatus.completed:
+                continue
+            marker = self.repository.get_spawn_metrics(match.id)
+            if marker is not None:
+                if match.completed_at is None or marker.completed_at != match.completed_at:
+                    raise ApiError(
+                        "invalidMatchMetrics",
+                        "The completed match has invalid spawn metrics.",
+                        status_code=500,
+                    )
+                continue
+            # Old terminal transactions did not write a spawn marker. Reconstruct
+            # until the idempotent migration atomically adds the durable total and
+            # marker. A deleted opponent does not erase the survivor's history.
+            black_spawns, white_spawns = self._match_spawns(match)
+            spawns += black_spawns if color == "black" else white_spawns
+        return active_kills, spawns
 
     def _match_kills(self, match: StoredMatch) -> tuple[int, int]:
         if match.kill_counts_complete:
             return match.black_kills, match.white_kills
-        moves = [
-            move for move in self.repository.list_moves(match.id) if move.revision <= match.revision
-        ]
-        expected_revisions = list(range(1, match.revision + 1))
-        if [move.revision for move in moves] != expected_revisions:
-            raise ApiError(
-                "invalidMatchMetrics",
-                "The active match history is incomplete.",
-                status_code=500,
-            )
+        moves = self._match_moves(match)
         try:
             return accumulated_kills([move.delta for move in moves])
         except ValueError as error:
@@ -124,6 +139,30 @@ class SocialService:
                 "The active match history has invalid kill data.",
                 status_code=500,
             ) from error
+
+    def _match_spawns(self, match: StoredMatch) -> tuple[int, int]:
+        moves = self._match_moves(match)
+        try:
+            return accumulated_spawns([move.delta for move in moves])
+        except ValueError as error:
+            raise ApiError(
+                "invalidMatchMetrics",
+                "The match history has invalid spawn data.",
+                status_code=500,
+            ) from error
+
+    def _match_moves(self, match: StoredMatch) -> list[MoveEvent]:
+        moves = [
+            move for move in self.repository.list_moves(match.id) if move.revision <= match.revision
+        ]
+        expected_revisions = list(range(1, match.revision + 1))
+        if [move.revision for move in moves] != expected_revisions:
+            raise ApiError(
+                "invalidMatchMetrics",
+                "The match history is incomplete.",
+                status_code=500,
+            )
+        return moves
 
     def snapshot(self, user: User) -> SocialSnapshot:
         self._require_metrics_ready()

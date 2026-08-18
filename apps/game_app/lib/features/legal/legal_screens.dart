@@ -27,7 +27,7 @@ class LegalScreen extends ConsumerWidget {
         eyebrow: 'Legal',
         title: 'Privacy Policy',
         introduction:
-            'Effective August 14, 2026. This policy explains what The Game of '
+            'Effective August 18, 2026. This policy explains what The Game of '
             'Life processes when you play locally or use an online account.',
         sections: _privacySections,
       ),
@@ -35,7 +35,7 @@ class LegalScreen extends ConsumerWidget {
         eyebrow: 'Legal',
         title: 'Terms of Use',
         introduction:
-            'Effective August 14, 2026. These terms apply when you create an '
+            'Effective August 18, 2026. These terms apply when you create an '
             'account or use the online game service.',
         sections: _termsSections,
       ),
@@ -60,7 +60,7 @@ class _AboutContent extends StatelessWidget {
       children: [
         const SectionHeading(
           eyebrow: 'About',
-          title: 'Life, with an opponent',
+          title: 'Playing with an opponent',
           description:
               'A deterministic two-player strategy game built on Conway’s '
               'famous rules. Local games work without an account or network.',
@@ -330,9 +330,11 @@ const _privacySections = [
         'remote game is rated; local games are unrated and excluded from '
         'online stats. Win rate uses all completed remote games, including '
         'draws in its denominator. A kill is every opponent-colored cell that '
-        'dies, regardless of which player caused the death. Kill totals update '
-        'during active games after each accepted rated move; Elo, wins, losses, '
-        'draws, and total-game counts update when the match ends. '
+        'dies during either player\'s turn. A spawn is every new cell of your '
+        'color born during evolution on either player\'s turn; placed cells are '
+        'not spawns. Kill and spawn totals update during active games after each '
+        'accepted rated move; Elo, wins, losses, draws, and total-game counts '
+        'update when the match ends. '
         'Security and reliability logs may include time, route, status, '
         'request ID, source IP address, and device or platform category; '
         'request bodies and authentication secrets are not intentionally '
@@ -442,12 +444,13 @@ const _termsSections = [
   ),
   _LegalSectionData(
     'Game records',
-    'The server is authoritative for online moves and outcomes. Kill totals '
-        'update during active games after each accepted rated move; Elo, wins, '
-        'losses, draws, and total-game counts update when a remote game ends. '
-        'Win rate includes draws in total completed games. A kill is an '
-        'opponent-colored cell death, '
-        'regardless of which player caused it. Match records may be retained '
+    'The server is authoritative for online moves and outcomes. Kill and spawn '
+        'totals update during active games after each accepted rated move; Elo, '
+        'wins, losses, draws, and total-game counts update when a remote game '
+        'ends. Win rate includes draws in total completed games. A kill is an '
+        'opponent-colored cell death during either player\'s turn. A spawn is '
+        'a new cell of your color born during evolution on either player\'s '
+        'turn; placed cells are not spawns. Match records may be retained '
         'in anonymized form for replay and rating integrity, security, dispute '
         'investigation, and aggregate operations.',
   ),

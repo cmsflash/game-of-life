@@ -128,7 +128,7 @@ void main() {
   });
 
   testWidgets(
-    'a successful nonterminal move refreshes live kills for the signed-in account',
+    'a successful nonterminal move refreshes live evolution stats for the signed-in account',
     (tester) async {
       configureGameViewport(tester, gameLayoutViewports.last);
       final repository = _MatchRepository(_activeMatch());
@@ -165,11 +165,17 @@ void main() {
         ).read(playerStatsControllerProvider).stats?.kills,
         3,
       );
+      expect(
+        ProviderScope.containerOf(
+          tester.element(find.byType(OnlineMatchScreen)),
+        ).read(playerStatsControllerProvider).stats?.spawns,
+        5,
+      );
     },
   );
 
   testWidgets(
-    'polling refreshes live kills once for each newly observed revision',
+    'polling refreshes live evolution stats once per observed revision',
     (tester) async {
       configureGameViewport(tester, gameLayoutViewports.last);
       final repository = _MatchRepository(_activeMatch());
@@ -383,6 +389,7 @@ class _CountingStatsRepository implements PlayerStatsRepository {
       victories: 1,
       totalGames: 1,
       kills: 3,
+      spawns: 5,
       losses: 0,
       draws: 0,
     );

@@ -166,6 +166,7 @@ def test_friend_challenge_is_private_idempotent_and_updates_rated_stats(
     assert alice_stats["losses"] + bob_stats["losses"] == 1
     assert alice_stats["rating"] + bob_stats["rating"] == 2400
     assert alice_stats["kills"] == bob_stats["kills"] == 0
+    assert alice_stats["spawns"] == bob_stats["spawns"] == 0
 
 
 def test_search_indexes_one_two_and_three_character_name_prefixes(client: TestClient) -> None:

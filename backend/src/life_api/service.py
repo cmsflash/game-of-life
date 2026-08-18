@@ -19,6 +19,7 @@ from .models import (
     MatchOrigin,
     MatchPlayerDocument,
     MatchRulesRequest,
+    MatchSpawnMetrics,
     MatchStatus,
     MoveEvent,
     MoveRequest,
@@ -31,7 +32,14 @@ from .models import (
     StoredPublicPlayer,
     User,
 )
-from .ratings import accumulated_kills, build_metrics_ledger, deaths_by_credit
+from .ratings import (
+    accumulated_kills,
+    accumulated_spawns,
+    build_metrics_ledger,
+    build_spawn_metrics,
+    deaths_by_credit,
+    spawns_by_color,
+)
 from .repository import Repository
 
 
@@ -371,12 +379,16 @@ class MatchService:
         now = datetime.now(UTC)
         black_kills = match.black_kills
         white_kills = match.white_kills
+        historical = self._historical_deltas(match)
         if not match.kill_counts_complete:
-            historical = [move.delta for move in self.repository.list_moves(match.id)]
             black_kills, white_kills = accumulated_kills(historical)
+        black_spawns, white_spawns = accumulated_spawns(historical)
         turn_black_kills, turn_white_kills = deaths_by_credit(turn["delta"])
+        turn_black_spawns, turn_white_spawns = spawns_by_color(turn["delta"])
         black_kills += turn_black_kills
         white_kills += turn_white_kills
+        black_spawns += turn_black_spawns
+        white_spawns += turn_white_spawns
         updated = match.model_copy(
             update={
                 "state": state,
@@ -406,9 +418,13 @@ class MatchService:
             state_hash=str(state["stateHash"]),
             created_at=now,
         )
-        metrics, black_version, white_version, control_version = self._terminal_metrics(
-            updated,
-            now,
+        metrics, spawn_metrics, black_version, white_version, control_version = (
+            self._terminal_metrics(
+                updated,
+                now,
+                black_spawns=black_spawns,
+                white_spawns=white_spawns,
+            )
         )
         if metrics is not None:
             updated = updated.model_copy(update={"stats_finalized": True})
@@ -420,6 +436,7 @@ class MatchService:
             idempotency_key=request.idempotency_key,
             request_fingerprint=request_fingerprint,
             metrics=metrics,
+            spawn_metrics=spawn_metrics,
             black_stats_version=black_version,
             white_stats_version=white_version,
             control_version=control_version,
@@ -505,9 +522,10 @@ class MatchService:
         now = datetime.now(UTC)
         black_kills = match.black_kills
         white_kills = match.white_kills
+        historical = self._historical_deltas(match)
         if not match.kill_counts_complete:
-            historical = [move.delta for move in self.repository.list_moves(match.id)]
             black_kills, white_kills = accumulated_kills(historical)
+        black_spawns, white_spawns = accumulated_spawns(historical)
         updated = match.model_copy(
             update={
                 "status": MatchStatus.completed,
@@ -521,11 +539,17 @@ class MatchService:
                 "updated_at": now,
             }
         )
-        metrics, black_version, white_version, control_version = self._terminal_metrics(
-            updated, now
+        metrics, spawn_metrics, black_version, white_version, control_version = (
+            self._terminal_metrics(
+                updated,
+                now,
+                black_spawns=black_spawns,
+                white_spawns=white_spawns,
+            )
         )
         if (
             metrics is None
+            or spawn_metrics is None
             or black_version is None
             or white_version is None
             or control_version is None
@@ -538,6 +562,7 @@ class MatchService:
             idempotency_key=request.idempotency_key,
             request_fingerprint=request_fingerprint,
             metrics=metrics,
+            spawn_metrics=spawn_metrics,
             black_stats_version=black_version,
             white_stats_version=white_version,
             control_version=control_version,
@@ -664,13 +689,34 @@ class MatchService:
             raise AssertionError("avatar service was not initialized")
         return self.avatars
 
+    def _historical_deltas(self, match: StoredMatch) -> list[dict[str, Any]]:
+        moves = [
+            move for move in self.repository.list_moves(match.id) if move.revision <= match.revision
+        ]
+        if [move.revision for move in moves] != list(range(1, match.revision + 1)):
+            raise ApiError(
+                "invalidMatchMetrics",
+                "The match history is incomplete.",
+                status_code=500,
+            )
+        return [move.delta for move in moves]
+
     def _terminal_metrics(
         self,
         match: StoredMatch,
         completed_at: datetime,
-    ) -> tuple[MatchMetricsLedger | None, int | None, int | None, int | None]:
+        *,
+        black_spawns: int,
+        white_spawns: int,
+    ) -> tuple[
+        MatchMetricsLedger | None,
+        MatchSpawnMetrics | None,
+        int | None,
+        int | None,
+        int | None,
+    ]:
         if match.status != MatchStatus.completed:
-            return None, None, None, None
+            return None, None, None, None, None
         if not match.rated:
             raise ApiError("unratedRemoteMatch", "Remote matches must be rated.", status_code=500)
         if match.black_player is None or match.white_player is None:
@@ -685,7 +731,19 @@ class MatchService:
         black_stats = self.repository.get_player_stats(match.black_player.id)
         white_stats = self.repository.get_player_stats(match.white_player.id)
         return (
-            build_metrics_ledger(match, black_stats, white_stats, control, completed_at),
+            build_metrics_ledger(
+                match,
+                black_stats,
+                white_stats,
+                control,
+                completed_at,
+            ),
+            build_spawn_metrics(
+                match,
+                completed_at,
+                black_spawns=black_spawns,
+                white_spawns=white_spawns,
+            ),
             black_stats.version,
             white_stats.version,
             control.global_version,

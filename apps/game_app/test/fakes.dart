@@ -427,6 +427,7 @@ class FakePlayerStatsRepository implements PlayerStatsRepository {
       victories: 0,
       totalGames: 0,
       kills: 0,
+      spawns: 0,
       losses: 0,
       draws: 0,
     ),

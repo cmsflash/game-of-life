@@ -17,6 +17,7 @@ from .errors import ApiError
 from .models import (
     AccountState,
     MatchMetricsLedger,
+    MatchSpawnMetrics,
     MatchStatus,
     MetricsControl,
     MetricsControlState,
@@ -83,6 +84,8 @@ class Repository(Protocol):
 
     def get_metrics_ledger(self, match_id: str) -> MatchMetricsLedger | None: ...
 
+    def get_spawn_metrics(self, match_id: str) -> MatchSpawnMetrics | None: ...
+
     def social_records(
         self, user_id: str
     ) -> tuple[int, list[StoredSocialRelation], list[StoredChallenge]]: ...
@@ -137,6 +140,7 @@ class Repository(Protocol):
         idempotency_key: str,
         request_fingerprint: str,
         metrics: MatchMetricsLedger | None = None,
+        spawn_metrics: MatchSpawnMetrics | None = None,
         black_stats_version: int | None = None,
         white_stats_version: int | None = None,
         control_version: int | None = None,
@@ -151,6 +155,7 @@ class Repository(Protocol):
         idempotency_key: str,
         request_fingerprint: str,
         metrics: MatchMetricsLedger,
+        spawn_metrics: MatchSpawnMetrics,
         black_stats_version: int,
         white_stats_version: int,
         control_version: int,
@@ -259,6 +264,7 @@ class InMemoryRepository:
             global_version=0,
         )
         self._metrics_ledgers: dict[str, MatchMetricsLedger] = {}
+        self._spawn_metrics: dict[str, MatchSpawnMetrics] = {}
         self._search_rates: dict[tuple[str, int], int] = {}
         self._avatar_upload_rates: dict[tuple[str, int], int] = {}
         self._lock = threading.RLock()
@@ -408,6 +414,15 @@ class InMemoryRepository:
         with self._lock:
             ledger = self._metrics_ledgers.get(match_id)
             return ledger.model_copy(deep=True) if ledger is not None else None
+
+    def get_spawn_metrics(self, match_id: str) -> MatchSpawnMetrics | None:
+        with self._lock:
+            metrics = self._spawn_metrics.get(match_id)
+            if metrics is None:
+                return None
+            if metrics.match_id != match_id:
+                raise ValueError("spawn metrics storage key does not match its document")
+            return metrics.model_copy(deep=True)
 
     def social_records(
         self, user_id: str
@@ -740,6 +755,7 @@ class InMemoryRepository:
         idempotency_key: str,
         request_fingerprint: str,
         metrics: MatchMetricsLedger | None = None,
+        spawn_metrics: MatchSpawnMetrics | None = None,
         black_stats_version: int | None = None,
         white_stats_version: int | None = None,
         control_version: int | None = None,
@@ -767,11 +783,13 @@ class InMemoryRepository:
             if match.black_player is None or match.white_player is None:
                 raise ValueError("an active match requires two players")
             self._require_pair_active(match.black_player.id, match.white_player.id)
-            if match.status == MatchStatus.completed and metrics is None:
+            if match.status == MatchStatus.completed and (metrics is None or spawn_metrics is None):
                 raise ApiError(
                     "metricsRequired", "Completed matches require metrics.", status_code=503
                 )
             if metrics is not None:
+                if spawn_metrics is None:
+                    raise ValueError("terminal metrics require spawn metrics")
                 if (
                     black_stats_version is None
                     or white_stats_version is None
@@ -781,6 +799,7 @@ class InMemoryRepository:
                 self._validate_metrics_commit(
                     match,
                     metrics,
+                    spawn_metrics,
                     black_stats_version,
                     white_stats_version,
                     control_version,
@@ -791,8 +810,8 @@ class InMemoryRepository:
                 request_fingerprint,
                 match.model_copy(deep=True),
             )
-            if metrics is not None:
-                self._apply_metrics(match, metrics)
+            if metrics is not None and spawn_metrics is not None:
+                self._apply_metrics(match, metrics, spawn_metrics)
 
     def commit_resignation(
         self,
@@ -803,6 +822,7 @@ class InMemoryRepository:
         idempotency_key: str,
         request_fingerprint: str,
         metrics: MatchMetricsLedger,
+        spawn_metrics: MatchSpawnMetrics,
         black_stats_version: int,
         white_stats_version: int,
         control_version: int,
@@ -826,6 +846,7 @@ class InMemoryRepository:
             self._validate_metrics_commit(
                 match,
                 metrics,
+                spawn_metrics,
                 black_stats_version,
                 white_stats_version,
                 control_version,
@@ -836,19 +857,20 @@ class InMemoryRepository:
                 request_fingerprint,
                 match.model_copy(deep=True),
             )
-            self._apply_metrics(match, metrics)
+            self._apply_metrics(match, metrics, spawn_metrics)
 
     def _validate_metrics_commit(
         self,
         match: StoredMatch,
         metrics: MatchMetricsLedger,
+        spawn_metrics: MatchSpawnMetrics,
         black_stats_version: int,
         white_stats_version: int,
         control_version: int,
         *,
         deleting_user_id: str | None = None,
     ) -> None:
-        _validate_metrics_payload(match, metrics)
+        _validate_metrics_payload(match, metrics, spawn_metrics)
         if self._metrics_control.state != MetricsControlState.ready:
             raise ApiError(
                 "metricsBackfillInProgress",
@@ -863,6 +885,8 @@ class InMemoryRepository:
             raise ApiError("metricsConflict", "Rating state changed.", status_code=409)
         if match.id in self._metrics_ledgers:
             raise ApiError("metricsConflict", "Match metrics already exist.", status_code=409)
+        if match.id in self._spawn_metrics:
+            raise ApiError("metricsConflict", "Match spawn metrics already exist.", status_code=409)
         if match.black_player is None or match.white_player is None:
             raise ValueError("rated match requires two players")
         for player_id in (match.black_player.id, match.white_player.id):
@@ -890,7 +914,12 @@ class InMemoryRepository:
         ):
             raise ApiError("metricsConflict", "Player rating state changed.", status_code=409)
 
-    def _apply_metrics(self, match: StoredMatch, metrics: MatchMetricsLedger) -> None:
+    def _apply_metrics(
+        self,
+        match: StoredMatch,
+        metrics: MatchMetricsLedger,
+        spawn_metrics: MatchSpawnMetrics,
+    ) -> None:
         if match.black_player is None or match.white_player is None:
             raise ValueError("rated match requires two players")
         black = self._player_stats.get(
@@ -911,6 +940,7 @@ class InMemoryRepository:
                 "losses": black.losses + black_result[1],
                 "draws": black.draws + black_result[2],
                 "kills": black.kills + metrics.black_kills,
+                "spawns": black.spawns + spawn_metrics.black_spawns,
                 "version": black.version + 1,
             }
         )
@@ -922,10 +952,12 @@ class InMemoryRepository:
                 "losses": white.losses + white_result[1],
                 "draws": white.draws + white_result[2],
                 "kills": white.kills + metrics.white_kills,
+                "spawns": white.spawns + spawn_metrics.white_spawns,
                 "version": white.version + 1,
             }
         )
         self._metrics_ledgers[match.id] = metrics.model_copy(deep=True)
+        self._spawn_metrics[match.id] = spawn_metrics.model_copy(deep=True)
         self._metrics_control = self._metrics_control.model_copy(
             update={"global_version": metrics.rating_sequence}
         )
@@ -1735,6 +1767,7 @@ class DynamoRepository:
                             "losses = if_not_exists(losses, :zero), "
                             "draws = if_not_exists(draws, :zero), "
                             "kills = if_not_exists(kills, :zero), "
+                            "spawns = if_not_exists(spawns, :zero), "
                             "#version = if_not_exists(#version, :zero)"
                         ),
                         "ExpressionAttributeNames": {"#version": "version"},
@@ -2097,6 +2130,7 @@ class DynamoRepository:
                 "losses": int(item.get("losses", 0)),
                 "draws": int(item.get("draws", 0)),
                 "kills": int(item.get("kills", 0)),
+                "spawns": int(item.get("spawns", 0)),
                 "version": int(item.get("version", 0)),
             }
         )
@@ -2125,6 +2159,23 @@ class DynamoRepository:
         if item is None:
             return None
         return MatchMetricsLedger.model_validate_json(item["document"])
+
+    def get_spawn_metrics(self, match_id: str) -> MatchSpawnMetrics | None:
+        item = self._table.get_item(
+            Key={"PK": f"MATCH#{match_id}", "SK": "RESULT#SPAWNS"},
+            ConsistentRead=True,
+        ).get("Item")
+        if item is None:
+            return None
+        metrics = MatchSpawnMetrics.model_validate_json(item["document"])
+        if (
+            item.get("PK") != f"MATCH#{match_id}"
+            or item.get("SK") != "RESULT#SPAWNS"
+            or item.get("entity") != "matchSpawns"
+            or metrics.match_id != match_id
+        ):
+            raise ValueError("spawn metrics storage fields do not match its document")
+        return metrics
 
     def social_records(
         self, user_id: str
@@ -3181,15 +3232,18 @@ class DynamoRepository:
         idempotency_key: str,
         request_fingerprint: str,
         metrics: MatchMetricsLedger | None = None,
+        spawn_metrics: MatchSpawnMetrics | None = None,
         black_stats_version: int | None = None,
         white_stats_version: int | None = None,
         control_version: int | None = None,
     ) -> None:
-        if match.status == MatchStatus.completed and metrics is None:
+        if match.status == MatchStatus.completed and (metrics is None or spawn_metrics is None):
             raise ApiError("metricsRequired", "Completed matches require metrics.", status_code=503)
         metrics_operations: list[dict[str, Any]] = []
         account_operations: list[dict[str, Any]] = []
         if metrics is not None:
+            if spawn_metrics is None:
+                raise ValueError("terminal metrics require spawn metrics")
             if (
                 black_stats_version is None
                 or white_stats_version is None
@@ -3199,6 +3253,7 @@ class DynamoRepository:
             metrics_operations = self._metrics_transaction_operations(
                 match,
                 metrics,
+                spawn_metrics,
                 black_stats_version=black_stats_version,
                 white_stats_version=white_stats_version,
                 control_version=control_version,
@@ -3309,6 +3364,7 @@ class DynamoRepository:
         idempotency_key: str,
         request_fingerprint: str,
         metrics: MatchMetricsLedger,
+        spawn_metrics: MatchSpawnMetrics,
         black_stats_version: int,
         white_stats_version: int,
         control_version: int,
@@ -3317,6 +3373,7 @@ class DynamoRepository:
         metrics_operations = self._metrics_transaction_operations(
             match,
             metrics,
+            spawn_metrics,
             black_stats_version=black_stats_version,
             white_stats_version=white_stats_version,
             control_version=control_version,
@@ -3382,13 +3439,14 @@ class DynamoRepository:
         self,
         match: StoredMatch,
         metrics: MatchMetricsLedger,
+        spawn_metrics: MatchSpawnMetrics,
         *,
         black_stats_version: int,
         white_stats_version: int,
         control_version: int,
         deleting_user_id: str | None = None,
     ) -> list[dict[str, Any]]:
-        _validate_metrics_payload(match, metrics)
+        _validate_metrics_payload(match, metrics, spawn_metrics)
         if metrics.rating_sequence != control_version + 1:
             raise ValueError("metrics rating sequence must follow the control version")
         if match.black_player is None or match.white_player is None:
@@ -3401,6 +3459,7 @@ class DynamoRepository:
             rating_after: int,
             score: float,
             kills: int,
+            spawns: int,
         ) -> dict[str, Any]:
             wins, losses, draws = _result_counters(score)
             condition = (
@@ -3415,7 +3474,7 @@ class DynamoRepository:
                     "UpdateExpression": (
                         "SET entity = :entity, playerId = :playerId, rating = :rating "
                         "ADD games :one, wins :wins, losses :losses, draws :draws, "
-                        "kills :kills, #version :one"
+                        "kills :kills, spawns :spawns, #version :one"
                     ),
                     "ConditionExpression": condition,
                     "ExpressionAttributeNames": {"#version": "version"},
@@ -3429,6 +3488,7 @@ class DynamoRepository:
                             ":losses": losses,
                             ":draws": draws,
                             ":kills": kills,
+                            ":spawns": spawns,
                             ":expectedVersion": expected_version,
                         }
                     ),
@@ -3476,12 +3536,27 @@ class DynamoRepository:
                     "ConditionExpression": "attribute_not_exists(PK)",
                 }
             },
+            {
+                "Put": {
+                    "TableName": self._table_name,
+                    "Item": _serialize(
+                        {
+                            "PK": f"MATCH#{match.id}",
+                            "SK": "RESULT#SPAWNS",
+                            "entity": "matchSpawns",
+                            "document": spawn_metrics.model_dump_json(by_alias=True),
+                        }
+                    ),
+                    "ConditionExpression": "attribute_not_exists(PK)",
+                }
+            },
             stats_update(
                 match.black_player.id,
                 expected_version=black_stats_version,
                 rating_after=metrics.black_rating_after,
                 score=metrics.black_score,
                 kills=metrics.black_kills,
+                spawns=spawn_metrics.black_spawns,
             ),
             stats_update(
                 match.white_player.id,
@@ -3489,6 +3564,7 @@ class DynamoRepository:
                 rating_after=metrics.white_rating_after,
                 score=1.0 - metrics.black_score,
                 kills=metrics.white_kills,
+                spawns=spawn_metrics.white_spawns,
             ),
             {
                 "Update": {
@@ -4814,6 +4890,7 @@ def _default_stats(player_id: str) -> StoredPlayerStats:
         losses=0,
         draws=0,
         kills=0,
+        spawns=0,
         version=0,
     )
 
@@ -4828,13 +4905,21 @@ def _result_counters(score: float) -> tuple[int, int, int]:
     raise ValueError("A completed match score must be 0, 0.5, or 1")
 
 
-def _validate_metrics_payload(match: StoredMatch, metrics: MatchMetricsLedger) -> None:
+def _validate_metrics_payload(
+    match: StoredMatch,
+    metrics: MatchMetricsLedger,
+    spawn_metrics: MatchSpawnMetrics,
+) -> None:
     if match.status != MatchStatus.completed or not match.stats_finalized:
         raise ValueError("metrics require a finalized completed match")
     if match.completed_at is None or metrics.completed_at != match.completed_at:
         raise ValueError("metrics completion time must match the terminal match")
     if metrics.match_id != match.id:
         raise ValueError("metrics match ID must match the terminal match")
+    if spawn_metrics.match_id != match.id:
+        raise ValueError("spawn metrics match ID must match the terminal match")
+    if match.completed_at is None or spawn_metrics.completed_at != match.completed_at:
+        raise ValueError("spawn metrics completion time must match the terminal match")
     if (metrics.black_kills, metrics.white_kills) != (
         match.black_kills,
         match.white_kills,

@@ -32,7 +32,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         children: [
           SectionHeading(
             eyebrow: 'Settings',
-            title: user == null ? 'Make Life your own' : 'Your Life account',
+            title: user == null
+                ? 'Make it your own'
+                : 'Your Game of Life account',
             description: user == null
                 ? 'Sign in for online play, or learn more about the game and how your data is handled.'
                 : 'Manage the account and preferences that travel with you between mobile, web, and desktop.',

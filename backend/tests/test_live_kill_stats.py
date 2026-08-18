@@ -60,10 +60,15 @@ class TerminalEngine(UnusedEngine):
             "delta": {
                 "placed": {"row": row, "column": column, "player": player},
                 "evolution": {
+                    "births": [
+                        {"row": 2, "column": 1, "player": "black"},
+                        {"row": 2, "column": 2, "player": "white"},
+                        {"row": 2, "column": 3, "player": "white"},
+                    ],
                     "deaths": [
                         {"row": 1, "column": 1, "player": "white"},
                         {"row": 1, "column": 2, "player": "white"},
-                    ]
+                    ],
                 },
             },
         }
@@ -293,6 +298,104 @@ def test_legacy_active_match_kills_reconstruct_from_contiguous_history() -> None
     assert social.stats(_user("bob")).kills == 1
 
 
+def test_active_spawns_reconstruct_by_color_across_both_players_turns() -> None:
+    repository = InMemoryRepository()
+    match = _active_match(
+        repository,
+        suffix="12",
+        black_id="alice",
+        white_id="bob",
+    )
+    match = _commit_legacy_move(
+        repository,
+        match,
+        revision=1,
+        actor_id="alice",
+        player="black",
+        delta={
+            "evolution": {
+                "births": [
+                    {"player": "black"},
+                    {"player": "white"},
+                ],
+                "deaths": [],
+            }
+        },
+    )
+    _commit_legacy_move(
+        repository,
+        match,
+        revision=2,
+        actor_id="bob",
+        player="white",
+        delta={
+            "evolution": {
+                "births": [
+                    {"player": "black"},
+                    {"player": "black"},
+                ],
+                "deaths": [],
+            }
+        },
+    )
+
+    social = _social(repository)
+    assert social.stats(_user("alice")).spawns == 3
+    assert social.stats(_user("bob")).spawns == 1
+    assert repository.get_player_stats("alice").spawns == 0
+
+
+def test_spawn_snapshot_ignores_a_concurrently_committed_later_move() -> None:
+    repository = InMemoryRepository()
+    match = _active_match(
+        repository,
+        suffix="13",
+        black_id="alice",
+        white_id="bob",
+    )
+    snapshot = _commit_legacy_move(
+        repository,
+        match,
+        revision=1,
+        actor_id="alice",
+        player="black",
+        delta={"evolution": {"births": [{"player": "black"}], "deaths": []}},
+    )
+    _commit_legacy_move(
+        repository,
+        snapshot,
+        revision=2,
+        actor_id="bob",
+        player="white",
+        delta={"evolution": {"births": [{"player": "black"}], "deaths": []}},
+    )
+
+    assert _social(repository)._match_spawns(snapshot) == (1, 0)
+
+
+def test_ambiguous_legacy_birth_history_fails_closed() -> None:
+    repository = InMemoryRepository()
+    match = _active_match(
+        repository,
+        suffix="14",
+        black_id="alice",
+        white_id="bob",
+    )
+    _commit_legacy_move(
+        repository,
+        match,
+        revision=1,
+        actor_id="alice",
+        player="black",
+        delta={"changes": [{"from": 0, "to": 1}]},
+    )
+
+    with pytest.raises(ApiError) as captured:
+        _social(repository).stats(_user("alice"))
+
+    assert captured.value.code == "invalidMatchMetrics"
+
+
 def test_legacy_snapshot_ignores_a_concurrently_committed_later_move() -> None:
     repository = InMemoryRepository()
     match = _active_match(
@@ -369,10 +472,60 @@ def test_terminal_move_hands_live_kills_to_finalized_stats_exactly_once() -> Non
     service.move(_user("alice"), match.id, request)
     assert social.stats(_user("alice")).kills == 3
     assert repository.get_player_stats("alice").kills == 3
+    assert social.stats(_user("alice")).spawns == 1
+    assert social.stats(_user("bob")).spawns == 2
+    assert repository.get_player_stats("alice").spawns == 1
+    ledger = repository.get_metrics_ledger(match.id)
+    marker = repository.get_spawn_metrics(match.id)
+    assert ledger is not None and "blackSpawns" not in ledger.model_dump(by_alias=True)
+    assert marker is not None and marker.black_spawns == 1 and marker.white_spawns == 2
 
     service.move(_user("alice"), match.id, request)
     assert social.stats(_user("alice")).kills == 3
+    assert social.stats(_user("alice")).spawns == 1
     assert repository.get_player_stats("alice").games == 1
+
+
+def test_old_terminal_without_spawn_marker_overlays_history_including_deleted_opponent() -> None:
+    repository = InMemoryRepository()
+    match = _active_match(
+        repository,
+        suffix="15",
+        black_id="alice",
+        white_id="bob",
+    )
+    service = MatchService(repository, TerminalEngine())
+    service.move(
+        _user("alice"),
+        match.id,
+        MoveRequest(
+            row=0,
+            column=0,
+            expected_revision=0,
+            idempotency_key="old-terminal-spawns-0001",
+        ),
+    )
+
+    # Simulate a terminal transaction committed by the pre-spawn Lambda: its
+    # rating ledger and result stats exist, but neither the orthogonal marker
+    # nor durable spawn additions do.
+    repository._spawn_metrics.pop(match.id)
+    repository._player_stats["alice"] = repository._player_stats["alice"].model_copy(
+        update={"spawns": 0}
+    )
+    repository._player_stats["bob"] = repository._player_stats["bob"].model_copy(
+        update={"spawns": 0}
+    )
+    social = _social(repository)
+
+    assert social.stats(_user("alice")).spawns == 1
+    assert social.stats(_user("bob")).spawns == 2
+
+    completed = repository._matches[match.id]
+    repository._matches[match.id] = completed.model_copy(
+        update={"white_player": PlayerSummary(id="deleted-bob", display_name="Deleted player")}
+    )
+    assert social.stats(_user("alice")).spawns == 1
 
 
 def test_nonterminal_and_zero_death_moves_refresh_kills_without_double_counting() -> None:
@@ -395,6 +548,9 @@ def test_nonterminal_and_zero_death_moves_refresh_kills_without_double_counting(
     service.move(_user("alice"), match.id, first)
     assert social.stats(_user("alice")).kills == 2
     assert repository.get_player_stats("alice").kills == 0
+    assert social.stats(_user("alice")).spawns == 1
+    assert social.stats(_user("bob")).spawns == 2
+    assert repository.get_player_stats("alice").spawns == 0
 
     service.move(
         _user("bob"),
@@ -409,6 +565,8 @@ def test_nonterminal_and_zero_death_moves_refresh_kills_without_double_counting(
     service.move(_user("alice"), match.id, first)
     assert social.stats(_user("alice")).kills == 2
     assert social.stats(_user("bob")).kills == 0
+    assert social.stats(_user("alice")).spawns == 2
+    assert social.stats(_user("bob")).spawns == 4
 
 
 def test_resignation_hands_existing_live_kills_to_finalized_stats_once() -> None:
@@ -434,3 +592,39 @@ def test_resignation_hands_existing_live_kills_to_finalized_stats_once() -> None
     service.resign(_user("bob"), match.id, request)
     assert social.stats(_user("alice")).kills == 4
     assert social.stats(_user("bob")).kills == 2
+
+
+def test_resignation_hands_live_spawns_to_durable_stats_once() -> None:
+    repository = InMemoryRepository()
+    match = _active_match(
+        repository,
+        suffix="16",
+        black_id="alice",
+        white_id="bob",
+    )
+    match = _commit_legacy_move(
+        repository,
+        match,
+        revision=1,
+        actor_id="alice",
+        player="black",
+        delta={
+            "evolution": {
+                "births": [{"player": "black"}, {"player": "white"}],
+                "deaths": [],
+            }
+        },
+    )
+    social = _social(repository)
+    service = MatchService(repository, UnusedEngine())
+    request = ResignRequest(expected_revision=1, idempotency_key="resign-live-spawns-0001")
+
+    assert social.stats(_user("alice")).spawns == 1
+    assert social.stats(_user("bob")).spawns == 1
+    service.resign(_user("bob"), match.id, request)
+    assert social.stats(_user("alice")).spawns == 1
+    assert social.stats(_user("bob")).spawns == 1
+    assert repository.get_player_stats("alice").spawns == 1
+
+    service.resign(_user("bob"), match.id, request)
+    assert social.stats(_user("alice")).spawns == 1

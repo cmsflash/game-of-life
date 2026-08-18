@@ -225,9 +225,15 @@ def apply_backfill(
         current_control = _control(table)
         if current_control.global_version != entry.ledger.rating_sequence - 1:
             return _replace_report(report, conflicts=report.conflicts + 1)
-        if _stats(table, entry.black_before.player_id) != entry.black_before:
+        if not _rating_stats_equal(
+            _stats(table, entry.black_before.player_id),
+            entry.black_before,
+        ):
             return _replace_report(report, conflicts=report.conflicts + 1)
-        if _stats(table, entry.white_before.player_id) != entry.white_before:
+        if not _rating_stats_equal(
+            _stats(table, entry.white_before.player_id),
+            entry.white_before,
+        ):
             return _replace_report(report, conflicts=report.conflicts + 1)
         try:
             client.transact_write_items(
@@ -264,8 +270,9 @@ def finish_backfill(table: DynamoTable, *, apply: bool) -> BackfillReport:
         stats = _stats_from_item(item)
         actual_ids.add(stats.player_id)
         expected = expected_stats.get(stats.player_id)
-        if stats.games != stats.wins + stats.losses + stats.draws or stats != (
-            expected or _default_backfill_stats(stats.player_id)
+        if stats.games != stats.wins + stats.losses + stats.draws or not _rating_stats_equal(
+            stats,
+            expected or _default_backfill_stats(stats.player_id),
         ):
             return _replace_report(report, invalid=report.invalid + 1)
     if any(player_id not in actual_ids for player_id in expected_stats):
@@ -466,7 +473,7 @@ def _validated_plan(
             actual.player_id,
             _default_backfill_stats(actual.player_id),
         )
-        if actual != expected:
+        if not _rating_stats_equal(actual, expected):
             report = _replace_report(report, conflicts=report.conflicts + 1)
     if set(prefix_stats) - actual_stats_ids:
         report = _replace_report(report, conflicts=report.conflicts + 1)
@@ -482,6 +489,7 @@ def _default_backfill_stats(player_id: str) -> StoredPlayerStats:
         losses=0,
         draws=0,
         kills=0,
+        spawns=0,
         version=0,
     )
 
@@ -491,6 +499,10 @@ def _is_attributable(match: StoredMatch) -> bool:
     return match.rated and all(
         player is not None and not player.id.startswith("deleted-") for player in players
     )
+
+
+def _rating_stats_equal(first: StoredPlayerStats, second: StoredPlayerStats) -> bool:
+    return first.model_copy(update={"spawns": 0}) == second.model_copy(update={"spawns": 0})
 
 
 def _is_deleted_legacy(match: StoredMatch) -> bool:
@@ -851,6 +863,7 @@ def _stats_from_item(
         losses=int(item.get("losses", 0)),
         draws=int(item.get("draws", 0)),
         kills=int(item.get("kills", 0)),
+        spawns=int(item.get("spawns", 0)),
         version=int(item.get("version", 0)),
     )
 

@@ -48,18 +48,24 @@ void main() {
     controller.dispose();
   });
 
-  test('account-fenced refresh connects before loading live kills', () async {
-    final repository = ScriptedStatsRepository();
-    repository.responses.add(Future.value(_stats(elo: 1200, kills: 7)));
-    final controller = PlayerStatsController(repository);
+  test(
+    'account-fenced refresh connects before loading live evolution stats',
+    () async {
+      final repository = ScriptedStatsRepository();
+      repository.responses.add(
+        Future.value(_stats(elo: 1200, kills: 7, spawns: 11)),
+      );
+      final controller = PlayerStatsController(repository);
 
-    await controller.refreshForAccount('a');
+      await controller.refreshForAccount('a');
 
-    expect(controller.state.status, PlayerStatsStatus.ready);
-    expect(controller.state.stats?.kills, 7);
-    expect(repository.calls, 1);
-    controller.dispose();
-  });
+      expect(controller.state.status, PlayerStatsStatus.ready);
+      expect(controller.state.stats?.kills, 7);
+      expect(controller.state.stats?.spawns, 11);
+      expect(repository.calls, 1);
+      controller.dispose();
+    },
+  );
 
   test(
     'failed refresh keeps the last record and exposes retry error',
@@ -110,11 +116,13 @@ PlayerStats _stats({
   int wins = 0,
   int games = 0,
   int kills = 0,
+  int spawns = 0,
 }) => PlayerStats(
   elo: elo,
   victories: wins,
   totalGames: games,
   kills: kills,
+  spawns: spawns,
   losses: games - wins,
   draws: 0,
 );

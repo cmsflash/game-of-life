@@ -73,11 +73,13 @@
   has no join code, and retrying acceptance returns the same active match ID.
 - Every private, quick, and accepted friend-challenge match is rated. Local games
   are neither uploaded nor rated. Accepted moves update each player's visible total
-  kills while the game is still active. A terminal result updates both ratings and
-  games/wins/losses/draws plus finalized kill storage exactly once without changing
-  the already-visible kill total; rating deltas sum to zero.
+  kills and total spawns while the game is still active. A terminal result updates
+  both ratings and games/wins/losses/draws plus finalized kill/spawn storage exactly
+  once without changing the already-visible totals; rating deltas sum to zero.
 - Each Black-cell death credits White and each White-cell death credits Black,
   regardless of mover or prior contribution.
+- Every evolution birth credits the player whose color is born, regardless of mover;
+  manual placement is never counted as a spawn.
 - After OS/browser permission is granted, sign-in automatically registers turn
   notifications. Scheduled reminders contain no player identity, stale jobs send
   nothing, and sign-out/account deletion unregister the installation.

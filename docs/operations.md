@@ -386,6 +386,50 @@ and a rated terminal result before deploying the matching web release. Never app
 historical Elo after live rated completions; the control fence is what guarantees
 chronological determinism.
 
+### Historical spawn totals
+
+Confirm DynamoDB point-in-time recovery, deploy the compatible API, and wait longer
+than the old API Lambda's maximum 29-second invocation time. The separate
+`RESULT#SPAWNS` item is safe for old code to ignore, but draining old invocations
+keeps the release audit bounded. Then run the full-table dry run:
+
+```bash
+python -m life_api.migrate_spawns \
+  --stack-name the-game-of-life-production --region ap-east-1 \
+  --profile game-of-life
+```
+
+Require `excluded=0`, `conflicts=0`, and `invalid=0`; `eligible` is the number of
+historical completed matches to update. Apply only after reviewing that count:
+
+```bash
+python -m life_api.migrate_spawns \
+  --stack-name the-game-of-life-production --region ap-east-1 \
+  --profile game-of-life --apply
+```
+
+The apply run must report `applied=eligible`, `excluded=0`, `conflicts=0`, and
+`invalid=0`. It also reconciles all preexisting spawn markers against global
+durable totals. Rerun the dry run and require `eligible=0`, `excluded=0`,
+`conflicts=0`, `invalid=0`, `applied=0`, and `already_complete=examined`. Only then
+deploy the matching web release; the new client nevertheless defaults a missing
+`spawns` field to zero so API/web rollout overlap remains readable.
+
+Each match update atomically creates one immutable spawn-result item and additively
+updates surviving players' `spawns` totals. It does not modify the match, Elo ledger,
+rating sequence, or player-stat version. Exact storage fields, contiguous move
+history, actor/color ownership, result completion time, and stats identity are
+validated before the conditional transaction. A concurrent completion, account
+deletion, or prior migration wins safely and is reported for inspection or rerun.
+The final aggregate check requires the sum of every surviving player's spawn-result
+records to equal the durable `spawns` field.
+
+The schema is rollback-safe: the previous API ignores spawn-result items and leaves
+the additive stats field intact. Results completed by old code during a rollback
+have no marker, so a later compatible API reconstructs them until this migration is
+rerun. A targeted `--match-id MATCH_UUID` is available for investigation, but the
+release gate must use the full-table commands above.
+
 A DynamoDB point-in-time restore always creates a new table. Restore to a new
 name, validate record counts and representative matches, then deploy a reviewed
 configuration change that points the application at the recovered table. Do

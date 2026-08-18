@@ -53,11 +53,14 @@ void main() {
       'losses': 3,
       'draws': 1,
       'kills': 42,
+      'spawns': 64,
     });
 
     expect(stats.elo, -8);
     expect(stats.winRate, .6);
     expect(stats.totalGames, stats.victories + stats.losses + stats.draws);
+    expect(stats.kills, 42);
+    expect(stats.spawns, 64);
   });
 
   test('stats reject an inconsistent completed-game breakdown', () {
@@ -69,8 +72,22 @@ void main() {
         'losses': 1,
         'draws': 0,
         'kills': 3,
+        'spawns': 4,
       }),
       throwsFormatException,
     );
+  });
+
+  test('stats default spawns to zero for rolling backend compatibility', () {
+    final stats = PlayerStats.fromJson({
+      'rating': 1200,
+      'games': 0,
+      'wins': 0,
+      'losses': 0,
+      'draws': 0,
+      'kills': 0,
+    });
+
+    expect(stats.spawns, 0);
   });
 }

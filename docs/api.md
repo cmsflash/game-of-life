@@ -80,7 +80,7 @@ omits the caller, and never searches or returns login usernames or email address
 | `POST` | `/challenges` | Challenge a current friend with `{opponentId}`. |
 | `POST` | `/challenges/{id}/accept` | Invited friend accepts; returns `{matchId}`. |
 | `DELETE` | `/challenges/{id}` | Invited friend declines or challenger cancels; returns `204`. |
-| `GET` | `/stats/me` | Return `{rating,games,wins,losses,draws,kills}`; `kills` includes current rated games. |
+| `GET` | `/stats/me` | Return `{rating,games,wins,losses,draws,kills,spawns}`; `kills` and `spawns` include current rated games. |
 
 Public player summaries are
 `{id,displayName,rating,avatarUrl,avatarVersion}`. `avatarUrl` is nullable and
@@ -112,13 +112,16 @@ challenge—is rated. Local device games are never uploaded, globally scored, or
 rated. Ratings start at 1200 and use standard Elo with K=32, unbounded signed
 integers, symmetric half-away-from-zero rounding, and one zero-sum transfer.
 Terminal moves and resignations update both players' rating and counters exactly
-once in the same transaction as the result ledger. The `kills` response combines
-those finalized counters with the authenticated player's authoritative cumulative
-kills in every active rated match, so an accepted move is visible before the match
-ends. Legacy active matches whose cached kill count predates this metric reconstruct
-it from their complete move history. A death of a Black cell credits White with one
-kill, and a death of a White cell credits Black, regardless of who moved or
-contributed to that cell.
+once in the same transaction as the result ledger and the separate spawn-result
+record. The `kills` response combines finalized counters with the authenticated
+player's authoritative cumulative kills in every active rated match. A Black-cell
+death credits White and a White-cell death credits Black on either player's turn.
+The `spawns` response similarly counts every evolution birth of that player's color
+on either player's turn; the manually placed cell is not a spawn. Both totals are
+visible after each accepted move. Active histories are read through their
+snapshotted revision. Completed matches written before spawn-result records existed
+are reconstructed from contiguous move history until the atomic migration adds the
+durable totals and result record.
 
 ## Turn notifications
 

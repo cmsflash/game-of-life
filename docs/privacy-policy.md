@@ -1,6 +1,6 @@
 # Privacy Policy
 
-Effective August 14, 2026.
+Effective August 18, 2026.
 
 This policy describes how The Game of Life processes information when a player
 uses the local game or the optional online service.
@@ -23,16 +23,18 @@ only when optional Google sign-in is enabled and the player chooses it.
 
 The online service stores match rules, board states, moves, results, internal
 player identifiers, public display-name snapshots, Elo ratings, games/wins/
-losses/draws, kill totals, friend relationships and requests, pending friend
+losses/draws, kill and spawn totals, friend relationships and requests, pending friend
 challenges, short-lived matchmaking records, and—when uploaded—a processed
 profile picture. A player's chosen display name and current profile picture are
 shown to other players; the display name is retained with match history, while
 matches do not store picture URLs. Login usernames and email addresses are not
 included in match or Social documents.
 
-Kill totals update during active games after each accepted rated move. Elo,
-wins, losses, draws, and total-game counts update when a rated match ends. Local
-games do not contribute to online statistics.
+Kill and spawn totals update during active games after each accepted rated move.
+Kills count opponent-color deaths on either player's turn; spawns count evolution
+births of the player's color on either turn and exclude manual placement. Elo, wins,
+losses, draws, and total-game counts update when a rated match ends. Local games do
+not contribute to online statistics.
 
 Every active account appears in player search during this development phase.
 Other signed-in players can find it by a case-insensitive public-display-name

@@ -3,7 +3,13 @@ from __future__ import annotations
 import math
 from datetime import datetime
 
-from .models import MatchMetricsLedger, MetricsControl, StoredMatch, StoredPlayerStats
+from .models import (
+    MatchMetricsLedger,
+    MatchSpawnMetrics,
+    MetricsControl,
+    StoredMatch,
+    StoredPlayerStats,
+)
 
 INITIAL_RATING = 1200
 ELO_K_FACTOR = 32
@@ -58,6 +64,81 @@ def accumulated_kills(deltas: list[dict[str, object]]) -> tuple[int, int]:
     return black, white
 
 
+def spawns_by_color(delta: dict[str, object]) -> tuple[int, int]:
+    """Return (black spawns, white spawns) from authoritative birth colors."""
+    evolution = delta.get("evolution")
+    if evolution is not None:
+        if not isinstance(evolution, dict):
+            raise ValueError("move delta evolution must be an object")
+        births = evolution.get("births")
+        if not isinstance(births, list):
+            raise ValueError("move delta evolution.births must be a list")
+        black_spawns = 0
+        white_spawns = 0
+        for birth in births:
+            if not isinstance(birth, dict) or birth.get("player") not in {"black", "white"}:
+                raise ValueError("each move birth must identify black or white")
+            if birth["player"] == "black":
+                black_spawns += 1
+            else:
+                white_spawns += 1
+        return black_spawns, white_spawns
+
+    # Compatibility with early test/fixture deltas. A transition from zero to
+    # a live numeric cell is a birth; 1 is Black and 2 is White. Those early
+    # deltas can also include the manual placement in `changes`, so its
+    # coordinate must be explicit before birth-like changes are attributable.
+    changes = delta.get("changes")
+    if not isinstance(changes, list):
+        raise ValueError("move delta must contain evolution.births or legacy changes")
+    placement_coordinate = _legacy_placement_coordinate(delta)
+    black_spawns = 0
+    white_spawns = 0
+    for change in changes:
+        if not isinstance(change, dict) or "from" not in change or "to" not in change:
+            raise ValueError("each legacy move change must contain from and to values")
+        if change.get("from") != 0:
+            continue
+        if change.get("to") not in {1, 2}:
+            continue
+        coordinate = (change.get("row"), change.get("column"))
+        if placement_coordinate is None or not all(type(value) is int for value in coordinate):
+            raise ValueError("legacy birth changes require placement and change coordinates")
+        if coordinate == placement_coordinate:
+            continue
+        if change.get("to") == 1:
+            black_spawns += 1
+        else:
+            white_spawns += 1
+    return black_spawns, white_spawns
+
+
+def _legacy_placement_coordinate(delta: dict[str, object]) -> tuple[int, int] | None:
+    placement = delta.get("placement")
+    if isinstance(placement, dict):
+        coordinate = placement.get("coordinate")
+        if isinstance(coordinate, dict):
+            row, column = coordinate.get("row"), coordinate.get("column")
+            if type(row) is int and type(column) is int:
+                return row, column
+    placed = delta.get("placed")
+    if isinstance(placed, dict):
+        row, column = placed.get("row"), placed.get("column")
+        if type(row) is int and type(column) is int:
+            return row, column
+    return None
+
+
+def accumulated_spawns(deltas: list[dict[str, object]]) -> tuple[int, int]:
+    black = 0
+    white = 0
+    for delta in deltas:
+        black_delta, white_delta = spawns_by_color(delta)
+        black += black_delta
+        white += white_delta
+    return black, white
+
+
 def black_score(result: dict[str, object] | None) -> float:
     if result is None:
         raise ValueError("a completed rated match requires a result")
@@ -106,4 +187,19 @@ def build_metrics_ledger(
         black_rating_delta=black_delta,
         white_rating_delta=-black_delta,
         black_score=score,
+    )
+
+
+def build_spawn_metrics(
+    match: StoredMatch,
+    completed_at: datetime,
+    *,
+    black_spawns: int,
+    white_spawns: int,
+) -> MatchSpawnMetrics:
+    return MatchSpawnMetrics(
+        match_id=match.id,
+        completed_at=completed_at,
+        black_spawns=black_spawns,
+        white_spawns=white_spawns,
     )

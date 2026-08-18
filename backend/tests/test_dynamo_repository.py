@@ -9,6 +9,7 @@ import pytest
 
 from life_api.errors import ApiError
 from life_api.models import (
+    MatchSpawnMetrics,
     MatchStatus,
     MoveEvent,
     PlayerSummary,
@@ -50,6 +51,24 @@ class RecordingQueryTable(EmptyTable):
     def query(self, **kwargs: Any) -> dict[str, Any]:
         self.queries.append(kwargs)
         return {"Items": []}
+
+
+class SpawnMetricsTable(EmptyTable):
+    def __init__(self, metrics: MatchSpawnMetrics, *, entity: str = "matchSpawns") -> None:
+        self.metrics = metrics
+        self.entity = entity
+        self.requests: list[dict[str, Any]] = []
+
+    def get_item(self, **kwargs: Any) -> dict[str, Any]:
+        self.requests.append(kwargs)
+        return {
+            "Item": {
+                "PK": f"MATCH#{self.metrics.match_id}",
+                "SK": "RESULT#SPAWNS",
+                "entity": self.entity,
+                "document": self.metrics.model_dump_json(by_alias=True),
+            }
+        }
 
 
 class LegacyDeletionGuardTable(EmptyTable):
@@ -463,6 +482,34 @@ def test_match_and_move_lists_use_strongly_consistent_reads(
 
     assert len(table.queries) == 2
     assert all(query["ConsistentRead"] is True for query in table.queries)
+
+
+def test_spawn_marker_read_is_strong_and_validates_storage_identity(
+    monkeypatch,
+    settings: Settings,
+) -> None:
+    metrics = MatchSpawnMetrics(
+        match_id="match-1",
+        completed_at=datetime.now(UTC),
+        black_spawns=3,
+        white_spawns=1,
+    )
+    table = SpawnMetricsTable(metrics)
+    monkeypatch.setattr(boto3, "resource", lambda *args, **kwargs: TableResource(table))
+    monkeypatch.setattr(boto3, "client", lambda *args, **kwargs: RecordingClient())
+    repository = DynamoRepository(settings)
+
+    assert repository.get_spawn_metrics("match-1") == metrics
+    assert table.requests == [
+        {
+            "Key": {"PK": "MATCH#match-1", "SK": "RESULT#SPAWNS"},
+            "ConsistentRead": True,
+        }
+    ]
+
+    table.entity = "matchMetrics"
+    with pytest.raises(ValueError, match="storage fields"):
+        repository.get_spawn_metrics("match-1")
 
 
 def test_expired_challenge_cleanup_tolerates_ttl_deleted_pointer(

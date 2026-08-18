@@ -17,37 +17,48 @@ class LifeLogo extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final mark = Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 36,
+          height: 36,
+          decoration: BoxDecoration(
+            color: LifeColors.ink,
+            borderRadius: BorderRadius.circular(11),
+            border: Border.all(
+              color: Theme.of(context).colorScheme.outlineVariant,
+            ),
+          ),
+          child: CustomPaint(painter: _LogoPainter()),
+        ),
+        if (!compact) ...[
+          const SizedBox(width: 11),
+          Text(
+            'Game of Life',
+            maxLines: 1,
+            style: Theme.of(context).textTheme.titleLarge?.copyWith(
+              fontWeight: FontWeight.w900,
+              letterSpacing: .5,
+            ),
+          ),
+        ],
+      ],
+    );
     return Semantics(
       image: true,
-      label: 'Life logo, diagonal two-player starting position',
+      label: 'Game of Life logo, diagonal two-player starting position',
       child: ExcludeSemantics(
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 36,
-              height: 36,
-              decoration: BoxDecoration(
-                color: LifeColors.ink,
-                borderRadius: BorderRadius.circular(11),
-                border: Border.all(
-                  color: Theme.of(context).colorScheme.outlineVariant,
+        child: compact
+            ? mark
+            : ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 260),
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerLeft,
+                  child: mark,
                 ),
               ),
-              child: CustomPaint(painter: _LogoPainter()),
-            ),
-            if (!compact) ...[
-              const SizedBox(width: 11),
-              Text(
-                'LIFE',
-                style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.w900,
-                  letterSpacing: 2,
-                ),
-              ),
-            ],
-          ],
-        ),
       ),
     );
   }

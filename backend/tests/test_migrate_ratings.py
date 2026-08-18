@@ -326,7 +326,13 @@ def test_match_cas_uses_exact_legacy_json_instead_of_reserialized_defaults() -> 
         epoch=1,
         global_version=0,
     )
-    ledger = build_metrics_ledger(updated, stats_black, stats_white, control, parsed.updated_at)
+    ledger = build_metrics_ledger(
+        updated,
+        stats_black,
+        stats_white,
+        control,
+        parsed.updated_at,
+    )
 
     transaction = _backfill_transaction(
         "game-table", candidate, updated, ledger, stats_black, stats_white, control
@@ -507,3 +513,27 @@ def test_finish_refuses_control_or_zero_game_stats_mismatch() -> None:
 
     assert wrong_control.conflicts > 0
     assert corrupt_stats.conflicts > 0 or corrupt_stats.invalid > 0
+
+
+def test_existing_ledger_prefix_remains_clean_with_a_missing_suffix() -> None:
+    table = _finished_table()
+    later = _match(
+        "00000000-0000-4000-8000-000000000011",
+        updated_at=datetime(2026, 8, 14, 1, tzinfo=UTC),
+        reason="elimination",
+    )
+    table.items.extend(
+        [
+            _match_item(later),
+            _move(later, later.updated_at, {"changes": []}),
+        ]
+    )
+    client = RecordingClient()
+
+    report = apply_backfill(table, client, apply=False)
+
+    assert report.already_finalized == 1
+    assert report.eligible == 1
+    assert report.conflicts == 0
+    assert report.invalid == 0
+    assert client.transactions == []

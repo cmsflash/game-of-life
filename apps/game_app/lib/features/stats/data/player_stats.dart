@@ -4,6 +4,7 @@ class PlayerStats {
     required this.victories,
     required this.totalGames,
     required this.kills,
+    required this.spawns,
     required this.losses,
     required this.draws,
   });
@@ -12,6 +13,7 @@ class PlayerStats {
   final int victories;
   final int totalGames;
   final int kills;
+  final int spawns;
   final int losses;
   final int draws;
 
@@ -33,6 +35,7 @@ class PlayerStats {
       victories: wins,
       totalGames: games,
       kills: _requiredCount(json, 'kills'),
+      spawns: _optionalCount(json, 'spawns'),
       losses: losses,
       draws: draws,
     );
@@ -45,6 +48,11 @@ int _requiredCount(Map<String, dynamic> json, String key) {
     throw FormatException('Player stats must include a valid $key value.');
   }
   return value.round();
+}
+
+int _optionalCount(Map<String, dynamic> json, String key) {
+  if (!json.containsKey(key)) return 0;
+  return _requiredCount(json, key);
 }
 
 int _requiredInteger(Map<String, dynamic> json, String key) {

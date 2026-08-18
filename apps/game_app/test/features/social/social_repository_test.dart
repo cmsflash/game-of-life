@@ -105,6 +105,7 @@ void main() {
             'losses': 2,
             'draws': 2,
             'kills': 91,
+            'spawns': 144,
           }),
           200,
         );
@@ -116,6 +117,8 @@ void main() {
     expect(stats.elo, -18);
     expect(stats.totalGames, 7);
     expect(stats.winRate, closeTo(3 / 7, .0001));
+    expect(stats.kills, 91);
+    expect(stats.spawns, 144);
   });
 }
 

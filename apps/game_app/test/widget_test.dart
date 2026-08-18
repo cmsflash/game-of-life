@@ -251,7 +251,7 @@ void main() {
       await tester.tap(find.text('Privacy Policy'));
       await tester.pumpAndSettle();
 
-      expect(find.textContaining('Effective August 14, 2026'), findsOneWidget);
+      expect(find.textContaining('Effective August 18, 2026'), findsOneWidget);
       expect(
         find.textContaining(
           'profile picture, and current Elo rating are searchable',
@@ -276,6 +276,10 @@ void main() {
       );
       expect(
         find.textContaining('immediately prevents public delivery'),
+        findsOneWidget,
+      );
+      expect(
+        find.textContaining('A spawn is every new cell of your color'),
         findsOneWidget,
       );
       expect(
@@ -512,12 +516,12 @@ void main() {
 
     GoRouter.of(context).go('/player');
     await tester.pumpAndSettle();
-    expect(find.text('Make Life your own'), findsOneWidget);
+    expect(find.text('Make it your own'), findsOneWidget);
     expect(find.text('Settings'), findsWidgets);
 
     GoRouter.of(tester.element(find.byType(NavigationBar))).go('/profile');
     await tester.pumpAndSettle();
-    expect(find.text('Make Life your own'), findsOneWidget);
+    expect(find.text('Make it your own'), findsOneWidget);
   });
 
   testWidgets('wide signed-in rail has no redundant account avatar', (
@@ -704,6 +708,20 @@ void main() {
     expect(find.text('Local'), findsNothing);
     expect(find.text('Online'), findsNothing);
     expect(find.text('Profile'), findsNothing);
+  });
+
+  testWidgets('wide Home keeps each action-card pair the same height', (
+    tester,
+  ) async {
+    await pumpApp(tester, size: const Size(1200, 900));
+
+    Finder actionCard(Key key) =>
+        find.ancestor(of: find.byKey(key), matching: find.byType(Card)).first;
+
+    expect(
+      tester.getSize(actionCard(const Key('create-room'))).height,
+      tester.getSize(actionCard(const Key('join-by-code'))).height,
+    );
   });
 
   testWidgets('mobile Home keeps primary play actions ahead of metrics', (
@@ -895,6 +913,7 @@ void main() {
           victories: 6,
           totalGames: 10,
           kills: 42,
+          spawns: 73,
           losses: 3,
           draws: 1,
         ),
@@ -906,9 +925,11 @@ void main() {
       expect(find.text('60%'), findsOneWidget);
       expect(find.text('42'), findsOneWidget);
       expect(find.text('Total kills'), findsOneWidget);
+      expect(find.text('73'), findsOneWidget);
+      expect(find.text('Total spawns'), findsOneWidget);
       expect(
-        find.textContaining('Total kills update after every rated move'),
-        findsOneWidget,
+        find.textContaining('update after every rated move'),
+        findsNothing,
       );
       expect(stats.calls, 1);
       final metricsTop = tester
@@ -949,13 +970,15 @@ void main() {
         victories: 0,
         totalGames: 0,
         kills: 0,
+        spawns: 0,
         losses: 0,
         draws: 0,
       );
     await tester.tap(find.byKey(const Key('retry-player-metrics')));
     await tester.pumpAndSettle();
 
-    expect(find.textContaining('Your Elo starts at 1200.'), findsOneWidget);
+    expect(find.textContaining('Your Elo starts at 1200.'), findsNothing);
+    expect(find.text('Total spawns'), findsOneWidget);
     expect(stats.calls, 2);
   });
 

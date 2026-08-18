@@ -430,6 +430,7 @@ class PlayerStatsDocument(StrictModel):
     losses: int = Field(ge=0)
     draws: int = Field(ge=0)
     kills: int = Field(ge=0)
+    spawns: int = Field(default=0, ge=0)
 
 
 class SocialSnapshot(StrictModel):
@@ -525,6 +526,13 @@ class MatchMetricsLedger(StrictModel):
     black_rating_delta: int = Field(alias="blackRatingDelta")
     white_rating_delta: int = Field(alias="whiteRatingDelta")
     black_score: float = Field(alias="blackScore", ge=0, le=1)
+
+
+class MatchSpawnMetrics(StrictModel):
+    match_id: str = Field(alias="matchId")
+    completed_at: UtcDateTime = Field(alias="completedAt")
+    black_spawns: int = Field(ge=0, alias="blackSpawns")
+    white_spawns: int = Field(ge=0, alias="whiteSpawns")
 
 
 class MatchStatus(StrEnum):

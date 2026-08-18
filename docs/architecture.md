@@ -163,19 +163,33 @@ reads repair partial expiry and counters.
 
 Every remote terminal transition writes the completed match, terminal move or
 resignation idempotency result, both player-stat updates, a participant-free
-per-match metrics ledger, and a global metrics-control sequence in one transaction.
+per-match metrics ledger, a separate immutable `RESULT#SPAWNS` record, and a global
+metrics-control sequence in one transaction.
 The global sequence serializes Elo updates across concurrently finishing matches.
 Rating begins at 1200, uses K=32 and symmetric half-away-from-zero rounding, and is
 an unbounded signed integer with exactly inverse deltas. Kill counters accumulate
 from authoritative death colors on every move: Black deaths credit White and White
-deaths credit Black. Durable player-stat rows retain finalized-match kills. A
-personal stats read first loads that finalized row, then strongly reads the player's
-active rated match snapshots and adds the cumulative counter for the player's color.
-This ordering cannot double-count the atomic active-to-terminal handoff; a terminal
-commit between the two reads can only produce a transient undercount until the next
-refresh. Legacy active snapshots without a complete cached counter reconstruct it
-from a strongly consistent, contiguous move history, capped at the snapshot revision
-to tolerate a concurrent later move.
+deaths credit Black. Spawn counters accumulate evolution births by born-cell color
+on every move, regardless of mover; manual placements are excluded. Durable
+player-stat rows retain finalized kills and spawns.
+
+A personal stats read first loads that finalized row, then strongly reads the
+player's rated match snapshots. Active matches add kills and spawns through the
+snapshotted revision. A completed match adds reconstructed spawns only when its
+strongly read `RESULT#SPAWNS` record is absent. Because terminal writes and the
+historical migration update that marker and durable totals atomically, reading the
+durable row first cannot double-count a handoff; a concurrent commit can only cause
+a transient undercount until refresh. Legacy cached kills and all spawn overlays
+reconstruct from strongly consistent, contiguous move history capped at the match
+snapshot revision.
+
+Spawn metadata deliberately lives outside strict match and rating-ledger documents.
+An older or rolled-back Lambda ignores the new item and preserves the additive
+`spawns` attribute on player stats. Any terminal result it writes simply lacks the
+marker and remains correct through the history overlay until the migration reruns.
+The dry-run-first migration conditionally creates each marker and adds both players'
+historical spawns in one transaction without changing rating order, match versions,
+or player-stat versions, then verifies global marker sums against durable stats.
 
 The `CONTROL#METRICS` record fails closed when missing. During the initial
 chronological backfill it is `backfilling`: nonterminal play continues, but terminal

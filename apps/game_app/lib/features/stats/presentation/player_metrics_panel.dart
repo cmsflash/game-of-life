@@ -61,22 +61,9 @@ class _PlayerMetricsPanelState extends ConsumerState<PlayerMetricsPanel> {
         Row(
           children: [
             Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Rated performance',
-                    style: Theme.of(context).textTheme.headlineMedium,
-                  ),
-                  const SizedBox(height: 3),
-                  const Text(
-                    'Elo, wins, losses, draws, and total games update when a '
-                    'rated online game ends. Total kills update after every '
-                    'rated move, including during active games. Local games '
-                    'are unrated. '
-                    'A kill is every opponent cell that dies, no matter who caused it.',
-                  ),
-                ],
+              child: Text(
+                'Rated performance',
+                style: Theme.of(context).textTheme.headlineMedium,
               ),
             ),
             IconButton(
@@ -105,13 +92,6 @@ class _PlayerMetricsPanelState extends ConsumerState<PlayerMetricsPanel> {
           )
         else if (stats != null) ...[
           _MetricsGrid(stats: stats),
-          if (stats.isEmpty) ...[
-            const SizedBox(height: 10),
-            const Text(
-              'Your Elo starts at 1200. Finish a rated online game to build your '
-              'result record; kills update after every move.',
-            ),
-          ],
           if (state.status == PlayerStatsStatus.failed) ...[
             const SizedBox(height: 10),
             _InlineMetricsError(
@@ -137,11 +117,12 @@ class _MetricsGrid extends StatelessWidget {
       ('Victories', '${stats.victories}', Icons.emoji_events_outlined),
       ('Total games', '${stats.totalGames}', Icons.sports_esports_outlined),
       ('Total kills', '${stats.kills}', Icons.flash_on_outlined),
+      ('Total spawns', '${stats.spawns}', Icons.add_circle_outline),
     ];
     return LayoutBuilder(
       builder: (context, constraints) {
         final columns = constraints.maxWidth >= 960
-            ? 5
+            ? 6
             : constraints.maxWidth >= 600
             ? 3
             : constraints.maxWidth >= 340

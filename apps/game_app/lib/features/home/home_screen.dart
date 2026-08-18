@@ -308,19 +308,33 @@ class _HomeActions extends ConsumerWidget {
     ];
     return LayoutBuilder(
       builder: (context, constraints) {
-        final columns = constraints.maxWidth >= 760 ? 2 : 1;
-        final width = columns == 2
-            ? (constraints.maxWidth - 14) / 2
-            : constraints.maxWidth;
-        return Wrap(
-          spacing: 14,
-          runSpacing: 14,
+        if (constraints.maxWidth < 760) {
+          return Column(
+            children: [
+              for (var index = 0; index < actions.length; index++) ...[
+                if (index > 0) const SizedBox(height: 14),
+                _HomeActionCard(action: actions[index]),
+              ],
+            ],
+          );
+        }
+        return Column(
           children: [
-            for (final action in actions)
-              SizedBox(
-                width: width,
-                child: _HomeActionCard(action: action),
+            for (var index = 0; index < actions.length; index += 2) ...[
+              if (index > 0) const SizedBox(height: 14),
+              IntrinsicHeight(
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Expanded(child: _HomeActionCard(action: actions[index])),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: _HomeActionCard(action: actions[index + 1]),
+                    ),
+                  ],
+                ),
               ),
+            ],
           ],
         );
       },

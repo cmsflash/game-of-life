@@ -1,6 +1,6 @@
 {
     "name": "The Game of Life",
-    "short_name": "Life",
+    "short_name": "Game of Life",
     "id": "./",
     "start_url": ".",
     "scope": "./",
