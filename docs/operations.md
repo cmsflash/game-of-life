@@ -291,8 +291,13 @@ publish the matching web or Flutter build early:
 
    ```bash
    curl -fsSI WEB_BASE_URL/ | tr -d '\r' | \
-     grep -F "content-security-policy:" | grep -F "img-src 'self' data: blob: API_ORIGIN;"
+     grep -F "content-security-policy:" | \
+     grep -F "img-src 'self' data: blob: API_ORIGIN;" | \
+     grep -F "connect-src 'self' blob: https: wss:;"
    ```
+
+   The `blob:` connection source is limited to browser-local object URLs and is
+   required for the web picture picker to read the selected file before upload.
 
 The compatibility endpoint `PATCH /v1/social/discoverability` remains available
 for rolling clients but always returns `discoverable:true`; new clients expose no

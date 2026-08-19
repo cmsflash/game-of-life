@@ -103,6 +103,7 @@ grep -F -- "--cache-control public,max-age=0,must-revalidate,s-maxage=3600 --con
 grep -F -- "--content-type application/wasm" "$mock_log" >/dev/null
 grep -F -- "cloudfront create-invalidation --distribution-id E123EXAMPLE --paths /*" "$mock_log" >/dev/null
 grep -F -- "cloudfront wait invalidation-completed --distribution-id E123EXAMPLE --id I123EXAMPLE" "$mock_log" >/dev/null
+grep -F -- "connect-src 'self' blob: https: wss:;" "$repo_dir/infra/web-template.yaml" >/dev/null
 
 if "$repo_dir/infra/deploy-web.sh" \
   --stack-name life-web-test \
