@@ -189,7 +189,7 @@ def migrate_public_players(
         cleanup_conflict = False
         for offset in range(0, len(stale), 99):
             cleanup = [
-                _profile_exact_condition(table.name, player),
+                _profile_exact_condition(table.name, item, player),
                 *[
                     _conditional_search_delete(table.name, value)
                     for value in stale[offset : offset + 99]
@@ -327,12 +327,13 @@ def _profile_guard_or_update(
 
 def _profile_exact_condition(
     table_name: str,
+    item: dict[str, Any],
     player: StoredPublicPlayer,
 ) -> dict[str, Any]:
     return {
         "ConditionCheck": {
             "TableName": table_name,
-            "Key": _serialize({"PK": f"PLAYER#{player.id}", "SK": "PROFILE"}),
+            "Key": _serialize({"PK": item["PK"], "SK": item["SK"]}),
             "ConditionExpression": "#version = :version AND #document = :document",
             "ExpressionAttributeNames": {
                 "#version": "version",
@@ -341,7 +342,7 @@ def _profile_exact_condition(
             "ExpressionAttributeValues": _serialize_values(
                 {
                     ":version": player.version,
-                    ":document": player.model_dump_json(by_alias=True),
+                    ":document": item["document"],
                 }
             ),
         }

@@ -239,6 +239,31 @@ def test_public_player_migration_deletes_stale_renamed_search_rows() -> None:
     assert (rerun.eligible, rerun.applied, rerun.stale_indexes) == (0, 0, 0)
 
 
+def test_stale_cleanup_guards_the_exact_stored_profile_document() -> None:
+    profile = _hidden_profile().model_copy(update={"discoverable": True})
+    table = MemoryTable(profile)
+    profile_key = ("PLAYER#player-1", "PROFILE")
+    raw_document = "\n" + table.items[profile_key]["document"]
+    table.items[profile_key]["document"] = raw_document
+    stale_key = ("SEARCH#old", "old name#player-1")
+    table.items[stale_key] = {
+        "PK": stale_key[0],
+        "SK": stale_key[1],
+        "entity": "playerSearch",
+        "playerId": profile.id,
+        "document": profile.model_dump_json(by_alias=True),
+    }
+    client = ApplyingClient(table)
+
+    report = _migrate(table, client, apply=True)
+
+    assert report.applied == 1
+    condition = client.transactions[0]["TransactItems"][0]["ConditionCheck"]
+    deserializer = TypeDeserializer()
+    guarded_document = deserializer.deserialize(condition["ExpressionAttributeValues"][":document"])
+    assert guarded_document == raw_document
+
+
 def test_stale_alias_cleanup_precedes_the_profile_index_cutover() -> None:
     profile = _hidden_profile().model_copy(update={"discoverable": True})
     table = MemoryTable(profile)
