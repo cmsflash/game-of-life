@@ -1,6 +1,6 @@
 # Terms of Use
 
-Effective August 18, 2026.
+Effective August 23, 2026.
 
 These terms apply to online accounts and the online game service. Mandatory
 consumer rights in a player's jurisdiction are not limited by these terms.
@@ -17,16 +17,23 @@ service safeguards.
 Players may not automate abusive traffic, exploit defects, interfere with
 other players, probe accounts, or attempt to manipulate server-authoritative
 match results. A player's chosen display name is presented to online opponents;
-login usernames and email addresses remain private account metadata. Display
-names may not impersonate others, contain sensitive personal information, or
-be abusive, hateful, threatening, or otherwise unlawful.
+native login usernames also appear as `@` handles in player search, friends,
+requests, and challenges. Native usernames do not appear in match,
+matchmaking, or notification records. Email addresses and provider-generated
+login identifiers remain private account metadata. Display names and native
+usernames may not impersonate others, contain sensitive personal information,
+or be abusive, hateful, threatening, or otherwise unlawful.
 
-Active accounts are searchable by their chosen public display name and expose
-their rating and current profile picture to other players. There is currently no
-search-privacy preference. Players must have the right to upload a profile picture,
-and pictures must not be unlawful, abusive, hateful, threatening, infringing, or
-otherwise violate another person's rights. The service may reject or remove a
-display name or picture to enforce these terms, protect players, or comply with law.
+Every active account is discoverable. Other signed-in players can search any
+normalized substring of its public display name or, for native accounts, login
+username. Results expose its display name, native `@` handle when present,
+rating, and current profile picture. Google and other provider-generated login
+identifiers and email addresses are not searchable or public. There
+is currently no search-privacy preference. Players must have the right to upload
+a profile picture, and pictures must not be unlawful, abusive, hateful,
+threatening, infringing, or otherwise violate another person's rights. The
+service may reject or remove a display name, native username, or picture to
+enforce these terms, protect players, or comply with law.
 Players retain their rights in uploaded pictures but grant the operator a limited,
 non-exclusive, worldwide, royalty-free license to validate, crop, resize, encode,
 store, cache, publicly display, and moderate the picture solely to operate and

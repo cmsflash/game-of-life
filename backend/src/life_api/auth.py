@@ -4,6 +4,7 @@ import base64
 import contextlib
 import hashlib
 import hmac
+import json
 import secrets
 import threading
 import time
@@ -17,6 +18,7 @@ from botocore.exceptions import ClientError
 
 from .errors import ApiError
 from .models import RegisterRequest, RegisterResponse, TokenSet, User
+from .player_search import canonical_display_name
 from .settings import Settings
 
 
@@ -83,6 +85,7 @@ class LocalIdentityProvider:
             user = User(
                 id=str(uuid4()),
                 username=request.username,
+                public_username=request.username,
                 email=str(request.email),
                 display_name=request.display_name,
                 email_verified=False,
@@ -179,6 +182,7 @@ class LocalIdentityProvider:
                 user = User(
                     id=str(uuid4()),
                     username=username,
+                    public_username=None,
                     email="google.dev@example.test",
                     display_name="Google Dev Player",
                     email_verified=True,
@@ -391,11 +395,17 @@ class CognitoIdentityProvider:
                 ) from error
             raise
         attributes = {item["Name"]: item["Value"] for item in response["UserAttributes"]}
+        federated = _has_federated_identities(attributes.get("identities"))
+        public_username = None if federated else response["Username"]
+        display_name = canonical_display_name(attributes.get("name", "")) or (
+            "Google Player" if federated else response["Username"]
+        )
         return User(
             id=attributes["sub"],
             username=response["Username"],
+            public_username=public_username,
             email=attributes.get("email", ""),
-            display_name=attributes.get("name") or response["Username"],
+            display_name=display_name,
             email_verified=attributes.get("email_verified") == "true",
         )
 
@@ -440,6 +450,16 @@ def _cognito_error(error: ClientError) -> ApiError:
     }
     stable_code, status = mapping.get(code, ("authenticationError", 400))
     return ApiError(stable_code, message, status_code=status)
+
+
+def _has_federated_identities(raw: str | None) -> bool:
+    if not raw:
+        return False
+    try:
+        identities = json.loads(raw)
+    except ValueError:
+        return True
+    return not isinstance(identities, list) or bool(identities)
 
 
 def build_identity_provider(settings: Settings) -> IdentityProvider:

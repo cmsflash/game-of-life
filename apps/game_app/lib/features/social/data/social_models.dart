@@ -3,6 +3,7 @@ class PublicPlayer {
     required this.id,
     required this.displayName,
     required this.elo,
+    this.username,
     this.avatarUrl,
     this.avatarVersion = 0,
   });
@@ -10,6 +11,7 @@ class PublicPlayer {
   final String id;
   final String displayName;
   final int elo;
+  final String? username;
   final String? avatarUrl;
   final int avatarVersion;
 
@@ -19,6 +21,7 @@ class PublicPlayer {
         json['userId'] as String? ??
         json['id'] as String?;
     final displayName = json['displayName'] as String?;
+    final username = (json['username'] as String?)?.trim();
     final rating = json['rating'];
     if (id == null || id.isEmpty) {
       throw const FormatException('A public player must include an ID.');
@@ -37,6 +40,7 @@ class PublicPlayer {
       id: id,
       displayName: displayName.trim(),
       elo: rating.round(),
+      username: username == null || username.isEmpty ? null : username,
       avatarUrl: json['avatarUrl'] as String?,
       avatarVersion: (json['avatarVersion'] as num?)?.round() ?? 0,
     );

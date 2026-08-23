@@ -40,6 +40,7 @@ class FakeAuthRepository implements AuthRepository {
       id: 'user-1',
       username: username,
       displayName: username,
+      publicUsername: username,
     );
   }
 
@@ -350,6 +351,7 @@ class FakeSocialRepository implements SocialRepository {
   String acceptedMatchId = 'social-match-1';
   var overviewCalls = 0;
   var searchCalls = 0;
+  final searchedQueries = <String>[];
   final sentFriendRequests = <String>[];
   final acceptedFriendRequests = <String>[];
   final removedFriendRequests = <String>[];
@@ -368,6 +370,7 @@ class FakeSocialRepository implements SocialRepository {
   @override
   Future<List<PublicPlayer>> searchPlayers(String query) async {
     searchCalls++;
+    searchedQueries.add(query);
     if (searchError != null) throw searchError!;
     return searchResults;
   }

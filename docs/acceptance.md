@@ -55,12 +55,20 @@
   state hash.
 - Resignation produces a terminal outcome and prevents future moves.
 - Both players' public display names map to their randomly assigned colors in
-  private and quick matches. Match documents contain neither login usernames
-  nor email addresses, and account deletion replaces the departed player's
-  stored name and identifier with `Deleted player`.
-- Player search is case-insensitive prefix search over every active public display
-  name, supports one-character names, is capped/rate-limited, and never returns a
-  username or email. The legacy privacy endpoint cannot hide an account.
+  private and quick matches. Match documents contain no native usernames,
+  provider-generated login identifiers, or email addresses, and account
+  deletion replaces the departed player's stored name and identifier with
+  `Deleted player`.
+- Every active account remains discoverable. Player search finds any substring
+  of a public display name or native login username after NFKC, case-folding,
+  and whitespace normalization; accepts 1–48 characters; and is capped and
+  rate-limited. Search, friend, request, and challenge summaries show a native
+  username as an `@` handle when present. Emails and Google/provider-generated
+  login identifiers are not searchable or returned. The legacy privacy
+  endpoint cannot hide an account.
+- Native handles never enter match, matchmaking, or notification documents;
+  accepted friend challenges snapshot only the public display name into the
+  resulting match.
 - JPEG, PNG, and WebP profile-picture uploads are authenticated, rate-limited,
   strictly validated, metadata-stripped, fixed-square re-encoded, and published
   only from private storage through an exact-version public route. Search, Social,

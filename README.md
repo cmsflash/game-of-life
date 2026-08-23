@@ -59,10 +59,14 @@ provider is implemented.
 The client includes in-app privacy, Terms, open-source license, and account
 deletion surfaces. The API deletes the identity account, resolves outstanding
 matches, and anonymizes retained history. Online opponents see each player's
-chosen public display name, while login usernames and email addresses stay out
-of match documents. Every active online account is searchable by its public
-display name during this development phase; players can optionally upload a
-processed profile picture for Social and match views.
+chosen public display name. Native login usernames appear as `@` handles in
+player search, friends, and challenges, but stay out of match, matchmaking, and
+notification documents. Email addresses and identity-provider-generated login
+identifiers remain private and unsearchable. Every active online account is
+discoverable during this development phase: signed-in players can search any
+normalized substring of its public display name or, when present, its native
+login username. Players can optionally upload a processed profile picture for
+Social and match views.
 Authenticated remote matches are rated with server-authoritative statistics:
 kill totals update during active games after each accepted move, while Elo,
 wins, losses, draws, and total-game counts update when the match ends.

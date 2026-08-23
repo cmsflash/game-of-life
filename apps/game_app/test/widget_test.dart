@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:game_engine/game_engine.dart' as engine;
 import 'package:game_of_life/app.dart';
+import 'package:game_of_life/features/auth/data/auth_models.dart';
 import 'package:game_of_life/features/auth/data/session_store.dart';
 import 'package:game_of_life/features/auth/data/profile_avatar.dart';
 import 'package:game_of_life/features/game/data/local_game_store.dart';
@@ -178,6 +179,10 @@ void main() {
       AutofillHints.username,
       AutofillHints.newUsername,
     ]);
+    expect(
+      username.decoration?.helperText,
+      'Public and searchable by signed-in players',
+    );
     expect(displayName.autofillHints, const [AutofillHints.nickname]);
     expect(
       displayName.decoration?.helperText,
@@ -251,15 +256,21 @@ void main() {
       await tester.tap(find.text('Privacy Policy'));
       await tester.pumpAndSettle();
 
-      expect(find.textContaining('Effective August 18, 2026'), findsOneWidget);
+      expect(find.textContaining('Effective August 23, 2026'), findsOneWidget);
+      expect(
+        find.textContaining('search any normalized substring'),
+        findsOneWidget,
+      );
       expect(
         find.textContaining(
-          'profile picture, and current Elo rating are searchable',
+          'provider-generated login identifiers remain private',
         ),
         findsOneWidget,
       );
       expect(
-        find.textContaining('Display names, profile pictures, and ratings'),
+        find.textContaining(
+          'Online match documents include display names but not usernames',
+        ),
         findsOneWidget,
       );
       expect(
@@ -320,6 +331,22 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('Terms of Use'));
     await tester.pumpAndSettle();
+
+    expect(find.textContaining('Effective August 23, 2026'), findsOneWidget);
+    expect(
+      find.textContaining('search any normalized substring'),
+      findsOneWidget,
+    );
+    expect(
+      find.textContaining(
+        'provider-generated login identifiers remain private',
+      ),
+      findsOneWidget,
+    );
+    expect(
+      find.textContaining('online match documents do not include usernames'),
+      findsOneWidget,
+    );
 
     expect(
       find.textContaining('confirm that you own it or have permission'),
@@ -421,9 +448,10 @@ void main() {
     await tester.tap(find.text('Settings'));
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('settings-avatar')), findsOneWidget);
+    expect(find.text('@alice'), findsOneWidget);
     expect(
       find.text(
-        'Shown publicly in player search, friends, and online matches.',
+        'Display names and pictures are public in player search, Social, and online matches. A public username, when shown above, is also searchable and shown in Social.',
       ),
       findsOneWidget,
     );
@@ -443,6 +471,24 @@ void main() {
     expect(auth.current?.avatarUrl, isNull);
     expect(find.text('Profile picture removed.'), findsOneWidget);
     expect(find.byKey(const Key('remove-profile-picture')), findsNothing);
+  });
+
+  testWidgets('Settings hides a provider-generated private username', (
+    tester,
+  ) async {
+    final auth = FakeAuthRepository()
+      ..current = const AppUser(
+        id: 'google-1',
+        username: 'Google_provider_subject',
+        displayName: 'Google Player',
+      );
+    await pumpApp(tester, size: const Size(390, 844), authRepository: auth);
+
+    await tester.tap(find.text('Settings'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Google Player'), findsOneWidget);
+    expect(find.text('@Google_provider_subject'), findsNothing);
   });
 
   testWidgets('profile picture failure offers an explicit retry', (
@@ -755,7 +801,7 @@ void main() {
     expect(find.byType(NavigationDestination), findsNWidgets(3));
   });
 
-  testWidgets('signed-in Social exposes privacy-safe friend workflows', (
+  testWidgets('signed-in Social shows public names in friend workflows', (
     tester,
   ) async {
     final auth = FakeAuthRepository();
@@ -764,21 +810,25 @@ void main() {
       id: 'friend-1',
       displayName: 'Briar',
       elo: 1312,
+      username: 'briar_player',
     );
     const searchResult = PublicPlayer(
       id: 'search-1',
       displayName: 'Cedar',
       elo: -12,
+      username: 'cedar_player',
     );
     const incomingPlayer = PublicPlayer(
       id: 'incoming-1',
       displayName: 'Dahlia',
       elo: 1240,
+      username: 'dahlia_player',
     );
     const outgoingPlayer = PublicPlayer(
       id: 'outgoing-1',
       displayName: 'Elm',
       elo: 1188,
+      username: 'elm_player',
     );
     final now = DateTime.utc(2026, 8, 14);
     final challengeExpiry = DateTime.utc(2026, 8, 21);
@@ -822,6 +872,10 @@ void main() {
     await tester.tap(find.text('Social'));
     await tester.pumpAndSettle();
 
+    expect(find.text('Name or @username'), findsOneWidget);
+    expect(find.text('@briar_player'), findsOneWidget);
+    expect(find.text('@dahlia_player'), findsNWidgets(2));
+    expect(find.text('@elm_player'), findsOneWidget);
     expect(find.byKey(const Key('friend-friend-1')), findsOneWidget);
     expect(
       find.byKey(const Key('incoming-friend-request-request-in')),
@@ -844,10 +898,22 @@ void main() {
 
     expect(find.byKey(const Key('social-discoverability')), findsNothing);
 
-    await tester.enterText(find.byKey(const Key('social-search')), 'Ced');
+    await tester.enterText(find.byKey(const Key('social-search')), 'dar');
     await tester.pump(const Duration(milliseconds: 360));
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('search-player-search-1')), findsOneWidget);
+    expect(find.text('@cedar_player'), findsOneWidget);
+    expect(social.searchedQueries, ['dar']);
+
+    await tester.enterText(
+      find.byKey(const Key('social-search')),
+      '@cedar_player',
+    );
+    await tester.pump(const Duration(milliseconds: 360));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('search-player-search-1')), findsOneWidget);
+    expect(social.searchedQueries, ['dar', '@cedar_player']);
+
     await tester.ensureVisible(find.byKey(const Key('add-friend-search-1')));
     await tester.tap(find.byKey(const Key('add-friend-search-1')));
     await tester.pumpAndSettle();
@@ -1240,13 +1306,11 @@ OnlineMatch _activeOnlineMatch({required String id}) {
     players: const [
       OnlinePlayer(
         id: 'user-1',
-        username: 'private_alice',
         displayName: 'Alice',
         color: engine.Player.black,
       ),
       OnlinePlayer(
         id: 'friend-1',
-        username: 'private_briar',
         displayName: 'Briar',
         color: engine.Player.white,
       ),

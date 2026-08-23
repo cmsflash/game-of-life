@@ -105,8 +105,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                                 user.displayName,
                                 style: Theme.of(context).textTheme.titleLarge,
                               ),
-                              const SizedBox(height: 2),
-                              Text('@${user.username}'),
+                              if (user.publicUsername != null) ...[
+                                const SizedBox(height: 2),
+                                Text('@${user.publicUsername}'),
+                              ],
                             ],
                           ),
                         ),
@@ -165,7 +167,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     const Align(
                       alignment: Alignment.centerLeft,
                       child: Text(
-                        'Shown publicly in player search, friends, and online matches.',
+                        'Display names and pictures are public in player search, Social, and online matches. A public username, when shown above, is also searchable and shown in Social.',
                       ),
                     ),
                     if (auth.avatarError != null ||

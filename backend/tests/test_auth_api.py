@@ -317,6 +317,16 @@ class _DeletedUserCognitoClient:
         )
 
 
+class _AuthenticatedCognitoClient:
+    def __init__(self, response: dict[str, Any]) -> None:
+        self.response = response
+        self.calls: list[dict[str, Any]] = []
+
+    def get_user(self, **kwargs: Any) -> dict[str, Any]:
+        self.calls.append(kwargs)
+        return self.response
+
+
 def test_cognito_account_deletion_uses_the_authenticated_access_token(
     monkeypatch: pytest.MonkeyPatch,
     settings: Settings,
@@ -356,3 +366,130 @@ def test_cognito_authentication_maps_a_deleted_user_to_an_invalid_token(
 
     assert raised.value.code == "invalidToken"
     assert raised.value.status_code == 401
+
+
+def test_cognito_native_username_is_public_for_player_search(
+    monkeypatch: pytest.MonkeyPatch,
+    settings: Settings,
+) -> None:
+    client = _AuthenticatedCognitoClient(
+        {
+            "Username": "CMS_Flash",
+            "UserAttributes": [
+                {"Name": "sub", "Value": "native-player-id"},
+                {"Name": "email", "Value": "player@example.com"},
+                {"Name": "name", "Value": "Shen Zhuoran"},
+                {"Name": "email_verified", "Value": "true"},
+            ],
+        }
+    )
+    monkeypatch.setattr(boto3, "client", lambda *args, **kwargs: client)
+    provider = CognitoIdentityProvider(
+        replace(
+            settings,
+            cognito_client_id="client-id",
+        )
+    )
+
+    user = provider.authenticate("native-access-token")
+
+    assert client.calls == [{"AccessToken": "native-access-token"}]
+    assert user.username == "CMS_Flash"
+    assert user.public_username == "CMS_Flash"
+    assert user.display_name == "Shen Zhuoran"
+    assert user.email_verified is True
+
+
+def test_cognito_federated_username_stays_private_and_uses_safe_name_fallback(
+    monkeypatch: pytest.MonkeyPatch,
+    settings: Settings,
+) -> None:
+    client = _AuthenticatedCognitoClient(
+        {
+            "Username": "Google_opaque-provider-subject",
+            "UserAttributes": [
+                {"Name": "sub", "Value": "federated-player-id"},
+                {"Name": "email", "Value": "federated@example.com"},
+                {"Name": "email_verified", "Value": "true"},
+                {
+                    "Name": "identities",
+                    "Value": '[{"providerName":"Google","userId":"opaque"}]',
+                },
+            ],
+        }
+    )
+    monkeypatch.setattr(boto3, "client", lambda *args, **kwargs: client)
+    provider = CognitoIdentityProvider(
+        replace(
+            settings,
+            cognito_client_id="client-id",
+        )
+    )
+
+    user = provider.authenticate("federated-access-token")
+
+    assert client.calls == [{"AccessToken": "federated-access-token"}]
+    assert user.username == "Google_opaque-provider-subject"
+    assert user.public_username is None
+    assert user.display_name == "Google Player"
+    assert user.email_verified is True
+
+
+@pytest.mark.parametrize("identities", ["{}", "null", "0", "{"])
+def test_cognito_unexpected_federated_identity_shapes_fail_closed(
+    monkeypatch: pytest.MonkeyPatch,
+    settings: Settings,
+    identities: str,
+) -> None:
+    client = _AuthenticatedCognitoClient(
+        {
+            "Username": "Google_opaque-provider-subject",
+            "UserAttributes": [
+                {"Name": "sub", "Value": "federated-player-id"},
+                {"Name": "email", "Value": "federated@example.com"},
+                {"Name": "email_verified", "Value": "true"},
+                {"Name": "identities", "Value": identities},
+            ],
+        }
+    )
+    monkeypatch.setattr(boto3, "client", lambda *args, **kwargs: client)
+    provider = CognitoIdentityProvider(
+        replace(
+            settings,
+            cognito_client_id="client-id",
+        )
+    )
+
+    user = provider.authenticate("federated-access-token")
+
+    assert user.username == "Google_opaque-provider-subject"
+    assert user.public_username is None
+    assert user.display_name == "Google Player"
+
+
+def test_cognito_display_name_uses_nfkc_and_collapsed_whitespace(
+    monkeypatch: pytest.MonkeyPatch,
+    settings: Settings,
+) -> None:
+    client = _AuthenticatedCognitoClient(
+        {
+            "Username": "CMS_Flash",
+            "UserAttributes": [
+                {"Name": "sub", "Value": "native-player-id"},
+                {"Name": "email", "Value": "player@example.com"},
+                {"Name": "name", "Value": "  Ｓｈｅｎ\u3000\u3000Zhuoran  "},  # noqa: RUF001
+                {"Name": "email_verified", "Value": "true"},
+            ],
+        }
+    )
+    monkeypatch.setattr(boto3, "client", lambda *args, **kwargs: client)
+    provider = CognitoIdentityProvider(
+        replace(
+            settings,
+            cognito_client_id="client-id",
+        )
+    )
+
+    user = provider.authenticate("native-access-token")
+
+    assert user.display_name == "Shen Zhuoran"

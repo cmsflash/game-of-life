@@ -99,7 +99,7 @@ class _SocialScreenState extends ConsumerState<SocialScreen> {
                   eyebrow: 'Social',
                   title: 'Play with people you know',
                   description:
-                      'Find players by public display name, become friends, and send rated challenges.',
+                      'Find players by public name or @username, become friends, and send rated challenges.',
                 ),
               ),
               IconButton(
@@ -172,7 +172,7 @@ class _SignedOutSocial extends StatelessWidget {
           eyebrow: 'Social',
           title: 'Play with friends',
           description:
-              'Sign in to find players by their public display name and send rated challenges.',
+              'Sign in to find players by public name or @username and send rated challenges.',
         ),
         const SizedBox(height: 24),
         Card(
@@ -231,7 +231,7 @@ class _PlayerSearch extends ConsumerWidget {
           Text('Find players', style: Theme.of(context).textTheme.titleLarge),
           const SizedBox(height: 5),
           const Text(
-            'Every signed-in player can be found by public display name. Usernames and email addresses are never shown.',
+            'Search any part of a public display name or native login username. Email addresses and provider-generated login identifiers are never shown.',
           ),
           const SizedBox(height: 16),
           TextField(
@@ -240,8 +240,8 @@ class _PlayerSearch extends ConsumerWidget {
             maxLength: 48,
             textInputAction: TextInputAction.search,
             decoration: InputDecoration(
-              labelText: 'Public display name',
-              hintText: 'Type a display name',
+              labelText: 'Name or @username',
+              hintText: 'Type any part of a name or @username',
               prefixIcon: const Icon(Icons.search),
               suffixIcon: state.searching
                   ? const Padding(
@@ -529,7 +529,7 @@ class _FriendsSection extends StatelessWidget {
           child: Padding(
             padding: EdgeInsets.all(26),
             child: Center(
-              child: Text('No friends yet. Search by public display name.'),
+              child: Text('No friends yet. Search by name or @username.'),
             ),
           ),
         )
@@ -661,13 +661,23 @@ class _PlayerCard extends StatelessWidget {
               ),
               const SizedBox(width: 12),
               Expanded(
-                child: Semantics(
-                  header: true,
-                  child: Text(
-                    player.displayName,
-                    overflow: TextOverflow.ellipsis,
-                    style: Theme.of(context).textTheme.titleLarge,
-                  ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Semantics(
+                      header: true,
+                      child: Text(
+                        player.displayName,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.titleLarge,
+                      ),
+                    ),
+                    if (player.username != null)
+                      Text(
+                        '@${player.username}',
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                  ],
                 ),
               ),
               Chip(label: Text('Elo ${player.elo}')),
@@ -709,6 +719,10 @@ class _SocialActionCard extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           Text(title, style: Theme.of(context).textTheme.titleLarge),
+          if (player.username != null) ...[
+            const SizedBox(height: 2),
+            Text('@${player.username}'),
+          ],
           const SizedBox(height: 4),
           Text(subtitle),
           const Spacer(),

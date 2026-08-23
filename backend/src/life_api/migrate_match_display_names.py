@@ -70,8 +70,7 @@ class CognitoNameResolver:
                 for attribute in users[0].get("Attributes", [])
             }
             candidate = attributes.get("name", "").strip()
-            username = str(users[0].get("Username", "")).strip()
-            name = candidate or username or None
+            name = candidate or None
         self._cache[user_id] = name
         return name
 

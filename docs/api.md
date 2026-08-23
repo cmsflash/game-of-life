@@ -60,10 +60,12 @@ tokens no longer authenticate.
 ## Players, friends, challenges, and stats
 
 Except for exact-version picture delivery, all routes below require authentication.
-Every active account's display name is publicly searchable during this development
-phase. The server applies NFKC normalization, case folding, and whitespace
-normalization, accepts 1–48 search characters, returns at most 20 prefix matches,
-omits the caller, and never searches or returns login usernames or email addresses.
+Every active account is publicly discoverable during this development phase. The
+server applies NFKC normalization, case folding, and whitespace normalization and
+matches a 1–48-character query against every substring of the public display name
+and, for native accounts, the login username. It returns at most 20 matches and
+omits the caller. Email addresses and Google/provider-generated login
+identifiers are neither searchable nor returned.
 
 | Method | Path | Purpose |
 | --- | --- | --- |
@@ -83,11 +85,14 @@ omits the caller, and never searches or returns login usernames or email address
 | `GET` | `/stats/me` | Return `{rating,games,wins,losses,draws,kills,spawns}`; `kills` and `spawns` include current rated games. |
 
 Public player summaries are
-`{id,displayName,rating,avatarUrl,avatarVersion}`. `avatarUrl` is nullable and
-includes its version query. Friendship is one canonical unordered pair, so
-crossed or retried requests cannot create duplicate edges. The target must still
-be active when a new request commits. Accounts are limited to 100 friends, 100
-pending requests, and 20 pending challenges.
+`{id,displayName,username,rating,avatarUrl,avatarVersion}`. `username` is the
+native login username or `null` for an account without a public native handle;
+clients render a non-null value with a leading `@`. `avatarUrl` is nullable and
+includes its version query. Search, Social, friend, request, and challenge
+documents use this same public summary. Friendship is one canonical unordered
+pair, so crossed or retried requests cannot create duplicate edges. The target
+must still be active when a new request commits. Accounts are limited to 100
+friends, 100 pending requests, and 20 pending challenges.
 
 Profile-picture upload accepts JPEG, PNG, or WebP transport up to 3 MiB. Before
 reading or decoding, the server enforces a per-account limit of ten upload attempts
@@ -172,7 +177,9 @@ installation; delivery is disabled through browser/system settings rather than a
 separate account preference. Sign-out and account deletion unregister it. The
 server sends at turn start and after 8, 24, and 72 hours. Scheduled payloads
 contain only match ID, revision, turn-start time, and reminder offset; the worker
-derives the current recipient from the authoritative match. Every delivery
+derives the current recipient from the authoritative match. Native usernames,
+email addresses, and provider-generated login identifiers never enter a
+notification document or provider payload. Every delivery
 rechecks status, revision, account state, and player-to-move, so stale jobs send
 nothing.
 Each account can keep up to five active installations.
@@ -197,7 +204,9 @@ Stored player summaries contain each participant's public `displayName`,
 snapshotted when the match is formed and associated with the randomly assigned
 color. Responses hydrate the current `avatarUrl` and `avatarVersion` in a bounded
 batch; stored matches never persist expiring or superseded picture URLs.
-Login usernames and email addresses are never included in match documents.
+Native login usernames, email addresses, and provider-generated login
+identifiers are never included in match documents. Accepting a friend challenge
+does not copy its public `username` handle into the resulting match.
 Deleting an account replaces that participant's stored name and identifier
 with an unlinkable `Deleted player` identity in retained history.
 
@@ -242,8 +251,9 @@ status never falls back to an unrelated match from the player's history.
 The bounded-TTL candidate row stores the player's opaque ID and public display-
 name snapshot alongside rules and ticket metadata so the eventual match can
 retain the queued player's name. Pointer and ticket rows do not duplicate the
-name, and no queue record contains a username, email address, token, or
-serialized profile. No secondary matchmaking profile record is created.
+name, and no queue record contains a username, email address,
+provider-generated login identifier, token, or serialized profile. No
+secondary matchmaking profile record is created.
 If a match wins the race with cancellation, the API returns
 `409 matchAlreadyFound` with that ticket's `matchId`; the client opens the
 already-committed match.

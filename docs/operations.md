@@ -41,11 +41,16 @@ Run these checks after every stack update from at least two networks:
    move before a test reminder fires and verify the old revision sends nothing.
    Use an isolated short-delay operator test only for deployment validation;
    production offsets remain 8, 24, and 72 hours.
-9. With two disposable accounts, verify one-, two-, and three-character normalized
-   public-display-name prefix search, send
-   and accept a friend request, create and accept a direct challenge, and confirm
-   a lost-response retry returns the same match ID. Complete it and verify both
-   stats records changed once and their rating deltas sum to zero.
+9. With two disposable native accounts, verify 1–48-character normalized
+   substring search across the complete public display name and login username,
+   including one-, two-, and three-character queries and a later name fragment.
+   Confirm the native username appears as an `@` handle in search, friends,
+   requests, and challenges but not in the accepted match. Send and accept a
+   friend request, create and accept a direct challenge, and confirm a
+   lost-response retry returns the same match ID. Complete it and verify both
+   stats records changed once and their rating deltas sum to zero. When Google
+   login is enabled, also verify its provider-generated login identifier is
+   neither searchable nor a public handle.
 10. Upload, replace, remove, and re-upload a disposable account's picture. Verify
     the output is a 512×512 WebP, the current version is publicly readable with a
     60-second revalidating cache bound, each superseded URL returns `404`, and a
@@ -236,58 +241,100 @@ Before a schema or repository change:
 3. Deploy code capable of reading both old and new records before backfilling.
 4. Use small, resumable batches and measure throttling.
 
-### Public discovery and profile-picture cutover
+### Public substring discovery, handles, and profile-picture cutover
 
-Use this order for the first public-by-default/profile-picture release. Do not
-publish the matching web or Flutter build early:
+Use this order for the public-by-default suffix-index and profile-picture
+release. Do not publish the matching web or Flutter build early:
 
-1. Deploy the compatible API stack first. Its private retained S3 bucket,
-   cleanup queue/DLQ, cleanup Lambda, lifecycle rules, alarms, public-version
-   delivery route, account fence, and new writers must all exist before data is
-   migrated. Keep the prior client live during this step.
+1. Deploy the compatible API stack first. It must read the prior search rows,
+   write and read the new display-name and native-username suffix index, expose
+   only native usernames as nullable public handles, omit provider-generated
+   login identifiers, and remove the complete index during account deletion.
+   Its private retained S3 bucket, cleanup queue/DLQ, cleanup Lambda, lifecycle
+   rules, alarms, public-version delivery route, and account fence must remain
+   intact. Record this API artifact/version as the immutable rollback floor, and
+   keep the prior client live during this step.
 2. Wait longer than the old API Lambda's maximum invocation time (currently 29
-   seconds) so no old writer can still commit a hidden or first-three-only row.
-3. Read `DynamoTableName` from the stack, confirm point-in-time recovery is
-   enabled, and run the migration without `--apply`:
+   seconds) so no old writer can still commit a profile or incomplete search
+   index after the compatibility boundary.
+3. Resolve the retained table from the stack and require point-in-time recovery
+   to report `ENABLED` before any write:
+
+   ```bash
+   LIFE_TABLE_NAME="$(aws cloudformation describe-stacks \
+     --stack-name the-game-of-life-production \
+     --region ap-east-1 \
+     --profile game-of-life \
+     --query "Stacks[0].Outputs[?OutputKey=='DynamoTableName'].OutputValue | [0]" \
+     --output text)"
+   aws dynamodb describe-continuous-backups \
+     --table-name "$LIFE_TABLE_NAME" \
+     --region ap-east-1 \
+     --profile game-of-life \
+     --query "ContinuousBackupsDescription.PointInTimeRecoveryDescription.PointInTimeRecoveryStatus" \
+     --output text
+   ```
+
+   Run the Cognito-aware migration without `--apply`. The stack lookup supplies
+   both `DynamoTableName` and `CognitoUserPoolId`; do not copy either identifier
+   into an operator note or command transcript:
 
    ```bash
    python -m life_api.migrate_public_players \
-     --table-name DYNAMO_TABLE_NAME \
+     --stack-name the-game-of-life-production \
      --region ap-east-1 \
      --profile game-of-life
    ```
 
-   Require `invalid=0` and `conflicts=0`. The plan validates exact profile
-   PK/SK, top-level/document version and public flag, normalized display name,
-   every one- through three-character prefix row, and reports stale or orphaned
-   search rows. Any invalid row blocks all writes and must be investigated.
-4. Repeat with `--apply`:
+   The Cognito lookup must admit only enabled accounts in Cognito's confirmed
+   or external-provider state, and every public profile must resolve through it.
+   The plan must distinguish native
+   usernames from Google/provider-generated login identifiers, validate exact
+   profile and search-index-version state, and derive one row for every
+   normalized suffix, partitioned by its first character. It must emit aggregate
+   counts only. Require `unresolved=0`, `invalid=0`, and `conflicts=0`;
+   investigate any failure before allowing writes.
+4. Repeat the Cognito-aware command with `--apply`:
 
    ```bash
    python -m life_api.migrate_public_players \
-     --table-name DYNAMO_TABLE_NAME \
+     --stack-name the-game-of-life-production \
      --region ap-east-1 \
      --profile game-of-life \
      --apply
    ```
 
-   Each profile update is conditioned on the exact prior
-   document/version and both account-deletion fences. Stale index deletion is
-   conditioned on its exact player/document; orphan deletion is conditioned on
-   the profile still being absent. Concurrent rename, picture, or deletion work
-   therefore wins safely and appears as a conflict to rerun.
-5. Rerun the read-only command from step 3 and require `eligible=0`, `stale_indexes=0`,
-   `orphan_indexes=0`, `invalid=0`, and `conflicts=0`.
-6. With active disposable accounts whose normalized names are one, two, and at
-   least three characters long, verify `/v1/players/search` succeeds using each
-   available prefix and returns the current display name/rating/picture only—no
-   username or email. Verify a deleting/deleted account is absent.
+   Require `applied=eligible`, `unresolved=0`, `invalid=0`, and `conflicts=0`.
+   Exact profile comparisons and both account-deletion fences must condition each
+   resumable write. Stale index deletion must compare its exact owner and row and
+   complete before the atomic profile/new-index cutover, so an interrupted run
+   never strands an old alias behind a newer profile. Orphan deletion must recheck
+   that its profile is still absent. A concurrent login, picture change, or
+   deletion therefore wins and appears as a conflict to inspect and rerun.
+5. Rerun the read-only command from step 3 and require `eligible=0`,
+   `stale_indexes=0`, `orphan_indexes=0`, `unresolved=0`, `invalid=0`, and
+   `conflicts=0`. This zero rerun, not the first successful API response, is the
+   search-index readiness gate.
+6. With two active disposable native accounts, verify
+   `/v1/players/search` using a full display name, first and later display-name
+   substrings, a username substring, the full username, and normalized case and
+   whitespace variants. Exercise one-, two-, and three-character queries.
+   Require one canonical result with current display name, nullable native
+   username, rating, and picture; verify the caller is omitted. Confirm friends,
+   requests, and challenges render the native value as an `@` handle, while an
+   accepted match, matchmaking records, and notification records contain no
+   username. Verify emails and provider-generated login identifiers are
+   unsearchable and absent, and verify a deleting/deleted account disappears for
+   every suffix.
 7. Smoke-test picture upload/replacement/removal, the cleanup queue and DLQ
    attributes, both cleanup alarms, S3 public-access block, lifecycle rules, and
-   the account-prefix race behavior in the cleanup runbook above.
-8. Update the web stack's `ApiOrigin` and only then publish the web/Flutter
-   build. After CloudFront finishes, inspect the live response header and require
-   the exact API origin (scheme and host only) in `img-src`:
+   the account-prefix race behavior in the cleanup runbook above. Search every
+   alias again after a picture change to ensure index rows hydrate the canonical
+   current profile rather than an embedded stale copy.
+8. Only after the zero migration rerun and live API checks, update the web
+   stack's `ApiOrigin` and publish the matching web/Flutter build and revised
+   Privacy Policy and Terms. After CloudFront finishes, inspect the live response
+   header and require the exact API origin (scheme and host only) in `img-src`:
 
    ```bash
    curl -fsSI WEB_BASE_URL/ | tr -d '\r' | \
@@ -301,20 +348,24 @@ publish the matching web or Flutter build early:
 
 The compatibility endpoint `PATCH /v1/social/discoverability` remains available
 for rolling clients but always returns `discoverable:true`; new clients expose no
-privacy toggle. The API continues to read legacy false/missing picture fields.
-Rollback only to this compatible API release or newer after migration—an older
-writer could recreate hidden or incomplete prefix rows. A web/Flutter rollback
-is safe because all new public-player and match picture fields are additive and
-nullable, but the deployed CSP must retain the API origin.
+privacy toggle. Every active account remains discoverable. After the suffix
+migration, roll the API back only to the named compatibility release or newer.
+An older writer cannot maintain or delete the complete suffix index and an old
+migration can misclassify new rows as stale. Do not restore selected rows in
+place. DynamoDB point-in-time recovery creates a new table; validate a restored
+table and use a reviewed configuration deployment if recovery is required.
+A web/Flutter rollback may hide handles but must tolerate the nullable
+`username` field and retain the API origin in the deployed CSP.
 
 ### Legacy match display-name migration
 
 The backend writes public display-name snapshots into all new private and quick
 matches. Records created before that behavior can be backfilled with the
 dry-run-first migration command below. It resolves each stored Cognito subject
-to the same trimmed `name` (or Cognito username fallback) used by
-authentication, skips already named and deleted participants, and never prints
-resolved names or account IDs.
+to its trimmed public `name`, skips already named and deleted participants, and
+never prints resolved names or account IDs. A record without a safe public name
+is `unresolved`; the migration never substitutes a native username or a
+provider-generated login identifier into match history.
 
 From an activated backend environment installed with the `[dev]` extra (which
 includes the AWS login-profile credential provider), inspect one match first:
@@ -373,19 +424,23 @@ python -m life_api.migrate_ratings finish \
   --profile game-of-life --apply
 ```
 
-`plan` also reports missing confirmed-user public profiles; `apply` creates them
-as public and writes each available one-, two-, and three-character search
-prefix. Completed matches are globally ordered by authoritative
-terminal time and match ID. Each attributable match conditionally writes one
-contiguous `ratingSequence`, both exact stats transitions, reconstructed kills,
-and a participant-free ledger. Legacy histories whose participants were already
-anonymized cannot be attributed: the migration reports `excluded_legacy`, marks
-them `rated=false`, increments their match version for ETag invalidation, and
-preserves state, result, `createdAt`, and `updatedAt`.
+`plan` also reports missing confirmed or external-provider public profiles;
+`apply` creates them
+as public, exposes only a native username as a nullable handle, and writes the
+normalized display-name and native-username suffix rows. Provider-generated
+login identifiers remain private. Completed matches are globally ordered by
+authoritative terminal time and match ID. Each attributable match conditionally
+writes one contiguous `ratingSequence`, both exact stats transitions,
+reconstructed kills, and a participant-free ledger. Legacy histories whose
+participants were already anonymized cannot be attributed: the migration
+reports `excluded_legacy`, marks them `rated=false`, increments their match
+version for ETag invalidation, and preserves state, result, `createdAt`, and
+`updatedAt`.
 
 Before `finish --apply`, require `eligible=0`, `would_apply=0`, no orphan or
 malformed ledgers, exact stats/ledger replay, contiguous `globalVersion`, and a
-public profile for every confirmed active Cognito user. The command exits
+public profile for every enabled confirmed or external-provider Cognito user.
+The command exits
 nonzero if finish is incomplete. After ready, verify `/v1/stats/me`, `/v1/social`,
 and a rated terminal result before deploying the matching web release. Never apply
 historical Elo after live rated completions; the control fence is what guarantees

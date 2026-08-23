@@ -48,20 +48,26 @@ placeholders in a store record.
   consistent with [`privacy-policy.md`](privacy-policy.md).
 - Age-rating, privacy, and user-generated-content answers reflecting that an
   online opponent, friend/request/challenge participant, or signed-in searcher
-  can see a player's user-authored display name, rating, and current picture.
+  can see a player's user-authored display name, rating, and current picture;
+  friends, request/challenge participants, and signed-in searchers also see a
+  native login username as an `@` handle when one exists. Match-only opponents
+  do not receive the handle.
 - Review notes and policy answers must state that picture uploaders need the
   necessary rights, unlawful/abusive/infringing pictures are prohibited, and the
   service may reject or remove them.
-- A reviewed store-compliance plan for display-name moderation, reporting,
+- A reviewed store-compliance plan for display-name and native-handle
+  moderation, reporting,
   friend-request/challenge spam controls, blocking, and abuse response. The
   current Social backend does not add complete report/block/moderation product
   controls; treat any controls required by the target store
   as a publication blocker rather than answering that no shared user-authored
   content exists.
-- Privacy/data-safety answers covering public-by-default display-name discovery,
-  processed profile pictures, Social graph and challenge records, Elo and
-  game/kill statistics, automatically refreshed push registrations after OS
-  permission, and anonymized retained match aggregates.
+- Privacy/data-safety answers covering public-by-default substring discovery
+  over display names and native login usernames, visible native `@` handles in
+  Social surfaces, unsearchable email/provider login identifiers, processed
+  profile pictures, Social graph and challenge records, Elo and game/kill
+  statistics, automatically refreshed push registrations after OS permission,
+  and anonymized retained match aggregates.
 
 ## Verification
 

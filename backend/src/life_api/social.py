@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import secrets
-import unicodedata
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from uuid import uuid4
@@ -33,6 +32,11 @@ from .models import (
     StoredSocialRelation,
     User,
 )
+from .player_search import (
+    SEARCH_INDEX_VERSION,
+    normalize_player_query,
+    normalize_search_text,
+)
 from .ratings import accumulated_kills, accumulated_spawns
 from .repository import Repository
 
@@ -47,26 +51,35 @@ class SocialService:
     avatars: AvatarService
 
     def index_user(self, user: User) -> None:
-        normalized = normalize_display_name(user.display_name)
-        if not normalized:
+        normalized = normalize_search_text(user.display_name)
+        if not normalized or len(normalized) > 48:
             raise ApiError(
-                "invalidDisplayName", "A public display name is required.", status_code=422
+                "invalidDisplayName",
+                "A public display name of 1 to 48 searchable characters is required.",
+                status_code=422,
             )
         self.repository.upsert_public_player(
             StoredPublicPlayer(
                 id=user.id,
+                username=user.public_username,
+                normalized_username=(
+                    normalize_search_text(user.public_username)
+                    if user.public_username is not None
+                    else None
+                ),
                 display_name=user.display_name,
                 normalized_display_name=normalized,
+                search_index_version=SEARCH_INDEX_VERSION,
             )
         )
 
     def search(self, user: User, query: str) -> PlayerSearchResponse:
         self._require_metrics_ready()
-        normalized = normalize_display_name(query)
+        normalized = normalize_player_query(query)
         if len(normalized) < 1 or len(normalized) > 48:
             raise ApiError(
                 "invalidPlayerSearch",
-                "Search with 1 to 48 display-name characters.",
+                "Search with 1 to 48 name or username characters.",
                 status_code=422,
             )
         self.repository.check_player_search_rate(user.id)
@@ -383,6 +396,7 @@ class SocialService:
         stats = self.repository.get_player_stats(player.id)
         return PublicPlayerDocument(
             id=player.id,
+            username=player.username,
             display_name=player.display_name,
             rating=stats.rating,
             avatar_url=self.avatars.url(player),
@@ -418,4 +432,4 @@ class SocialService:
 
 
 def normalize_display_name(value: str) -> str:
-    return " ".join(unicodedata.normalize("NFKC", value).casefold().split())
+    return normalize_search_text(value)

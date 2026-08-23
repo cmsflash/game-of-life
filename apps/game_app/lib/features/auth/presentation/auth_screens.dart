@@ -197,7 +197,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                 validator: validateUsername,
                 decoration: const InputDecoration(
                   labelText: 'Username',
-                  helperText: 'Your private sign-in ID',
+                  helperText: 'Public and searchable by signed-in players',
                   prefixIcon: Icon(Icons.alternate_email),
                 ),
               ),

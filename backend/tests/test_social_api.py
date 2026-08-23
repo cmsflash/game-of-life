@@ -44,6 +44,7 @@ def test_discovery_is_public_and_legacy_privacy_patch_is_a_no_op(
         "items": [
             {
                 "id": bob_user["id"],
+                "username": "bob",
                 "displayName": "Bob Builder",
                 "rating": 1200,
                 "avatarUrl": None,
@@ -51,7 +52,7 @@ def test_discovery_is_public_and_legacy_privacy_patch_is_a_no_op(
             }
         ]
     }
-    assert "username" not in found.text
+    assert found.json()["items"][0]["username"] == "bob"
     assert "email" not in found.text
 
     request = client.post(
@@ -88,6 +89,7 @@ def test_friend_challenge_is_private_idempotent_and_updates_rated_stats(
     assert incoming["incomingFriendRequests"][0]["id"] == request_id
     assert incoming["incomingFriendRequests"][0]["player"] == {
         "id": alice_user["id"],
+        "username": "alice",
         "displayName": "Alice Strategist",
         "rating": 1200,
         "avatarUrl": None,
@@ -185,3 +187,54 @@ def test_search_indexes_one_two_and_three_character_name_prefixes(client: TestCl
         )
         assert response.status_code == 200
         assert [item["id"] for item in response.json()["items"]] == [expected["id"]]
+
+
+def test_search_matches_any_display_name_or_native_username_substring(
+    client: TestClient,
+) -> None:
+    target, target_headers = _account(client, "CMS_Flash", "Shen Zhuoran")
+    _, seeker = _account(client, "searcher", "Other Player")
+
+    for query in (
+        "CMS",
+        "CMS_Flash",
+        "@cms_flash",
+        "ＣＭＳ",  # noqa: RUF001
+        "Shen",
+        "hen Zhu",
+        "Zhuoran",
+        "Shen   Zhuoran",
+    ):
+        response = client.get(
+            "/v1/players/search",
+            params={"q": query},
+            headers=seeker,
+        )
+        assert response.status_code == 200
+        assert response.json()["items"] == [
+            {
+                "id": target["id"],
+                "username": "CMS_Flash",
+                "displayName": "Shen Zhuoran",
+                "rating": 1200,
+                "avatarUrl": None,
+                "avatarVersion": 0,
+            }
+        ]
+
+    assert (
+        client.get(
+            "/v1/players/search",
+            params={"q": "cms_flash@example.com"},
+            headers=seeker,
+        ).json()["items"]
+        == []
+    )
+    assert (
+        client.get(
+            "/v1/players/search",
+            params={"q": "Shen"},
+            headers=target_headers,
+        ).json()["items"]
+        == []
+    )

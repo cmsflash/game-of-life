@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import base64
 import binascii
+import unicodedata
 from datetime import UTC, datetime
 from enum import StrEnum
 from typing import Annotated, Any, Literal
@@ -35,6 +36,7 @@ class StrictModel(BaseModel):
 class User(StrictModel):
     id: str
     username: str
+    public_username: str | None = Field(default=None, alias="publicUsername")
     email: str
     display_name: str = Field(alias="displayName")
     email_verified: bool = Field(default=False, alias="emailVerified")
@@ -60,9 +62,11 @@ class RegisterRequest(StrictModel):
     @field_validator("display_name")
     @classmethod
     def normalize_display_name(cls, value: str) -> str:
-        normalized = " ".join(value.split())
+        normalized = " ".join(unicodedata.normalize("NFKC", value).split())
         if not normalized:
             raise ValueError("displayName must contain a visible character")
+        if len(normalized.casefold()) > 48:
+            raise ValueError("displayName must contain at most 48 searchable characters")
         return normalized
 
     @field_validator("password")
@@ -334,6 +338,7 @@ class PlayerSummary(StrictModel):
 
 
 class PublicPlayerDocument(PlayerSummary):
+    username: str | None = None
     rating: int
     avatar_url: str | None = Field(default=None, alias="avatarUrl")
     avatar_version: int = Field(default=0, ge=0, alias="avatarVersion")
@@ -445,8 +450,11 @@ class SocialSnapshot(StrictModel):
 
 class StoredPublicPlayer(StrictModel):
     id: str
+    username: str | None = None
+    normalized_username: str | None = Field(default=None, alias="normalizedUsername")
     display_name: str = Field(alias="displayName")
     normalized_display_name: str = Field(alias="normalizedDisplayName")
+    search_index_version: int = Field(default=1, ge=1, alias="searchIndexVersion")
     # Retained only so old rows and rolling clients remain readable. Discovery
     # is now always public for active profiles; false is migrated to true.
     discoverable: bool = True

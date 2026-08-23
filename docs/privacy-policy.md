@@ -1,6 +1,6 @@
 # Privacy Policy
 
-Effective August 18, 2026.
+Effective August 23, 2026.
 
 This policy describes how The Game of Life processes information when a player
 uses the local game or the optional online service.
@@ -15,8 +15,12 @@ current application contains no advertising or third-party analytics.
 
 ## Information processed for online play
 
-An online account includes a username, display name, email address,
-verification state, internal account identifier, and authentication tokens.
+An online account includes a display name, email address, verification state,
+internal account identifier, and authentication tokens. An account created with
+the native password flow also has a player-chosen login username. An account
+created through Google or another identity provider may instead have a
+provider-generated internal login identifier; that value is not a public
+username or search alias.
 Password handling is delegated to the configured identity provider; the game
 service does not store plaintext passwords. Google account data is processed
 only when optional Google sign-in is enabled and the player chooses it.
@@ -27,8 +31,13 @@ losses/draws, kill and spawn totals, friend relationships and requests, pending 
 challenges, short-lived matchmaking records, and—when uploaded—a processed
 profile picture. A player's chosen display name and current profile picture are
 shown to other players; the display name is retained with match history, while
-matches do not store picture URLs. Login usernames and email addresses are not
-included in match or Social documents.
+matches do not store picture URLs. A native login username appears as an `@`
+handle in player search, friend, and challenge interfaces. Native usernames do
+not enter stored friend relationships, challenges, matches, matchmaking records,
+or notification documents.
+Email addresses and identity-provider-generated login identifiers do not enter
+public search or Social documents and are never shown to other players. Public
+summaries use a separate opaque game player ID for relationships and actions.
 
 Kill and spawn totals update during active games after each accepted rated move.
 Kills count opponent-color deaths on either player's turn; spawns count evolution
@@ -37,9 +46,14 @@ losses, draws, and total-game counts update when a rated match ends. Local games
 not contribute to online statistics.
 
 Every active account appears in player search during this development phase.
-Other signed-in players can find it by a case-insensitive public-display-name
-prefix and see only its public display name, opaque player ID, rating, and current
-profile-picture reference. There is currently no search-privacy preference.
+Other signed-in players can find it by any substring of its public display name
+or, for a native account, its login username. Queries and indexed values use
+Unicode NFKC normalization, case folding, and whitespace normalization and may
+contain 1–48 characters. Search results show the public display name, the native
+username as an `@` handle when one exists, opaque player ID, rating, and current
+profile-picture reference. Provider-generated login identifiers and email
+addresses are neither searchable nor returned. There is currently no
+search-privacy preference.
 
 Profile-picture upload accepts a JPEG, PNG, or WebP of up to 3 MiB. The service
 validates and decodes it under strict dimension limits, applies orientation and a
@@ -70,6 +84,9 @@ Information is used to provide accounts, recovery, matchmaking, online play,
 friends, challenges, ratings, replays, turn notifications, abuse prevention,
 security, and service operations. Public display names are disclosed to matched
 opponents, friends, request/challenge participants, and signed-in searchers.
+Native login usernames are disclosed as `@` handles to friends,
+request/challenge participants, and signed-in searchers, but not to match-only
+opponents or through matchmaking and notification records.
 Current profile pictures are available through their public versioned delivery
 URLs. Other information is disclosed only
 to infrastructure and identity providers needed for those functions, or when
@@ -122,9 +139,10 @@ legally required. It is not sold and is not used for targeted advertising.
 A signed-in player can permanently delete an account from **Settings → Delete
 account**. Deletion removes the identity account and recovery email, cancels
 waiting matches, treats active matches as resignations, removes player/search/
-Social/stats records, profile pictures, and push subscriptions, and anonymizes stored display names
-and move identifiers in retained match history. Result ledgers keep only match-
-level scores, kill counts, rating transitions, and ordering—not player IDs.
+Social/stats records, native-username handles and suffix-index rows, profile
+pictures, and push subscriptions, and anonymizes stored display names and move
+identifiers in retained match history. Result ledgers keep only match-level
+scores, kill counts, rating transitions, and ordering—not player IDs.
 Limited operational logs and encrypted
 backups age out under the periods above. Encrypted DynamoDB stream copies of
 recently changed records expire after about 24 hours; only match changes pass

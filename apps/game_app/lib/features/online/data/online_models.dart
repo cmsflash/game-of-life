@@ -5,7 +5,6 @@ import 'package:game_engine/game_engine.dart' as engine;
 class OnlinePlayer {
   const OnlinePlayer({
     required this.id,
-    required this.username,
     required this.displayName,
     required this.color,
     this.avatarUrl,
@@ -13,7 +12,6 @@ class OnlinePlayer {
   });
 
   final String id;
-  final String username;
   final String displayName;
   final engine.Player color;
   final String? avatarUrl;
@@ -22,17 +20,13 @@ class OnlinePlayer {
   factory OnlinePlayer.fromJson(
     Map<String, dynamic> json,
     engine.Player fallbackColor,
-  ) {
-    final username = json['username'] as String? ?? 'player';
-    return OnlinePlayer(
-      id: json['userId'] as String? ?? json['id'] as String? ?? username,
-      username: username,
-      displayName: json['displayName'] as String? ?? username,
-      color: _player(json['color']) ?? fallbackColor,
-      avatarUrl: json['avatarUrl'] as String?,
-      avatarVersion: (json['avatarVersion'] as num?)?.round() ?? 0,
-    );
-  }
+  ) => OnlinePlayer(
+    id: json['userId'] as String? ?? json['id'] as String? ?? '',
+    displayName: json['displayName'] as String? ?? 'Player',
+    color: _player(json['color']) ?? fallbackColor,
+    avatarUrl: json['avatarUrl'] as String?,
+    avatarVersion: (json['avatarVersion'] as num?)?.round() ?? 0,
+  );
 }
 
 class OnlineMatchSummary {

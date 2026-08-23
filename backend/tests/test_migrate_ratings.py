@@ -25,6 +25,7 @@ from life_api.models import (
     PlayerSummary,
     StoredMatch,
     StoredPlayerStats,
+    StoredPublicPlayer,
 )
 from life_api.ratings import build_metrics_ledger
 
@@ -149,6 +150,38 @@ class NamedConfirmedCognito:
                         {"Name": "sub", "Value": "confirmed-user"},
                         {"Name": "name", "Value": self.display_name},
                     ],
+                }
+            ]
+        }
+
+
+class FederatedCognito:
+    def __init__(
+        self,
+        *,
+        identities: str = '[{"providerName":"Google"}]',
+        status: str = "CONFIRMED",
+        display_name: str | None = "Provider Player",
+    ) -> None:
+        self.identities = identities
+        self.status = status
+        self.display_name = display_name
+
+    def list_users(self, **kwargs: Any) -> dict[str, Any]:
+        del kwargs
+        attributes = [
+            {"Name": "sub", "Value": "federated-user"},
+            {"Name": "identities", "Value": self.identities},
+        ]
+        if self.display_name is not None:
+            attributes.append({"Name": "name", "Value": self.display_name})
+        return {
+            "Users": [
+                {
+                    "Username": "Google_private-provider-id",
+                    "Enabled": True,
+                    "UserStatus": self.status,
+                    "Attributes": attributes,
                 }
             ]
         }
@@ -363,18 +396,8 @@ def test_profile_backfill_checks_legacy_deletion_guard_before_public_indexing() 
     assert all(not item.get("PK", "").startswith("PLAYER#") for item in table.items)
 
 
-@pytest.mark.parametrize(
-    ("display_name", "expected_partitions"),
-    [
-        ("Q", {"SEARCH#q"}),
-        ("Li", {"SEARCH#l", "SEARCH#li"}),
-        ("Alice", {"SEARCH#a", "SEARCH#al", "SEARCH#ali"}),
-    ],
-)
-def test_profile_backfill_writes_all_available_public_search_prefixes(
-    display_name: str,
-    expected_partitions: set[str],
-) -> None:
+@pytest.mark.parametrize("display_name", ["Q", "Li", "Alice"])
+def test_profile_backfill_writes_display_and_username_suffixes(display_name: str) -> None:
     client = RecordingClient()
 
     report = backfill_confirmed_profiles(
@@ -387,12 +410,93 @@ def test_profile_backfill_writes_all_available_public_search_prefixes(
 
     assert report.profiles_created == 1
     deserializer = TypeDeserializer()
-    partitions = {
-        str(deserializer.deserialize(operation["Put"]["Item"]["PK"]))
+    keys = {
+        (
+            str(deserializer.deserialize(operation["Put"]["Item"]["PK"])),
+            str(deserializer.deserialize(operation["Put"]["Item"]["SK"])),
+        )
         for operation in client.transactions[0]
         if operation.get("Put", {}).get("Item", {}).get("entity") == {"S": "playerSearch"}
     }
-    assert partitions == expected_partitions
+    expected = {
+        (f"SEARCH_TEXT#{suffix[0]}", f"{suffix}#confirmed-user")
+        for value in (display_name.casefold(), "confirmed-login")
+        for offset in range(len(value))
+        if (suffix := value[offset:])
+    }
+    assert keys == expected
+
+
+def _created_public_player(client: RecordingClient) -> StoredPublicPlayer:
+    operation = next(
+        operation
+        for operation in client.transactions[0]
+        if operation.get("Put", {}).get("Item", {}).get("entity") == {"S": "publicPlayer"}
+    )
+    document = TypeDeserializer().deserialize(operation["Put"]["Item"]["document"])
+    return StoredPublicPlayer.model_validate_json(document)
+
+
+def test_profile_backfill_includes_external_provider_with_private_username() -> None:
+    client = RecordingClient()
+
+    report = backfill_confirmed_profiles(
+        MemoryTable([]),
+        client,
+        FederatedCognito(status="EXTERNAL_PROVIDER", display_name=None),
+        "pool-id",
+        apply=True,
+    )
+
+    assert report.profiles_created == 1
+    player = _created_public_player(client)
+    assert player.username is None
+    assert player.normalized_username is None
+    assert player.display_name == "Google Player"
+    search_sort_keys = {
+        TypeDeserializer().deserialize(operation["Put"]["Item"]["SK"])
+        for operation in client.transactions[0]
+        if operation.get("Put", {}).get("Item", {}).get("entity") == {"S": "playerSearch"}
+    }
+    assert all("google_private-provider-id" not in key for key in search_sort_keys)
+
+
+@pytest.mark.parametrize("identities", ["{}", "null", "0", "{"])
+def test_profile_backfill_fails_closed_for_unexpected_identity_shapes(
+    identities: str,
+) -> None:
+    client = RecordingClient()
+
+    report = backfill_confirmed_profiles(
+        MemoryTable([]),
+        client,
+        FederatedCognito(identities=identities, display_name=None),
+        "pool-id",
+        apply=True,
+    )
+
+    assert report.profiles_created == 1
+    player = _created_public_player(client)
+    assert player.username is None
+    assert player.normalized_username is None
+    assert player.display_name == "Google Player"
+
+
+def test_profile_backfill_canonicalizes_public_display_name() -> None:
+    client = RecordingClient()
+
+    report = backfill_confirmed_profiles(
+        MemoryTable([]),
+        client,
+        FederatedCognito(display_name="  Ｓｈｅｎ\u3000\u3000Zhuoran  "),  # noqa: RUF001
+        "pool-id",
+        apply=True,
+    )
+
+    assert report.profiles_created == 1
+    player = _created_public_player(client)
+    assert player.display_name == "Shen Zhuoran"
+    assert player.normalized_display_name == "shen zhuoran"
 
 
 def _finished_table(*, control_version: int = 1, corrupt_zero_stats: bool = False) -> MemoryTable:

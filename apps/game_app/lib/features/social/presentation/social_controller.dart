@@ -167,7 +167,7 @@ class SocialController extends StateNotifier<SocialState> {
         searchQuery: normalized,
         searchResults: const [],
         searching: false,
-        error: 'Enter up to 48 characters of a public display name.',
+        error: 'Enter up to 48 characters of a name or @username.',
       );
       return;
     }

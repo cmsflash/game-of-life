@@ -55,15 +55,9 @@ void main() {
       'yourColor': 'black',
       'nextPlayerColor': 'black',
       'players': [
-        {
-          'userId': 'a',
-          'username': 'alice',
-          'displayName': 'Alice',
-          'color': 'black',
-        },
+        {'userId': 'a', 'displayName': 'Alice', 'color': 'black'},
         {
           'userId': 'b',
-          'username': 'bob',
           'displayName': 'Bob',
           'color': 'white',
           'avatarUrl': 'https://api.example.test/v1/players/b/avatar?v=2',
@@ -98,8 +92,8 @@ void main() {
         'cells': cells,
       },
       'yourColor': 'white',
-      'blackPlayer': {'id': 'a', 'username': 'alice'},
-      'whitePlayer': {'id': 'b', 'username': 'bob'},
+      'blackPlayer': {'id': 'a', 'displayName': 'Alice'},
+      'whitePlayer': {'id': 'b', 'displayName': 'Bob'},
     });
 
     expect(match.id, 'alternate');

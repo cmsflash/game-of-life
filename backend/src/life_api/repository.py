@@ -33,6 +33,13 @@ from .models import (
     StoredPushSubscription,
     StoredSocialRelation,
 )
+from .player_search import (
+    SEARCH_INDEX_VERSION,
+    player_matches_query,
+    player_search_sort_key,
+    search_index_keys,
+    search_partition,
+)
 from .settings import Settings
 
 _MATCHMAKING_WAIT_TTL = timedelta(minutes=10)
@@ -71,7 +78,7 @@ class Repository(Protocol):
     def get_public_players(self, player_ids: set[str]) -> dict[str, StoredPublicPlayer]: ...
 
     def search_public_players(
-        self, normalized_prefix: str, *, limit: int
+        self, normalized_query: str, *, limit: int
     ) -> list[StoredPublicPlayer]: ...
 
     def check_player_search_rate(self, user_id: str) -> None: ...
@@ -292,15 +299,21 @@ class InMemoryRepository:
                     deep=True,
                 )
             elif (
-                existing.display_name != player.display_name
+                existing.username != player.username
+                or existing.normalized_username != player.normalized_username
+                or existing.display_name != player.display_name
                 or existing.normalized_display_name != player.normalized_display_name
+                or existing.search_index_version != player.search_index_version
                 or not existing.discoverable
                 or existing.discoverability_updated_at is not None
             ):
                 self._public_players[player.id] = existing.model_copy(
                     update={
+                        "username": player.username,
+                        "normalized_username": player.normalized_username,
                         "display_name": player.display_name,
                         "normalized_display_name": player.normalized_display_name,
+                        "search_index_version": player.search_index_version,
                         "discoverable": True,
                         "discoverability_updated_at": None,
                         "version": existing.version + 1,
@@ -368,16 +381,19 @@ class InMemoryRepository:
         }
 
     def search_public_players(
-        self, normalized_prefix: str, *, limit: int
+        self, normalized_query: str, *, limit: int
     ) -> list[StoredPublicPlayer]:
         with self._lock:
             matches = [
                 player.model_copy(deep=True)
                 for player in self._public_players.values()
-                if player.normalized_display_name.startswith(normalized_prefix)
+                if player_matches_query(player, normalized_query)
                 and self.account_state(player.id) == AccountState.active
             ]
-        return sorted(matches, key=lambda value: (value.normalized_display_name, value.id))[:limit]
+        return sorted(
+            matches,
+            key=lambda value: player_search_sort_key(value, normalized_query),
+        )[:limit]
 
     def check_player_search_rate(self, user_id: str) -> None:
         with self._lock:
@@ -1423,6 +1439,10 @@ class DynamoRepository:
 
     @staticmethod
     def _search_keys(player: StoredPublicPlayer) -> list[dict[str, str]]:
+        return search_index_keys(player)
+
+    @staticmethod
+    def _legacy_search_keys(player: StoredPublicPlayer) -> list[dict[str, str]]:
         name = player.normalized_display_name
         return [
             {
@@ -1629,6 +1649,10 @@ class DynamoRepository:
         ]
         if profile_item is not None:
             profile = StoredPublicPlayer.model_validate_json(profile_item["document"])
+            deletion_keys = {
+                (key["PK"], key["SK"]): key
+                for key in [*self._legacy_search_keys(profile), *self._search_keys(profile)]
+            }
             transaction.extend(
                 {
                     "Delete": {
@@ -1636,7 +1660,7 @@ class DynamoRepository:
                         "Key": _serialize(key),
                     }
                 }
-                for key in self._search_keys(profile)
+                for key in deletion_keys.values()
             )
         self._client.transact_write_items(TransactItems=transaction)
         # The profile may have changed after the pre-fence read but before this
@@ -1649,7 +1673,14 @@ class DynamoRepository:
             current_profile = StoredPublicPlayer.model_validate_json(
                 current_profile_item["document"]
             )
-            for key in self._search_keys(current_profile):
+            deletion_keys = {
+                (key["PK"], key["SK"]): key
+                for key in [
+                    *self._legacy_search_keys(current_profile),
+                    *self._search_keys(current_profile),
+                ]
+            }
+            for key in deletion_keys.values():
                 try:
                     self._table.delete_item(
                         Key=key,
@@ -1671,8 +1702,11 @@ class DynamoRepository:
                 else None
             )
             profile_changed = existing is None or (
-                existing.display_name != player.display_name
+                existing.username != player.username
+                or existing.normalized_username != player.normalized_username
+                or existing.display_name != player.display_name
                 or existing.normalized_display_name != player.normalized_display_name
+                or existing.search_index_version != player.search_index_version
                 or not existing.discoverable
                 or existing.discoverability_updated_at is not None
             )
@@ -1690,8 +1724,11 @@ class DynamoRepository:
             elif profile_changed:
                 stored = existing.model_copy(
                     update={
+                        "username": player.username,
+                        "normalized_username": player.normalized_username,
                         "display_name": player.display_name,
                         "normalized_display_name": player.normalized_display_name,
+                        "search_index_version": player.search_index_version,
                         "discoverable": True,
                         "discoverability_updated_at": None,
                         "version": existing.version + 1,
@@ -1784,6 +1821,12 @@ class DynamoRepository:
             ]
             new_search_keys = self._search_keys(stored)
             new_search_pairs = {(value["PK"], value["SK"]) for value in new_search_keys}
+            old_search_keys = (
+                self._search_keys(existing)
+                if existing is not None and existing.search_index_version >= SEARCH_INDEX_VERSION
+                else []
+            )
+            old_search_pairs = {(value["PK"], value["SK"]) for value in old_search_keys}
             if existing is not None:
                 transaction.extend(
                     {
@@ -1792,9 +1835,19 @@ class DynamoRepository:
                             "Key": _serialize(key),
                         }
                     }
-                    for key in self._search_keys(existing)
+                    for key in old_search_keys
                     if (key["PK"], key["SK"]) not in new_search_pairs
                 )
+                if existing.search_index_version < SEARCH_INDEX_VERSION:
+                    transaction.extend(
+                        {
+                            "Delete": {
+                                "TableName": self._table_name,
+                                "Key": _serialize(key),
+                            }
+                        }
+                        for key in self._legacy_search_keys(existing)
+                    )
             transaction.extend(
                 {
                     "Put": {
@@ -1804,13 +1857,21 @@ class DynamoRepository:
                                 **key,
                                 "entity": "playerSearch",
                                 "playerId": stored.id,
-                                "document": stored.model_dump_json(by_alias=True),
+                                "searchIndexVersion": SEARCH_INDEX_VERSION,
+                                "profileVersion": stored.version,
                             }
                         ),
                     }
                 }
                 for key in new_search_keys
+                if (key["PK"], key["SK"]) not in old_search_pairs
             )
+            if len(transaction) > 100:
+                raise ApiError(
+                    "profileSearchIndexTooLarge",
+                    "The public profile is too large to index safely.",
+                    status_code=422,
+                )
             try:
                 self._client.transact_write_items(TransactItems=transaction)
                 return
@@ -1881,6 +1942,7 @@ class DynamoRepository:
                 update={
                     "discoverable": True,
                     "discoverability_updated_at": None,
+                    "search_index_version": SEARCH_INDEX_VERSION,
                     "version": player.version + 1,
                 }
             )
@@ -1909,6 +1971,15 @@ class DynamoRepository:
             ]
             transaction.extend(
                 {
+                    "Delete": {
+                        "TableName": self._table_name,
+                        "Key": _serialize(key),
+                    }
+                }
+                for key in self._legacy_search_keys(player)
+            )
+            transaction.extend(
+                {
                     "Put": {
                         "TableName": self._table_name,
                         "Item": _serialize(
@@ -1916,7 +1987,8 @@ class DynamoRepository:
                                 **key,
                                 "entity": "playerSearch",
                                 "playerId": user_id,
-                                "document": updated.model_dump_json(by_alias=True),
+                                "searchIndexVersion": SEARCH_INDEX_VERSION,
+                                "profileVersion": updated.version,
                             }
                         ),
                     }
@@ -1981,22 +2053,6 @@ class DynamoRepository:
                     ),
                 }
             },
-            *[
-                {
-                    "Put": {
-                        "TableName": self._table_name,
-                        "Item": _serialize(
-                            {
-                                **key,
-                                "entity": "playerSearch",
-                                "playerId": user_id,
-                                "document": updated.model_dump_json(by_alias=True),
-                            }
-                        ),
-                    }
-                }
-                for key in self._search_keys(updated)
-            ],
         ]
         transaction.append(
             {
@@ -2037,37 +2093,74 @@ class DynamoRepository:
         return updated
 
     def search_public_players(
-        self, normalized_prefix: str, *, limit: int
+        self, normalized_query: str, *, limit: int
     ) -> list[StoredPublicPlayer]:
-        prefix = normalized_prefix[: min(3, len(normalized_prefix))]
         query: dict[str, Any] = {
-            "KeyConditionExpression": Key("PK").eq(f"SEARCH#{prefix}")
-            & Key("SK").begins_with(normalized_prefix),
+            "KeyConditionExpression": Key("PK").eq(search_partition(normalized_query))
+            & Key("SK").begins_with(normalized_query),
             "ConsistentRead": True,
             "Limit": max(limit * 2, 20),
         }
-        found: list[StoredPublicPlayer] = []
+        found: dict[str, StoredPublicPlayer] = {}
         seen: set[str] = set()
-        while len(found) < limit:
+        examined = 0
+        suffix_row_budget = max(limit * 100, 2_000)
+        while len(found) < limit and examined < suffix_row_budget:
             response = self._table.query(**query)
-            candidates = [str(item["playerId"]) for item in response.get("Items", [])]
+            items = response.get("Items", [])
+            examined += len(items)
+            candidates = [
+                str(item["playerId"])
+                for item in items
+                if item.get("searchIndexVersion") == SEARCH_INDEX_VERSION
+            ]
             profiles = self.get_public_players(set(candidates))
             for player_id in candidates:
                 player = profiles.get(player_id)
                 if (
                     player is not None
-                    and player.normalized_display_name.startswith(normalized_prefix)
+                    and player_matches_query(player, normalized_query)
                     and player_id not in seen
                 ):
-                    found.append(player)
+                    found[player_id] = player
                     seen.add(player_id)
-                    if len(found) == limit:
-                        break
             last_key = response.get("LastEvaluatedKey")
-            if not last_key or len(found) == limit:
+            if not last_key:
                 break
             query["ExclusiveStartKey"] = last_key
-        return found
+        if len(found) < limit:
+            legacy_prefix = normalized_query[: min(3, len(normalized_query))]
+            legacy_query: dict[str, Any] = {
+                "KeyConditionExpression": Key("PK").eq(f"SEARCH#{legacy_prefix}")
+                & Key("SK").begins_with(normalized_query),
+                "ConsistentRead": True,
+                "Limit": max(limit * 2, 20),
+            }
+            legacy_examined = 0
+            legacy_row_budget = max(limit * 10, 500)
+            while len(found) < limit and legacy_examined < legacy_row_budget:
+                response = self._table.query(**legacy_query)
+                items = response.get("Items", [])
+                legacy_examined += len(items)
+                candidates = [str(item["playerId"]) for item in items]
+                profiles = self.get_public_players(set(candidates))
+                for player_id in candidates:
+                    player = profiles.get(player_id)
+                    if (
+                        player is not None
+                        and player_matches_query(player, normalized_query)
+                        and player_id not in seen
+                    ):
+                        found[player_id] = player
+                        seen.add(player_id)
+                last_key = response.get("LastEvaluatedKey")
+                if not last_key:
+                    break
+                legacy_query["ExclusiveStartKey"] = last_key
+        return sorted(
+            found.values(),
+            key=lambda value: player_search_sort_key(value, normalized_query),
+        )[:limit]
 
     def check_player_search_rate(self, user_id: str) -> None:
         minute = int(datetime.now(UTC).timestamp()) // 60

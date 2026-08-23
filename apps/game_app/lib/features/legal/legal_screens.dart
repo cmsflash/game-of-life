@@ -27,7 +27,7 @@ class LegalScreen extends ConsumerWidget {
         eyebrow: 'Legal',
         title: 'Privacy Policy',
         introduction:
-            'Effective August 18, 2026. This policy explains what The Game of '
+            'Effective August 23, 2026. This policy explains what The Game of '
             'Life processes when you play locally or use an online account.',
         sections: _privacySections,
       ),
@@ -35,7 +35,7 @@ class LegalScreen extends ConsumerWidget {
         eyebrow: 'Legal',
         title: 'Terms of Use',
         introduction:
-            'Effective August 18, 2026. These terms apply when you create an '
+            'Effective August 23, 2026. These terms apply when you create an '
             'account or use the online game service.',
         sections: _termsSections,
       ),
@@ -297,11 +297,15 @@ const _privacySections = [
   ),
   _LegalSectionData(
     'Public profile and Social',
-    'Your display name, profile picture, and current Elo rating are searchable '
-        'by signed-in players. Search results and Social do not expose your '
-        'username or email address. The service stores friend relationships, '
-        'incoming and outgoing requests, and pending rated challenges so you '
-        'can play directly with friends. Challenges expire after seven days.',
+    'If you register with a username and password, your native login username '
+        'is public. Signed-in players can search any normalized substring of '
+        'that username or your display name. Your native username, display '
+        'name, profile picture, and current Elo rating appear in player search '
+        'and Social. Email addresses and provider-generated login identifiers '
+        'remain private. Online match documents include display names but not '
+        'usernames. The service stores friend relationships, incoming and '
+        'outgoing requests, and pending rated challenges so you can play '
+        'directly with friends. Challenges expire after seven days.',
   ),
   _LegalSectionData(
     'Profile picture storage and delivery',
@@ -327,6 +331,7 @@ const _privacySections = [
     'The service stores match rules, board states, moves, results, internal '
         'player identifiers, display names, matchmaking records, ratings, and '
         'aggregate player stats so it can run and verify online games. Every '
+        'match and matchmaking document excludes login usernames. Every '
         'remote game is rated; local games are unrated and excluded from '
         'online stats. Win rate uses all completed remote games, including '
         'draws in its denominator. A kill is every opponent-colored cell that '
@@ -361,9 +366,10 @@ const _privacySections = [
     'Use and sharing',
     'Data is used to provide accounts, matchmaking, online play, recovery, '
         'Social, ratings and stats, abuse prevention, security, and service '
-        'operations. Display names, profile pictures, and ratings are shared '
-        'with signed-in players through public search and with existing '
-        'friends and online opponents. Other data '
+        'operations. Native login usernames, display names, profile pictures, '
+        'and ratings are shared with signed-in players through public search '
+        'and Social. Online opponents see display names, profile pictures, and '
+        'ratings, but match documents do not expose usernames. Other data '
         'is shared only with '
         'infrastructure and identity providers needed to operate those '
         'functions, or when legally required. It is not sold and is not used '
@@ -409,11 +415,14 @@ const _termsSections = [
     'Fair play',
     'Do not automate abusive traffic, exploit defects, interfere with other '
         'players, probe accounts, or attempt to manipulate server-authoritative '
-        'match results or ratings. Your display name, profile picture, and Elo '
-        'rating are visible in player search to signed-in players and are also '
-        'visible to friends and opponents, so the display name '
-        'must not impersonate, threaten, harass, or contain abusive content. '
-        'Your username and email address are not presented to opponents.',
+        'match results or ratings. Signed-in players can search any normalized '
+        'substring of a native login username or display name. A native '
+        'username is public in Social; your display name, profile picture, and '
+        'Elo rating are visible in player search and are also visible to '
+        'friends and opponents. Native usernames and display names must not '
+        'impersonate, threaten, harass, or contain abusive content. Email '
+        'addresses and provider-generated login identifiers remain private, '
+        'and online match documents do not include usernames.',
   ),
   _LegalSectionData(
     'Profile picture rights and rules',

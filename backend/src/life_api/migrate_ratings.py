@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import re
 from collections.abc import Iterator, Sequence
 from dataclasses import asdict, dataclass
 from datetime import datetime
@@ -23,8 +24,13 @@ from .models import (
     StoredPlayerStats,
     StoredPublicPlayer,
 )
+from .player_search import (
+    SEARCH_INDEX_VERSION,
+    canonical_display_name,
+    normalize_search_text,
+    search_index_keys,
+)
 from .ratings import accumulated_kills, build_metrics_ledger
-from .social import normalize_display_name
 
 
 class DynamoTable(Protocol):
@@ -562,9 +568,20 @@ def backfill_confirmed_profiles(
             for value in user.get("Attributes", [])
         }
         user_id = attributes.get("sub", "").strip()
-        display_name = attributes.get("name", "").strip() or str(user.get("Username", "")).strip()
-        normalized = normalize_display_name(display_name)
-        if not user_id or not normalized:
+        federated = user.get("UserStatus") == "EXTERNAL_PROVIDER" or _has_federated_identity(
+            attributes.get("identities")
+        )
+        raw_username = str(user.get("Username", "")).strip()
+        username = None if federated else raw_username
+        display_name = canonical_display_name(attributes.get("name", "")) or (
+            "Google Player" if federated else raw_username
+        )
+        normalized = normalize_search_text(display_name)
+        if username is not None and re.fullmatch(r"[A-Za-z0-9_.-]{3,32}", username) is None:
+            invalid += 1
+            continue
+        normalized_username = normalize_search_text(username) if username is not None else None
+        if not user_id or not normalized or len(normalized) > 48:
             invalid += 1
             continue
         if _account_is_deleting(table, user_id):
@@ -583,8 +600,11 @@ def backfill_confirmed_profiles(
             continue
         player = StoredPublicPlayer(
             id=user_id,
+            username=username,
+            normalized_username=normalized_username,
             display_name=display_name,
             normalized_display_name=normalized,
+            search_index_version=SEARCH_INDEX_VERSION,
             discoverable=True,
             discoverability_updated_at=None,
             version=0,
@@ -637,17 +657,17 @@ def backfill_confirmed_profiles(
                                 "TableName": table.name,
                                 "Item": _serialize(
                                     {
-                                        "PK": f"SEARCH#{normalized[:length]}",
-                                        "SK": f"{normalized}#{user_id}",
+                                        **search_key,
                                         "entity": "playerSearch",
                                         "playerId": user_id,
-                                        "document": player.model_dump_json(by_alias=True),
+                                        "searchIndexVersion": SEARCH_INDEX_VERSION,
+                                        "profileVersion": player.version,
                                     }
                                 ),
                                 "ConditionExpression": "attribute_not_exists(PK)",
                             }
                         }
-                        for length in range(1, min(3, len(normalized)) + 1)
+                        for search_key in search_index_keys(player)
                     ],
                 ]
             )
@@ -941,12 +961,25 @@ def _confirmed_users(client: CognitoClient, user_pool_id: str) -> Iterator[dict[
     while True:
         response = client.list_users(**request)
         for user in response.get("Users", []):
-            if user.get("Enabled", True) and user.get("UserStatus") == "CONFIRMED":
+            if user.get("Enabled", True) and user.get("UserStatus") in {
+                "CONFIRMED",
+                "EXTERNAL_PROVIDER",
+            }:
                 yield user
         token = response.get("PaginationToken")
         if not isinstance(token, str):
             return
         request["PaginationToken"] = token
+
+
+def _has_federated_identity(raw: str | None) -> bool:
+    if not raw:
+        return False
+    try:
+        identities = json.loads(raw)
+    except ValueError:
+        return True
+    return not isinstance(identities, list) or bool(identities)
 
 
 def _result_counters(score: float) -> tuple[int, int, int]:

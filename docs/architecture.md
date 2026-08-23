@@ -86,9 +86,11 @@ a match or committing a move updates the match snapshot first. DynamoDB Streams
 then invokes a separate notification worker, which sends the immediate alert
 and creates three one-time EventBridge schedules. Each delivery performs a
 strongly consistent match read and requires the same active status, engine
-revision, active account state, and player-to-move. Scheduled inputs are identity-
-free: they contain the match ID, revision, reminder offset, and turn-start time,
-then derive the recipient from the authoritative match at execution. A move,
+revision, active account state, and player-to-move. Scheduled inputs are
+identity-free: they contain the match ID, revision, reminder offset, and
+turn-start time, then derive the recipient from the authoritative match at
+execution. Native usernames, emails, and provider-generated login
+identifiers never enter a schedule or provider message. A move,
 resignation, or completed game therefore invalidates all earlier reminders
 without requiring schedule cancellation.
 
@@ -126,19 +128,26 @@ Private-room creation retains the creator's authenticated public display name,
 and joining snapshots the second player's display name into the activated
 match. A quick-match candidate carries the same public snapshot in its bounded-
 TTL queue row so the atomic match commit can associate both names with their
-randomly assigned colors without a second profile service. Login usernames,
-email addresses, and tokens never enter match documents or queue rows. Account
-deletion replaces only the departing participant's stored name and identifier
-with an unlinkable `Deleted player` identity.
+randomly assigned colors without a second profile service. Native usernames,
+email addresses, provider-generated login identifiers, and tokens never
+enter match documents or queue rows. Account deletion replaces only the
+departing participant's stored name and identifier with an unlinkable `Deleted
+player` identity.
 
 ## Social graph, discovery, and ratings
 
-Every active public profile is indexed by normalized display-name prefixes of
-length one, two, and three (where available), so even one-character names are
-findable without scanning. Search rate-limits each subject, caps responses, batch-
-hydrates canonical profiles behind account-state fences, and returns only opaque
-ID, display name, rating, and versioned picture reference. Login username and email
-never enter the index. Account deletion removes every prefix row.
+Every active account's public profile is discoverable. The server NFKC-normalizes,
+case-folds, and whitespace-normalizes its public display name and native login
+username, when one exists. It writes one row for every normalized suffix,
+partitioned by the suffix's first character, so a 1–48-character query can
+match any substring without scanning. Duplicate suffix hits collapse to one
+player. Search rate-limits each subject, caps responses, batch-hydrates
+canonical profiles behind account-state fences, and returns opaque ID, display
+name, nullable native username, rating, and versioned picture reference. Clients
+display a native username as an `@` handle through Search, friends, requests,
+and challenges. Email addresses and Google/provider-generated login identifiers
+never enter the index or public summary. Account deletion removes every suffix
+row derived from the profile.
 
 Uploaded pictures are authenticated, rate-limited, decoded under strict size/type
 bounds, and re-encoded as fixed 512×512 WebP before entering a retained private S3

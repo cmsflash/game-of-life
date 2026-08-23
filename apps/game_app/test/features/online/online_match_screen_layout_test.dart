@@ -337,18 +337,8 @@ Future<AuthController> _signedInAuthController() async {
 
 OnlineMatch _activeMatch() {
   const players = [
-    OnlinePlayer(
-      id: 'black',
-      username: 'black',
-      displayName: 'Nora',
-      color: engine.Player.black,
-    ),
-    OnlinePlayer(
-      id: 'white',
-      username: 'white',
-      displayName: 'Mika',
-      color: engine.Player.white,
-    ),
+    OnlinePlayer(id: 'black', displayName: 'Nora', color: engine.Player.black),
+    OnlinePlayer(id: 'white', displayName: 'Mika', color: engine.Player.white),
   ];
   final state = const engine.GameEngine().initialState();
   return OnlineMatch(

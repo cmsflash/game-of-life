@@ -3,8 +3,8 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
-import unicodedata
-from collections.abc import Iterator, Sequence
+import re
+from collections.abc import Iterator, Mapping, Sequence
 from dataclasses import asdict, dataclass
 from datetime import UTC, datetime
 from typing import Any, Protocol
@@ -14,6 +14,13 @@ from boto3.dynamodb.types import TypeSerializer
 from botocore.exceptions import ClientError
 
 from .models import StoredPublicPlayer
+from .player_search import (
+    SEARCH_INDEX_VERSION,
+    SEARCH_PARTITION_PREFIX,
+    canonical_display_name,
+    normalize_search_text,
+    search_index_keys,
+)
 
 
 class DynamoTable(Protocol):
@@ -28,6 +35,10 @@ class DynamoClient(Protocol):
     def transact_write_items(self, **kwargs: Any) -> dict[str, Any]: ...
 
 
+class CognitoClient(Protocol):
+    def list_users(self, **kwargs: Any) -> dict[str, Any]: ...
+
+
 @dataclass(frozen=True, slots=True)
 class PublicPlayerMigrationReport:
     examined: int = 0
@@ -37,16 +48,19 @@ class PublicPlayerMigrationReport:
     stale_indexes: int = 0
     orphan_indexes: int = 0
     conflicts: int = 0
+    unresolved: int = 0
     invalid: int = 0
 
     @property
     def has_failures(self) -> bool:
-        return self.conflicts > 0 or self.invalid > 0
+        return self.conflicts > 0 or self.unresolved > 0 or self.invalid > 0
 
 
 def migrate_public_players(
     table: DynamoTable,
     client: DynamoClient,
+    public_usernames: Mapping[str, str | None],
+    display_names: Mapping[str, str] | None = None,
     *,
     apply: bool,
 ) -> PublicPlayerMigrationReport:
@@ -92,20 +106,49 @@ def migrate_public_players(
     ] = []
     valid_profile_ids = {player.id for _, player in parsed_profiles}
     for item, player in parsed_profiles:
-        updated = (
-            player
-            if player.discoverable
-            else player.model_copy(
-                update={
-                    "discoverable": True,
-                    "discoverability_updated_at": None,
-                    "version": player.version + 1,
-                },
-                deep=True,
-            )
+        if player.id not in public_usernames or (
+            display_names is not None and player.id not in display_names
+        ):
+            report = _replace(report, unresolved=report.unresolved + 1)
+            continue
+        username = public_usernames[player.id]
+        if username is not None and re.fullmatch(r"[A-Za-z0-9_.-]{3,32}", username) is None:
+            report = _replace(report, invalid=report.invalid + 1)
+            continue
+        display_name = (
+            display_names[player.id] if display_names is not None else player.display_name
         )
-        expected_search_document = updated.model_dump_json(by_alias=True)
+        normalized_display_name = normalize_search_text(display_name)
+        if not normalized_display_name or len(normalized_display_name) > 48:
+            report = _replace(report, invalid=report.invalid + 1)
+            continue
+        normalized_username = normalize_search_text(username) if username is not None else None
+        changed = (
+            not player.discoverable
+            or player.discoverability_updated_at is not None
+            or player.username != username
+            or player.normalized_username != normalized_username
+            or player.display_name != display_name
+            or player.normalized_display_name != normalized_display_name
+            or player.search_index_version != SEARCH_INDEX_VERSION
+        )
+        updated = player.model_copy(
+            update={
+                "username": username,
+                "normalized_username": normalized_username,
+                "display_name": display_name,
+                "normalized_display_name": normalized_display_name,
+                "search_index_version": SEARCH_INDEX_VERSION,
+                "discoverable": True,
+                "discoverability_updated_at": None,
+                "version": player.version + (1 if changed else 0),
+            },
+            deep=True,
+        )
         search_keys = _search_keys(updated)
+        if len(search_keys) > 80:
+            report = _replace(report, invalid=report.invalid + 1)
+            continue
         expected_pairs = {(value["PK"], value["SK"]) for value in search_keys}
         indexed = indexed_by_player.get(player.id, [])
         indexed_by_pair = {(str(value["PK"]), str(value["SK"])): value for value in indexed}
@@ -113,17 +156,13 @@ def migrate_public_players(
             _search_item_current(
                 indexed_by_pair.get((search_key["PK"], search_key["SK"])),
                 player.id,
-                expected_search_document,
             )
             for search_key in search_keys
         )
         stale = [
             value for value in indexed if (str(value["PK"]), str(value["SK"])) not in expected_pairs
         ]
-        if len(stale) > 94:
-            report = _replace(report, invalid=report.invalid + 1)
-            continue
-        if player.discoverable and search_current and not stale:
+        if not changed and search_current and not stale:
             continue
         report = _replace(
             report,
@@ -143,15 +182,32 @@ def migrate_public_players(
         eligible=report.eligible + len(orphans),
         orphan_indexes=len(orphans),
     )
-    if not apply or report.invalid:
+    if not apply or report.invalid or report.unresolved:
         return report
 
     for item, player, updated, search_keys, stale in plans:
-        expected_search_document = updated.model_dump_json(by_alias=True)
+        cleanup_conflict = False
+        for offset in range(0, len(stale), 99):
+            cleanup = [
+                _profile_exact_condition(table.name, player),
+                *[
+                    _conditional_search_delete(table.name, value)
+                    for value in stale[offset : offset + 99]
+                ],
+            ]
+            try:
+                client.transact_write_items(TransactItems=cleanup)
+            except ClientError as error:
+                if error.response.get("Error", {}).get("Code") != "TransactionCanceledException":
+                    raise
+                report = _replace(report, conflicts=report.conflicts + 1)
+                cleanup_conflict = True
+                break
+        if cleanup_conflict:
+            continue
         transaction = [
             *_account_conditions(table.name, player.id),
             _profile_guard_or_update(table.name, item, player, updated),
-            *[_conditional_search_delete(table.name, value) for value in stale],
             *[
                 {
                     "Put": {
@@ -161,7 +217,8 @@ def migrate_public_players(
                                 **search_key,
                                 "entity": "playerSearch",
                                 "playerId": player.id,
-                                "document": expected_search_document,
+                                "searchIndexVersion": SEARCH_INDEX_VERSION,
+                                "profileVersion": updated.version,
                             }
                         ),
                     }
@@ -228,7 +285,7 @@ def _profile_guard_or_update(
     player: StoredPublicPlayer,
     updated: StoredPublicPlayer,
 ) -> dict[str, Any]:
-    if updated is player:
+    if updated == player:
         return {
             "ConditionCheck": {
                 "TableName": table_name,
@@ -268,6 +325,29 @@ def _profile_guard_or_update(
     }
 
 
+def _profile_exact_condition(
+    table_name: str,
+    player: StoredPublicPlayer,
+) -> dict[str, Any]:
+    return {
+        "ConditionCheck": {
+            "TableName": table_name,
+            "Key": _serialize({"PK": f"PLAYER#{player.id}", "SK": "PROFILE"}),
+            "ConditionExpression": "#version = :version AND #document = :document",
+            "ExpressionAttributeNames": {
+                "#version": "version",
+                "#document": "document",
+            },
+            "ExpressionAttributeValues": _serialize_values(
+                {
+                    ":version": player.version,
+                    ":document": player.model_dump_json(by_alias=True),
+                }
+            ),
+        }
+    }
+
+
 def _account_conditions(table_name: str, user_id: str) -> list[dict[str, Any]]:
     digest = hashlib.sha256(user_id.encode()).hexdigest()
     return [
@@ -294,21 +374,14 @@ def _account_conditions(table_name: str, user_id: str) -> list[dict[str, Any]]:
 
 
 def _search_keys(player: StoredPublicPlayer) -> list[dict[str, str]]:
-    name = player.normalized_display_name
-    return [
-        {
-            "PK": f"SEARCH#{name[:length]}",
-            "SK": f"{name}#{player.id}",
-        }
-        for length in range(1, min(3, len(name)) + 1)
-    ]
+    return search_index_keys(player)
 
 
-def _search_item_current(item: object, player_id: str, document: str) -> bool:
+def _search_item_current(item: object, player_id: str) -> bool:
     return (
         isinstance(item, dict)
         and item.get("playerId") == player_id
-        and item.get("document") == document
+        and item.get("searchIndexVersion") == SEARCH_INDEX_VERSION
     )
 
 
@@ -316,30 +389,48 @@ def _valid_search_item(item: dict[str, Any]) -> bool:
     return (
         item.get("entity") == "playerSearch"
         and isinstance(item.get("PK"), str)
-        and str(item["PK"]).startswith("SEARCH#")
+        and (
+            str(item["PK"]).startswith("SEARCH#")
+            or str(item["PK"]).startswith(SEARCH_PARTITION_PREFIX)
+        )
         and isinstance(item.get("SK"), str)
         and isinstance(item.get("playerId"), str)
         and 1 <= len(str(item["playerId"])) <= 128
-        and isinstance(item.get("document"), str)
     )
 
 
 def _conditional_search_delete(table_name: str, item: dict[str, Any]) -> dict[str, Any]:
+    compared_fields = [
+        field
+        for field in (
+            "playerId",
+            "entity",
+            "document",
+            "searchIndexVersion",
+            "profileVersion",
+        )
+        if field in item
+    ]
     return {
         "Delete": {
             "TableName": table_name,
             "Key": _serialize({"PK": item["PK"], "SK": item["SK"]}),
-            "ConditionExpression": "playerId = :playerId AND #document = :document",
-            "ExpressionAttributeNames": {"#document": "document"},
+            "ConditionExpression": " AND ".join(
+                f"#{field} = :{field}" for field in compared_fields
+            ),
+            "ExpressionAttributeNames": {f"#{field}": field for field in compared_fields},
             "ExpressionAttributeValues": _serialize_values(
-                {":playerId": item["playerId"], ":document": item["document"]}
+                {f":{field}": item[field] for field in compared_fields}
             ),
         }
     }
 
 
 def _valid_profile_item(item: dict[str, Any], player: StoredPublicPlayer) -> bool:
-    normalized = " ".join(unicodedata.normalize("NFKC", player.display_name).casefold().split())
+    normalized = normalize_search_text(player.display_name)
+    normalized_username = (
+        normalize_search_text(player.username) if player.username is not None else None
+    )
     return (
         item.get("PK") == f"PLAYER#{player.id}"
         and item.get("SK") == "PROFILE"
@@ -347,6 +438,10 @@ def _valid_profile_item(item: dict[str, Any], player: StoredPublicPlayer) -> boo
         and item.get("discoverable") == player.discoverable
         and 1 <= len(normalized) <= 48
         and player.normalized_display_name == normalized
+        and player.normalized_username == normalized_username
+        and (
+            player.username is None or bool(re.fullmatch(r"[A-Za-z0-9_.-]{3,32}", player.username))
+        )
     )
 
 
@@ -368,11 +463,76 @@ def _serialize_values(item: dict[str, Any]) -> dict[str, Any]:
     return _serialize(item)
 
 
+def _confirmed_public_identities(
+    client: CognitoClient,
+    user_pool_id: str,
+) -> tuple[dict[str, str | None], dict[str, str]]:
+    usernames: dict[str, str | None] = {}
+    display_names: dict[str, str] = {}
+    request: dict[str, Any] = {"UserPoolId": user_pool_id, "Limit": 60}
+    while True:
+        response = client.list_users(**request)
+        for user in response.get("Users", []):
+            if not user.get("Enabled", True) or user.get("UserStatus") not in {
+                "CONFIRMED",
+                "EXTERNAL_PROVIDER",
+            }:
+                continue
+            attributes = {
+                str(value.get("Name")): str(value.get("Value", ""))
+                for value in user.get("Attributes", [])
+            }
+            user_id = attributes.get("sub", "").strip()
+            if not user_id or user_id in usernames:
+                continue
+            federated = user.get("UserStatus") == "EXTERNAL_PROVIDER" or _has_federated_identity(
+                attributes.get("identities")
+            )
+            raw_username = str(user.get("Username", "")).strip()
+            username = None if federated else raw_username
+            if username is not None and re.fullmatch(r"[A-Za-z0-9_.-]{3,32}", username) is None:
+                continue
+            display_name = canonical_display_name(attributes.get("name", "")) or (
+                "Google Player" if federated else raw_username
+            )
+            normalized_display_name = normalize_search_text(display_name)
+            if not normalized_display_name or len(normalized_display_name) > 48:
+                continue
+            usernames[user_id] = username
+            display_names[user_id] = display_name
+        token = response.get("PaginationToken")
+        if not isinstance(token, str):
+            return usernames, display_names
+        request["PaginationToken"] = token
+
+
+def _has_federated_identity(raw: str | None) -> bool:
+    if not raw:
+        return False
+    try:
+        identities = json.loads(raw)
+    except ValueError:
+        return True
+    return not isinstance(identities, list) or bool(identities)
+
+
+def _stack_resources(session: boto3.Session, stack_name: str) -> tuple[str, str]:
+    response = session.client("cloudformation").describe_stacks(StackName=stack_name)
+    outputs = {
+        str(output["OutputKey"]): str(output["OutputValue"])
+        for output in response["Stacks"][0].get("Outputs", [])
+    }
+    try:
+        return outputs["DynamoTableName"], outputs["CognitoUserPoolId"]
+    except KeyError as error:
+        raise ValueError("stack must export DynamoTableName and CognitoUserPoolId") from error
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
-        description="Make every active player profile publicly searchable.",
+        description="Index every active display name and native login username.",
     )
-    parser.add_argument("--table-name", required=True)
+    parser.add_argument("--stack-name", required=True)
     parser.add_argument("--region", default="ap-east-1")
     parser.add_argument("--profile")
     parser.add_argument(
@@ -382,9 +542,20 @@ def main(argv: Sequence[str] | None = None) -> int:
     )
     args = parser.parse_args(argv)
     session = boto3.Session(profile_name=args.profile, region_name=args.region)
-    table = session.resource("dynamodb").Table(args.table_name)
+    table_name, user_pool_id = _stack_resources(session, args.stack_name)
+    table = session.resource("dynamodb").Table(table_name)
     client = session.client("dynamodb")
-    report = migrate_public_players(table, client, apply=args.apply)
+    public_usernames, display_names = _confirmed_public_identities(
+        session.client("cognito-idp"),
+        user_pool_id,
+    )
+    report = migrate_public_players(
+        table,
+        client,
+        public_usernames,
+        display_names,
+        apply=args.apply,
+    )
     print(json.dumps(asdict(report), separators=(",", ":"), sort_keys=True))
     return 1 if report.has_failures else 0
 

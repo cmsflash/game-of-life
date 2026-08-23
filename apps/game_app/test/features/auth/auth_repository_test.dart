@@ -29,6 +29,7 @@ void main() {
               'userId': 'user-1',
               'username': 'alice',
               'displayName': 'Alice',
+              'publicUsername': 'alice',
               'avatarUrl':
                   'https://api.example.test/v1/players/user-1/avatar?v=5',
               'avatarVersion': 5,
@@ -45,7 +46,9 @@ void main() {
     final user = await repository.restore();
 
     expect(user?.avatarVersion, 5);
+    expect(user?.publicUsername, 'alice');
     expect((await store.readSession())?.userJson?['avatarVersion'], 5);
+    expect((await store.readSession())?.userJson?['publicUsername'], 'alice');
   });
 
   test(

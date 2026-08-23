@@ -133,13 +133,90 @@ class SearchTable(EmptyTable):
         return {
             "Items": [
                 {
-                    "PK": "SEARCH#ali",
+                    "PK": "SEARCH_TEXT#a",
                     "SK": f"alice#{player_id}",
                     "entity": "playerSearch",
                     "playerId": player_id,
-                    "document": "legacy-snapshot",
+                    "searchIndexVersion": 2,
                 }
                 for player_id in self.player_ids
+            ]
+        }
+
+
+class LegacySearchTable(EmptyTable):
+    def __init__(self, player_id: str) -> None:
+        self.player_id = player_id
+        self.partitions: list[str] = []
+
+    def query(self, **kwargs: Any) -> dict[str, Any]:
+        expression = kwargs["KeyConditionExpression"].get_expression()
+        partition_expression = expression["values"][0].get_expression()
+        partition = str(partition_expression["values"][1])
+        self.partitions.append(partition)
+        if partition == "SEARCH_TEXT#a":
+            return {"Items": []}
+        if partition == "SEARCH#ali":
+            return {
+                "Items": [
+                    {
+                        "PK": partition,
+                        "SK": f"alice legacy#{self.player_id}",
+                        "entity": "playerSearch",
+                        "playerId": self.player_id,
+                    }
+                ]
+            }
+        raise AssertionError(f"unexpected search partition: {partition}")
+
+
+class DuplicatePagedSearchTable(EmptyTable):
+    def __init__(self, early_player_ids: list[str], later_player_id: str) -> None:
+        self.early_player_ids = early_player_ids
+        self.later_player_id = later_player_id
+        self.suffix_pages = 0
+        self.legacy_queries = 0
+
+    def _early_player_id(self, offset: int) -> str:
+        return self.early_player_ids[offset % len(self.early_player_ids)]
+
+    def query(self, **kwargs: Any) -> dict[str, Any]:
+        expression = kwargs["KeyConditionExpression"].get_expression()
+        partition_expression = expression["values"][0].get_expression()
+        partition = str(partition_expression["values"][1])
+        if partition == "SEARCH#a":
+            self.legacy_queries += 1
+            return {"Items": []}
+        if partition != "SEARCH_TEXT#a":
+            raise AssertionError(f"unexpected search partition: {partition}")
+        self.suffix_pages += 1
+        if self.suffix_pages <= 25:
+            offset = (self.suffix_pages - 1) * 20
+            return {
+                "Items": [
+                    {
+                        "PK": partition,
+                        "SK": f"a{offset + index:03d}#{self._early_player_id(offset + index)}",
+                        "entity": "playerSearch",
+                        "playerId": self._early_player_id(offset + index),
+                        "searchIndexVersion": 2,
+                    }
+                    for index in range(20)
+                ],
+                "LastEvaluatedKey": {
+                    "PK": partition,
+                    "SK": f"page#{self.suffix_pages}",
+                },
+            }
+        return {
+            "Items": [
+                {
+                    "PK": partition,
+                    "SK": f"ater#{self.later_player_id}",
+                    "entity": "playerSearch",
+                    "playerId": self.later_player_id,
+                    "searchIndexVersion": 2,
+                }
             ]
         }
 
@@ -281,11 +358,94 @@ def test_player_search_batch_hydrates_and_filters_stale_or_deleting_rows(
     monkeypatch.setattr(boto3, "client", lambda *args, **kwargs: RecordingClient())
     repository = DynamoRepository(settings)
 
-    found = repository.search_public_players("ali", limit=20)
+    found = repository.search_public_players("ali", limit=1)
 
     assert [profile.id for profile in found] == [active.id]
     assert resource.batch_calls == 1
     assert table.get_calls == 0
+
+
+def test_player_search_returns_legacy_prefix_row_during_suffix_index_cutover(
+    monkeypatch,
+    settings: Settings,
+) -> None:
+    player = StoredPublicPlayer(
+        id="legacy-search-player",
+        display_name="Alice Legacy",
+        normalized_display_name="alice legacy",
+    )
+    table = LegacySearchTable(player.id)
+    resource = BatchResource(
+        table,
+        [
+            {
+                "PK": f"PLAYER#{player.id}",
+                "SK": "PROFILE",
+                "entity": "publicPlayer",
+                "document": player.model_dump_json(by_alias=True),
+            }
+        ],
+    )
+    monkeypatch.setattr(boto3, "resource", lambda *args, **kwargs: resource)
+    monkeypatch.setattr(boto3, "client", lambda *args, **kwargs: RecordingClient())
+    repository = DynamoRepository(settings)
+
+    found = repository.search_public_players("alice", limit=20)
+
+    assert [profile.id for profile in found] == [player.id]
+    assert table.partitions == ["SEARCH_TEXT#a", "SEARCH#ali"]
+    assert resource.batch_calls == 1
+
+
+def test_player_search_paginates_past_duplicate_suffix_rows_for_unique_players(
+    monkeypatch,
+    settings: Settings,
+) -> None:
+    early_players = [
+        StoredPublicPlayer(
+            id=f"duplicate-suffix-player-{index}",
+            display_name=f"Alpha {index}",
+            normalized_display_name=f"alpha {index}",
+        )
+        for index in range(7)
+    ]
+    later = StoredPublicPlayer(
+        id="later-unique-player",
+        display_name="Alpha 7",
+        normalized_display_name="alpha 7",
+    )
+    table = DuplicatePagedSearchTable(
+        [player.id for player in early_players],
+        later.id,
+    )
+    resource = BatchResource(
+        table,
+        [
+            {
+                "PK": f"PLAYER#{profile.id}",
+                "SK": "PROFILE",
+                "entity": "publicPlayer",
+                "document": profile.model_dump_json(by_alias=True),
+            }
+            for profile in (*early_players, later)
+        ],
+    )
+    monkeypatch.setattr(boto3, "resource", lambda *args, **kwargs: resource)
+    monkeypatch.setattr(boto3, "client", lambda *args, **kwargs: RecordingClient())
+    repository = DynamoRepository(settings)
+
+    found = repository.search_public_players("a", limit=8)
+
+    assert [profile.id for profile in found] == [
+        *[player.id for player in early_players],
+        later.id,
+    ]
+    assert [profile.display_name for profile in found] == [
+        *[player.display_name for player in early_players],
+        later.display_name,
+    ]
+    assert table.suffix_pages == 26
+    assert table.legacy_queries == 0
 
 
 def test_matchmaking_queue_stores_public_name_only_on_candidate_and_utc_epoch_ttls(

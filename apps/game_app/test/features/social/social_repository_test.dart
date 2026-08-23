@@ -27,7 +27,7 @@ void main() {
                     'id': 'fern',
                     'displayName': 'Fern',
                     'rating': -4,
-                    'username': 'not_public',
+                    'username': 'fern_player',
                     'email': 'not-public@example.test',
                   },
                 ],
@@ -49,6 +49,7 @@ void main() {
       expect(overview.incomingChallenges.single.player.displayName, 'Cedar');
       expect(overview.outgoingChallenges.single.player.displayName, 'Dahlia');
       expect(results.single.displayName, 'Fern');
+      expect(results.single.username, 'fern_player');
       expect(results.single.elo, -4);
     },
   );

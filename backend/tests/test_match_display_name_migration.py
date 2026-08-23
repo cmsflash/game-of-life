@@ -267,7 +267,7 @@ def test_cognito_name_resolver_uses_sub_filter_and_caches_result() -> None:
     ]
 
 
-def test_cognito_name_resolver_falls_back_to_cognito_username() -> None:
+def test_cognito_name_resolver_does_not_publish_cognito_username() -> None:
     resolver = CognitoNameResolver(UsernameOnlyCognitoClient(), "pool-id")
 
-    assert resolver("federated-id") == "federated-player"
+    assert resolver("federated-id") is None

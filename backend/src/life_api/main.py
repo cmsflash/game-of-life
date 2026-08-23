@@ -364,10 +364,12 @@ def create_app(
         services: Services,
         file: Annotated[UploadFile, File()],
     ) -> AvatarDocument:
+        services.social.index_user(user)
         return services.avatars.upload(user, file)
 
     @app.delete("/v1/me/avatar", response_model=AvatarDocument, tags=["profile"])
     def remove_avatar(user: CurrentUser, services: Services) -> AvatarDocument:
+        services.social.index_user(user)
         return services.avatars.remove(user)
 
     @app.get("/v1/players/{player_id}/avatar", tags=["profile"])

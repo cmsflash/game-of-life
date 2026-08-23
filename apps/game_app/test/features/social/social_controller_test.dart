@@ -61,6 +61,20 @@ void main() {
     controller.dispose();
   });
 
+  test('overlong name or username search gets actionable guidance', () async {
+    final controller = SocialController(ScriptedSocialRepository())
+      ..connectAccount('a');
+
+    await controller.search(List.filled(49, 'a').join());
+
+    expect(controller.state.searchResults, isEmpty);
+    expect(
+      controller.state.error,
+      'Enter up to 48 characters of a name or @username.',
+    );
+    controller.dispose();
+  });
+
   test(
     'a slower old refresh cannot replace a newer canonical version',
     () async {

@@ -230,9 +230,9 @@ stack's VAPID keypair as the single source of truth. The script:
 After the invalidation, inspect the live `Content-Security-Policy` header and
 require the exact API origin in `img-src` and `blob:` in `connect-src` so the
 web picture picker can read the browser-local selected file; a broad `https:`
-image source is not an acceptable substitute. Follow the ordered
-public-discovery and picture cutover in [`operations.md`](operations.md) before
-the first matching client release.
+image source is not an acceptable substitute. Follow the ordered Cognito-aware
+suffix-index and picture cutover in [`operations.md`](operations.md) before the
+first matching client release.
 
 The deployer needs read access to the stack, object list/write/delete access to
 the emitted bucket, and permission to create and read CloudFront invalidations.
