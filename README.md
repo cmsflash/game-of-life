@@ -12,13 +12,14 @@ This repository contains the complete cross-platform product:
 - `packages/game_engine` — pure, deterministic Dart rules engine shared by
   local play, the client, tests, and the authoritative server executable.
 - `packages/game_ai` — deterministic classical agents and direct-engine
-  AI-vs-AI experiment tooling.
+  AI-vs-AI experiment tooling, including the local one-step population AI.
 - `tools/game_cli` — JSON/JSONL command-line interface for automation and AI.
 - `backend` — server-authoritative HTTP API, authentication bridge,
   matchmaking, persistence, and replay service.
 - `infra` — AWS deployment templates for one global HTTPS API boundary and a
   private-S3/CloudFront Flutter web application.
 - `docs` — rules, API, architecture, operations, and deployment documentation.
+  The local AI behavior is specified in [`docs/ai.md`](docs/ai.md).
 
 ## Development
 

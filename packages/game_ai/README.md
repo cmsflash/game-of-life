@@ -27,6 +27,22 @@ The evaluator is deliberately explainable and currently includes:
 Wins and losses override positional features. The feature weights are an
 untuned baseline intended for measurement and later classical optimization.
 
+## One-step population AI
+
+`OneStepGreedyAgent` selects one population strategy on every turn, applies
+every legal move with the canonical engine, and greedily chooses the best
+one-step successor for that strategy. The strategy mix is configured as three
+percentages that total 100:
+
+- maximize the AI's living cells;
+- minimize the opponent's living cells; and
+- maximize the AI's cell advantage over the opponent.
+
+Strategy selection is derived from the current state hash, so the percentage
+mix behaves like a distribution across turns while saved games, tests, and
+AI-vs-AI experiments remain exactly reproducible. Equal scores use the
+row-major first coordinate.
+
 ## Run an AI-vs-AI game
 
 The command-line experiment defaults to the bounded 100-ply population rules

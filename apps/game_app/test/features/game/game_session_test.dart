@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:game_ai/game_ai.dart';
 import 'package:game_engine/game_engine.dart' as engine;
 import 'package:game_of_life/features/game/data/local_game_store.dart';
 import 'package:game_of_life/features/game/domain/game_session.dart';
@@ -64,6 +65,66 @@ void main() {
       expect(game.toMove, engine.Player.black);
       expect(game.board.at(9, 9), engine.CellState.black);
       expect(game.board.at(9, 10), engine.CellState.white);
+    });
+
+    test('AI vs AI advances exactly one turn per explicit step', () async {
+      final fixture = await _Fixture.create(
+        config: const LocalGameConfig(
+          blackName: 'Black AI',
+          whiteName: 'White AI',
+          blackParticipant: LocalParticipantType.ai,
+          whiteParticipant: LocalParticipantType.ai,
+        ),
+      );
+
+      expect(fixture.current.game.ply, 0);
+      expect(fixture.controller.consider(fixture.id, 0, 0), isFalse);
+      expect(fixture.current.game.ply, 0);
+
+      expect(await fixture.controller.advanceAi(fixture.id), isTrue);
+      expect(fixture.current.game.ply, 1);
+      expect(fixture.current.game.toMove, engine.Player.white);
+
+      expect(await fixture.controller.advanceAi(fixture.id), isTrue);
+      expect(fixture.current.game.ply, 2);
+      expect(fixture.current.game.toMove, engine.Player.black);
+    });
+
+    test('player vs AI automatically answers a committed human move', () async {
+      final fixture = await _Fixture.create(
+        config: const LocalGameConfig(
+          blackName: 'You',
+          whiteName: 'Greedy AI',
+          whiteParticipant: LocalParticipantType.ai,
+        ),
+      );
+
+      expect(fixture.current.game.ply, 0);
+      expect(fixture.controller.consider(fixture.id, 0, 0), isTrue);
+      expect(await fixture.controller.commit(fixture.id), isTrue);
+
+      expect(fixture.current.game.ply, 2);
+      expect(fixture.current.game.toMove, engine.Player.black);
+      expect(fixture.current.preview, isNull);
+      expect(fixture.current.lastMove, isNotNull);
+      expect(fixture.store.games.single.game.ply, 2);
+    });
+
+    test('a Black AI opens once when the human chooses White', () async {
+      final fixture = await _Fixture.create(
+        config: const LocalGameConfig(
+          blackName: 'Greedy AI',
+          whiteName: 'You',
+          blackParticipant: LocalParticipantType.ai,
+        ),
+      );
+
+      expect(fixture.current.game.ply, 1);
+      expect(fixture.current.game.toMove, engine.Player.white);
+
+      expect(await fixture.controller.restart(fixture.id), isTrue);
+      expect(fixture.current.game.ply, 1);
+      expect(fixture.current.game.toMove, engine.Player.white);
     });
 
     test(
@@ -463,6 +524,43 @@ void main() {
       expect(restored.lastBirths, fixture.current.lastBirths);
       expect(restored.lastDeaths, fixture.current.lastDeaths);
       expect(restored.preview, isNull);
+    });
+
+    test('round trips AI participants and strategy percentages', () {
+      const config = LocalGameConfig(
+        blackName: 'Alpha',
+        whiteName: 'Beta',
+        blackParticipant: LocalParticipantType.ai,
+        whiteParticipant: LocalParticipantType.ai,
+        aiStrategyPercentages: OneStepStrategyPercentages(
+          maxSelfCells: 20,
+          minOpponentCells: 30,
+          maxCellAdvantage: 50,
+        ),
+      );
+
+      final restored = LocalGameConfig.fromJson(config.toJson());
+
+      expect(restored.blackParticipant, LocalParticipantType.ai);
+      expect(restored.whiteParticipant, LocalParticipantType.ai);
+      expect(restored.aiStrategyPercentages.maxSelfCells, 20);
+      expect(restored.aiStrategyPercentages.minOpponentCells, 30);
+      expect(restored.aiStrategyPercentages.maxCellAdvantage, 50);
+    });
+
+    test('old saved configs default both participants to human', () {
+      final legacy = const LocalGameConfig().toJson()
+        ..remove('blackParticipant')
+        ..remove('whiteParticipant')
+        ..remove('aiStrategyPercentages');
+
+      final restored = LocalGameConfig.fromJson(legacy);
+
+      expect(restored.isHumanVsHuman, isTrue);
+      expect(
+        restored.aiStrategyPercentages.toJson(),
+        const OneStepStrategyPercentages.balanced().toJson(),
+      );
     });
 
     test('rejects a config that disagrees with persisted engine rules', () {

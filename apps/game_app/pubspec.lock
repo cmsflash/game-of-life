@@ -272,6 +272,13 @@ packages:
     description: flutter
     source: sdk
     version: "0.0.0"
+  game_ai:
+    dependency: "direct main"
+    description:
+      path: "../../packages/game_ai"
+      relative: true
+    source: path
+    version: "0.1.0"
   game_engine:
     dependency: "direct main"
     description:

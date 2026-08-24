@@ -40,6 +40,8 @@ dependencies:
   firebase_messaging: ^16.5.0
   flutter_riverpod: ^2.6.1
   flutter_secure_storage: ^9.2.4
+  game_ai:
+    path: ../../packages/game_ai
   game_engine:
     path: ../../packages/game_engine
   go_router: ^14.8.1

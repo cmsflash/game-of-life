@@ -22,6 +22,13 @@
   unchanged.
 - Elimination, turn-limit population, and population-target modes finish with
   deterministic outcomes.
+- Local setup supports human vs human, player vs AI with either human color,
+  and AI vs AI. The one-step AI selects max-own-cells, min-opponent-cells, or
+  max-cell-advantage from three configurable percentages totaling 100.
+- A single AI opponent responds exactly once after a human move. An AI playing
+  Black makes exactly one opening move when a match starts or restarts.
+- AI-vs-AI games never advance automatically. The board is read-only and each
+  explicit `Next step` action commits exactly one AI move.
 - Recorded move sequences can be replayed deterministically through the shared
   engine and command-line interface.
 

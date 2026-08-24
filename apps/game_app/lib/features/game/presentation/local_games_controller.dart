@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:game_ai/game_ai.dart';
 import 'package:game_engine/game_engine.dart' as engine;
 
 import '../../../core/ids.dart';
@@ -111,7 +112,7 @@ class LocalGamesController extends StateNotifier<LocalGamesState> {
       final now = _clock().toUtc();
       final blackName = config.nameFor(engine.Player.black);
       final whiteName = config.nameFor(engine.Player.white);
-      final game = LocalGameSession(
+      var game = LocalGameSession(
         id: _uniqueId(),
         title: _label(title, '$blackName vs $whiteName'),
         opponentLabel: _label(opponentLabel, whiteName),
@@ -120,6 +121,7 @@ class LocalGamesController extends StateNotifier<LocalGamesState> {
         config: config,
         game: _engine.initialState(config.rules),
       );
+      game = _autoAdvanceSingleAi(game, updatedAt: now);
       final games = _sorted([game, ...state.games]);
       await _write(games);
       state = state.copyWith(
@@ -140,6 +142,17 @@ class LocalGamesController extends StateNotifier<LocalGamesState> {
   bool consider(String id, int row, int column) {
     final current = state.gameById(id);
     if (current == null || !current.game.isActive) return false;
+    if (current.config.isAi(current.game.toMove!)) {
+      _replace(
+        current.copyWith(
+          error: current.config.isAiVsAi
+              ? 'Use Next step to advance this AI match.'
+              : 'The AI is choosing this turn.',
+        ),
+        selectedGameId: id,
+      );
+      return false;
+    }
     if (_pendingGameIds.contains(id)) {
       _replace(
         current.copyWith(error: 'Saving this game. Try again in a moment.'),
@@ -175,7 +188,7 @@ class LocalGamesController extends StateNotifier<LocalGamesState> {
     final updatedAt = _clock().toUtc();
     return _enqueueMutation(() async {
       try {
-        final next = current.copyWith(
+        var next = current.copyWith(
           updatedAt: updatedAt,
           game: preview.turn.state,
           lastMove: preview.coordinate,
@@ -184,6 +197,7 @@ class LocalGamesController extends StateNotifier<LocalGamesState> {
           clearPreview: true,
           clearError: true,
         );
+        next = _autoAdvanceSingleAi(next, updatedAt: updatedAt);
         await _write(_withReplacement(next, sort: true));
         _replace(next, selectedGameId: id, sort: true);
         return true;
@@ -205,6 +219,27 @@ class LocalGamesController extends StateNotifier<LocalGamesState> {
     }
   }
 
+  Future<bool> advanceAi(String id) {
+    final current = state.gameById(id);
+    if (current == null ||
+        !current.game.isActive ||
+        !current.config.isAi(current.game.toMove!) ||
+        !_pendingGameIds.add(id)) {
+      return Future.value(false);
+    }
+    final updatedAt = _clock().toUtc();
+    return _enqueueMutation(() async {
+      try {
+        final next = _advanceAiTurn(current, updatedAt: updatedAt);
+        await _write(_withReplacement(next, sort: true));
+        _replace(next, selectedGameId: id, sort: true);
+        return true;
+      } finally {
+        _pendingGameIds.remove(id);
+      }
+    });
+  }
+
   Future<bool> restart(String id) {
     final current = state.gameById(id);
     if (current == null || !_pendingGameIds.add(id)) {
@@ -213,7 +248,7 @@ class LocalGamesController extends StateNotifier<LocalGamesState> {
     final updatedAt = _clock().toUtc();
     return _enqueueMutation(() async {
       try {
-        final next = current.copyWith(
+        var next = current.copyWith(
           updatedAt: updatedAt,
           game: _engine.initialState(current.config.rules),
           lastBirths: const [],
@@ -222,6 +257,7 @@ class LocalGamesController extends StateNotifier<LocalGamesState> {
           clearPreview: true,
           clearError: true,
         );
+        next = _autoAdvanceSingleAi(next, updatedAt: updatedAt);
         await _write(_withReplacement(next, sort: true));
         _replace(next, selectedGameId: id, sort: true);
         return true;
@@ -249,6 +285,41 @@ class LocalGamesController extends StateNotifier<LocalGamesState> {
         _pendingGameIds.remove(id);
       }
     });
+  }
+
+  LocalGameSession _autoAdvanceSingleAi(
+    LocalGameSession session, {
+    required DateTime updatedAt,
+  }) {
+    if (session.config.isAiVsAi ||
+        !session.game.isActive ||
+        !session.config.isAi(session.game.toMove!)) {
+      return session;
+    }
+    return _advanceAiTurn(session, updatedAt: updatedAt);
+  }
+
+  LocalGameSession _advanceAiTurn(
+    LocalGameSession session, {
+    required DateTime updatedAt,
+  }) {
+    final decision = OneStepGreedyAgent(
+      percentages: session.config.aiStrategyPercentages,
+    ).chooseMove(session.game);
+    final turn = decision.turn;
+    return session.copyWith(
+      updatedAt: updatedAt,
+      game: turn.state,
+      lastMove: decision.move.coordinate,
+      lastBirths: turn.delta.evolution.births
+          .map((birth) => birth.coordinate)
+          .toList(growable: false),
+      lastDeaths: turn.delta.evolution.deaths
+          .map((death) => death.coordinate)
+          .toList(growable: false),
+      clearPreview: true,
+      clearError: true,
+    );
   }
 
   String _uniqueId() {

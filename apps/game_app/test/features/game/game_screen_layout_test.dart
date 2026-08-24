@@ -141,6 +141,41 @@ void main() {
     expect(controller.state.gameById(_gameId)!.preview, isNull);
   });
 
+  testWidgets('AI vs AI waits for one explicit next step per turn', (
+    tester,
+  ) async {
+    configureGameViewport(tester, gameLayoutViewports.last);
+    final controller = await _localController(
+      config: const LocalGameConfig(
+        blackName: 'Black AI',
+        whiteName: 'White AI',
+        blackParticipant: LocalParticipantType.ai,
+        whiteParticipant: LocalParticipantType.ai,
+      ),
+    );
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [localGamesProvider.overrideWith((ref) => controller)],
+        child: const MaterialApp(home: LocalGameScreen(gameId: _gameId)),
+      ),
+    );
+    await tester.pump();
+
+    expect(controller.state.gameById(_gameId)!.game.ply, 0);
+    expect(tester.widget<LifeBoard>(find.byType(LifeBoard)).enabled, isFalse);
+    expect(find.byKey(const Key('next-ai-step')), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('next-ai-step')));
+    await tester.pumpAndSettle();
+
+    expect(controller.state.gameById(_gameId)!.game.ply, 1);
+    expect(
+      controller.state.gameById(_gameId)!.game.toMove,
+      engine.Player.white,
+    );
+    expect(find.byKey(const Key('next-ai-step')), findsOneWidget);
+  });
+
   testWidgets('delete action requires confirmation', (tester) async {
     configureGameViewport(tester, gameLayoutViewports.last);
     final controller = await _localController();
@@ -164,13 +199,15 @@ void main() {
 
 const _gameId = 'local-widget-test';
 
-Future<LocalGamesController> _localController() async {
+Future<LocalGamesController> _localController({
+  LocalGameConfig config = const LocalGameConfig(),
+}) async {
   final controller = LocalGamesController(
     MemoryLocalGameStore(),
     idFactory: () => _gameId,
     clock: () => DateTime.utc(2026, 8, 14),
   );
   await controller.load();
-  await controller.create(const LocalGameConfig());
+  await controller.create(config);
   return controller;
 }

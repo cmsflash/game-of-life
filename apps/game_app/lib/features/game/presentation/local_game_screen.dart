@@ -42,6 +42,7 @@ class LocalGameScreen extends ConsumerWidget {
       );
     }
     final game = session.game;
+    final isHumanTurn = game.isActive && !session.config.isAi(game.toMove!);
     final viewSettings = ref.watch(gameViewSettingsProvider);
     return Scaffold(
       appBar: AppBar(
@@ -72,7 +73,7 @@ class LocalGameScreen extends ConsumerWidget {
           board: LifeBoard(
             key: const Key('local-life-board'),
             board: game.board,
-            enabled: game.isActive,
+            enabled: isHumanTurn,
             lastMove: session.lastMove,
             previewBoard: session.preview?.board,
             tentativeMove: session.preview?.coordinate,
@@ -100,6 +101,7 @@ class LocalGameScreen extends ConsumerWidget {
           panel: _GamePanel(
             session: session,
             onCommit: () => _commit(context, ref, session.id),
+            onAdvanceAi: () => _advanceAi(context, ref, session.id),
           ),
         ),
       ),
@@ -117,6 +119,23 @@ class LocalGameScreen extends ConsumerWidget {
           const SnackBar(
             content: Text('The move could not be saved on this device.'),
           ),
+        );
+    }
+  }
+
+  Future<void> _advanceAi(
+    BuildContext context,
+    WidgetRef ref,
+    String id,
+  ) async {
+    try {
+      await ref.read(localGamesProvider.notifier).advanceAi(id);
+    } catch (_) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context)
+        ..clearSnackBars()
+        ..showSnackBar(
+          const SnackBar(content: Text('The AI move could not be saved.')),
         );
     }
   }
@@ -244,10 +263,15 @@ class _UnavailableLocalGame extends StatelessWidget {
 }
 
 class _GamePanel extends StatelessWidget {
-  const _GamePanel({required this.session, required this.onCommit});
+  const _GamePanel({
+    required this.session,
+    required this.onCommit,
+    required this.onAdvanceAi,
+  });
 
   final LocalGameSession session;
   final VoidCallback onCommit;
+  final VoidCallback onAdvanceAi;
 
   @override
   Widget build(BuildContext context) {
@@ -282,7 +306,9 @@ class _GamePanel extends StatelessWidget {
                 Text(
                   outcome == null
                       ? preview == null
-                            ? '${session.config.nameFor(game.toMove!)} to move'
+                            ? session.config.isAiVsAi
+                                  ? '${session.config.nameFor(game.toMove!)} is ready'
+                                  : '${session.config.nameFor(game.toMove!)} to move'
                             : 'Previewing row ${preview.coordinate.row + 1}, '
                                   'column ${preview.coordinate.column + 1}'
                       : _outcomeTitle(outcome, session.config),
@@ -294,7 +320,9 @@ class _GamePanel extends StatelessWidget {
                 Text(
                   outcome == null
                       ? preview == null
-                            ? 'Choose an empty square to preview the next round.'
+                            ? session.config.isAiVsAi
+                                  ? 'Press Next step to let this AI make exactly one move.'
+                                  : 'Choose an empty square to preview the next round.'
                             : 'Tap the selected square again to confirm. Tap '
                                   'another square to compare, or press the check.'
                       : _reason(outcome.reason),
@@ -303,6 +331,21 @@ class _GamePanel extends StatelessWidget {
             ),
           ),
         ),
+        if (outcome == null && session.config.isAiVsAi) ...[
+          SizedBox(height: sectionGap),
+          FilledButton.icon(
+            key: const Key('next-ai-step'),
+            onPressed: onAdvanceAi,
+            icon: const Icon(Icons.skip_next),
+            label: const Text('Next step'),
+          ),
+          SizedBox(height: compact ? 5 : 7),
+          Text(
+            _strategyMixLabel(session.config),
+            textAlign: TextAlign.center,
+            style: Theme.of(context).textTheme.labelMedium,
+          ),
+        ],
         SizedBox(height: sectionGap),
         Row(
           children: [
@@ -367,6 +410,13 @@ class _GamePanel extends StatelessWidget {
   String _outcomeTitle(engine.GameOutcome outcome, LocalGameConfig config) {
     if (outcome.winner == null) return 'Draw';
     return '${config.nameFor(outcome.winner!)} wins';
+  }
+
+  String _strategyMixLabel(LocalGameConfig config) {
+    final mix = config.aiStrategyPercentages;
+    return '${mix.maxSelfCells}% max own · '
+        '${mix.minOpponentCells}% min theirs · '
+        '${mix.maxCellAdvantage}% max difference';
   }
 
   String _reason(engine.OutcomeReason reason) => switch (reason) {
