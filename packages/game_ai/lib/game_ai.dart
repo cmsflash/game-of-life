@@ -6,3 +6,4 @@ export 'src/evaluator.dart';
 export 'src/greedy_agent.dart';
 export 'src/match_runner.dart';
 export 'src/one_step_greedy_agent.dart';
+export 'src/one_step_experiment.dart';

@@ -51,25 +51,7 @@ void main() {
 
   for (final strategy in OneStepGreedyStrategy.values) {
     test('${strategy.name} selects the best one-step population result', () {
-      final percentages = switch (strategy) {
-        OneStepGreedyStrategy.maxSelfCells => const OneStepStrategyPercentages(
-          maxSelfCells: 100,
-          minOpponentCells: 0,
-          maxCellAdvantage: 0,
-        ),
-        OneStepGreedyStrategy.minOpponentCells =>
-          const OneStepStrategyPercentages(
-            maxSelfCells: 0,
-            minOpponentCells: 100,
-            maxCellAdvantage: 0,
-          ),
-        OneStepGreedyStrategy.maxCellAdvantage =>
-          const OneStepStrategyPercentages(
-            maxSelfCells: 0,
-            minOpponentCells: 0,
-            maxCellAdvantage: 100,
-          ),
-      };
+      final percentages = OneStepStrategyPercentages.pure(strategy);
       final agent = OneStepGreedyAgent(percentages: percentages);
       final state = engine.initialState(
         GameRules.standard(victory: TurnLimitPopulationVictory(100)),
@@ -88,6 +70,30 @@ void main() {
       expect(decision.uniqueSuccessorCount, 25);
     });
   }
+
+  test('seeded tie-breaking is reproducible and varies equal best moves', () {
+    final state = engine.initialState(
+      GameRules.standard(victory: TurnLimitPopulationVictory(100)),
+    );
+    final moves = <Coordinate>{};
+    for (var seed = 0; seed < 20; seed++) {
+      final agent = OneStepGreedyAgent(
+        percentages: OneStepStrategyPercentages.pure(
+          OneStepGreedyStrategy.maxSelfCells,
+        ),
+        tieBreakSeed: seed,
+      );
+      final first = agent.chooseMove(state);
+      final second = agent.chooseMove(state);
+
+      expect(first.move, second.move);
+      expect(first.tieBreakSeed, seed);
+      expect(first.tiedBestSuccessorCount, greaterThan(1));
+      moves.add(first.move.coordinate);
+    }
+
+    expect(moves.length, greaterThan(1));
+  });
 
   test('the same state and mix always return the same decision', () {
     const agent = OneStepGreedyAgent(

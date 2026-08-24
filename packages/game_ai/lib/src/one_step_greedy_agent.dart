@@ -1,3 +1,6 @@
+import 'dart:convert';
+
+import 'package:crypto/crypto.dart';
 import 'package:game_engine/game_engine.dart';
 
 import 'agent.dart';
@@ -20,6 +23,26 @@ final class OneStepStrategyPercentages {
     : maxSelfCells = 34,
       minOpponentCells = 33,
       maxCellAdvantage = 33;
+
+  factory OneStepStrategyPercentages.pure(
+    OneStepGreedyStrategy strategy,
+  ) => switch (strategy) {
+    OneStepGreedyStrategy.maxSelfCells => const OneStepStrategyPercentages(
+      maxSelfCells: 100,
+      minOpponentCells: 0,
+      maxCellAdvantage: 0,
+    ),
+    OneStepGreedyStrategy.minOpponentCells => const OneStepStrategyPercentages(
+      maxSelfCells: 0,
+      minOpponentCells: 100,
+      maxCellAdvantage: 0,
+    ),
+    OneStepGreedyStrategy.maxCellAdvantage => const OneStepStrategyPercentages(
+      maxSelfCells: 0,
+      minOpponentCells: 0,
+      maxCellAdvantage: 100,
+    ),
+  };
 
   final int maxSelfCells;
   final int minOpponentCells;
@@ -133,6 +156,8 @@ final class OneStepGreedyDecision implements AgentDecision {
     required this.legalMoveCount,
     required this.uniqueSuccessorCount,
     required this.equivalentMoveCount,
+    required this.tiedBestSuccessorCount,
+    required this.tieBreakSeed,
   });
 
   @override
@@ -144,6 +169,8 @@ final class OneStepGreedyDecision implements AgentDecision {
   final int legalMoveCount;
   final int uniqueSuccessorCount;
   final int equivalentMoveCount;
+  final int tiedBestSuccessorCount;
+  final int? tieBreakSeed;
 
   @override
   Map<String, Object?> toJson() => {
@@ -154,6 +181,8 @@ final class OneStepGreedyDecision implements AgentDecision {
     'legalMoveCount': legalMoveCount,
     'uniqueSuccessorCount': uniqueSuccessorCount,
     'equivalentMoveCount': equivalentMoveCount,
+    'tiedBestSuccessorCount': tiedBestSuccessorCount,
+    'tieBreakSeed': tieBreakSeed,
   };
 }
 
@@ -167,12 +196,14 @@ final class OneStepGreedyAgent implements GameAgent {
   const OneStepGreedyAgent({
     this.name = 'one-step-greedy-v1',
     this.percentages = const OneStepStrategyPercentages.balanced(),
+    this.tieBreakSeed,
     this.engine = const GameEngine(),
-  });
+  }) : assert(tieBreakSeed == null || tieBreakSeed >= 0);
 
   @override
   final String name;
   final OneStepStrategyPercentages percentages;
+  final int? tieBreakSeed;
   final GameEngine engine;
 
   int strategyBucket(GameState state) {
@@ -234,13 +265,15 @@ final class OneStepGreedyAgent implements GameAgent {
     final bucket = strategyBucket(state);
     final strategy = percentages.strategyForBucket(bucket);
     final candidates = analyze(state);
-    var best = candidates.first;
-    for (final candidate in candidates.skip(1)) {
-      if (candidate.evaluation.scoreFor(strategy) >
-          best.evaluation.scoreFor(strategy)) {
-        best = candidate;
-      }
-    }
+    final bestScore = candidates
+        .map((candidate) => candidate.evaluation.scoreFor(strategy))
+        .reduce((left, right) => left > right ? left : right);
+    final tiedBest = candidates
+        .where(
+          (candidate) => candidate.evaluation.scoreFor(strategy) == bestScore,
+        )
+        .toList(growable: false);
+    final best = tiedBest[_tieBreakIndex(state, strategy, tiedBest.length)];
 
     final legalMoveCount = candidates.fold<int>(
       0,
@@ -255,7 +288,27 @@ final class OneStepGreedyAgent implements GameAgent {
       legalMoveCount: legalMoveCount,
       uniqueSuccessorCount: candidates.length,
       equivalentMoveCount: best.equivalentMoveCount,
+      tiedBestSuccessorCount: tiedBest.length,
+      tieBreakSeed: tieBreakSeed,
     );
+  }
+
+  int _tieBreakIndex(
+    GameState state,
+    OneStepGreedyStrategy strategy,
+    int candidateCount,
+  ) {
+    final seed = tieBreakSeed;
+    if (seed == null || candidateCount == 1) return 0;
+    if (seed < 0) throw StateError('tie-break seed must be non-negative');
+
+    final digest = sha256.convert(
+      utf8.encode('$seed:${state.stateHash}:${strategy.name}'),
+    );
+    final prefix = digest.bytes
+        .take(8)
+        .fold<int>(0, (value, byte) => (value << 8) | byte);
+    return prefix % candidateCount;
   }
 }
 

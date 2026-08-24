@@ -7,8 +7,9 @@ the Flutter client through `game_ai` and the shared deterministic `game_engine`.
 It does not call the product API, affect ratings, or change the game rules.
 
 Local setup supports human vs human, player vs AI with either human color, and
-AI vs AI. All AI players in one local match share the same three strategy
-percentages.
+AI vs AI. The current product UI gives all AI players in one local match the
+same three strategy percentages. The headless experiment API configures Black
+and White independently, without Flutter or product services.
 
 ## Strategy parameters
 
@@ -37,6 +38,21 @@ score, and uses the first row-major coordinate to break ties.
 
 The AI never predicts the opponent's next turn. Multi-step search, learned
 weights, remote inference, and adaptive difficulty are outside this version.
+
+## Headless pure-strategy experiments
+
+`OneStepExperimentRunner` runs the three pure strategies as ordered Black and
+White pairings. A pure agent assigns 100% to one objective and 0% to the other
+two. The full matrix therefore contains nine pairings.
+
+Repeating the original row-major agent from the canonical opening would always
+produce the same game, which cannot measure a useful win rate. Experiment
+trials instead use separate non-negative tie-break seeds for Black and White.
+The seed selects among distinct equal-scoring best successor states using a
+SHA-256 digest; it never selects a lower-scoring move or changes the engine.
+Trial seeds, outcomes, and final state hashes can be emitted for exact
+reproduction. The unseeded product agent continues to use the first row-major
+coordinate.
 
 ## Turn control
 
