@@ -43,21 +43,24 @@ mix behaves like a distribution across turns while saved games, tests, and
 AI-vs-AI experiments remain exactly reproducible. Equal scores use the
 row-major first coordinate.
 
-For repeated pure-strategy experiments, Black and White are configured as
-separate `OneStepGreedyAgent` instances. A non-negative trial seed can vary the
-choice among equal-scoring best successors while preserving the selected pure
-objective. The same configuration and seeds always reproduce the same games;
-omitting a seed retains the product's row-major tie-break behavior.
+For repeated experiments, Black and White are configured as separate
+`OneStepGreedyAgent` instances. A non-negative trial seed can vary the choice
+among equal-scoring best successors while preserving the objective selected
+for that turn. The same configuration and seeds always reproduce the same
+games; omitting a seed retains the product's row-major tie-break behavior.
 
-## Run pure-strategy experiments
+## Run strategy experiments
 
-Run 20 reproducible games for each of the nine ordered Black/White pairings:
+Run 20 reproducible games for each of the 16 ordered pairings among the three
+pure strategies and the equal 34/33/33 mix:
 
 ```bash
 cd packages/game_ai
 dart pub get
 dart run bin/one_step_experiment.dart --pretty
 ```
+
+Add `--pure-only` to reproduce the original nine-pairing pure-strategy matrix.
 
 Run one specific pairing and include each trial's seeds and outcome:
 
@@ -70,10 +73,10 @@ dart run bin/one_step_experiment.dart \
   --pretty
 ```
 
-The pure strategy names are `max-self`, `min-theirs`, and `max-difference`.
-Win percentages use completed games as the denominator. Experiments default to
-the official 100-ply population limit so both colors receive the same number
-of turns.
+The profile names are `max-self`, `min-theirs`, `max-difference`, and `mixed`.
+Win percentages use completed games as the denominator. Experiments default
+to the official 100-ply population limit so both colors receive the same
+number of turns.
 
 ## Run an AI-vs-AI game
 

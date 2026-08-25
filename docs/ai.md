@@ -39,20 +39,21 @@ score, and uses the first row-major coordinate to break ties.
 The AI never predicts the opponent's next turn. Multi-step search, learned
 weights, remote inference, and adaptive difficulty are outside this version.
 
-## Headless pure-strategy experiments
+## Headless strategy experiments
 
-`OneStepExperimentRunner` runs the three pure strategies as ordered Black and
-White pairings. A pure agent assigns 100% to one objective and 0% to the other
-two. The full matrix therefore contains nine pairings.
+`OneStepExperimentRunner` runs reusable profiles as ordered Black and White
+pairings. The default profiles are the three pure strategies plus an equal
+three-way mix represented by the integer percentages 34%, 33%, and 33%. The
+default matrix therefore contains 16 pairings; a pure-only run contains nine.
 
 Repeating the original row-major agent from the canonical opening would always
 produce the same game, which cannot measure a useful win rate. Experiment
 trials instead use separate non-negative tie-break seeds for Black and White.
 The seed selects among distinct equal-scoring best successor states using a
-SHA-256 digest; it never selects a lower-scoring move or changes the engine.
-Trial seeds, outcomes, and final state hashes can be emitted for exact
-reproduction. The unseeded product agent continues to use the first row-major
-coordinate.
+SHA-256 digest; it never selects a lower-scoring move for that turn's selected
+objective or changes the engine. Trial seeds, outcomes, and final state hashes
+can be emitted for exact reproduction. The unseeded product agent continues to
+use the first row-major coordinate.
 
 ## Turn control
 

@@ -6,15 +6,15 @@ void main() {
 
   test('Black and White use independent pure strategies', () {
     final result = runner.runMatchup(
-      blackStrategy: OneStepGreedyStrategy.maxSelfCells,
-      whiteStrategy: OneStepGreedyStrategy.minOpponentCells,
+      blackProfile: OneStepExperimentProfile.maxSelf,
+      whiteProfile: OneStepExperimentProfile.minTheirs,
       games: 3,
       maxPlies: 2,
       baseSeed: 10,
     );
 
-    expect(result.blackStrategy, OneStepGreedyStrategy.maxSelfCells);
-    expect(result.whiteStrategy, OneStepGreedyStrategy.minOpponentCells);
+    expect(result.blackProfile, OneStepExperimentProfile.maxSelf);
+    expect(result.whiteProfile, OneStepExperimentProfile.minTheirs);
     expect(result.games, 3);
     expect(result.completedGames, 3);
     expect(result.truncatedGames, 0);
@@ -38,28 +38,47 @@ void main() {
     }
   });
 
-  test('matrix covers all nine ordered pure-strategy pairings', () {
+  test('default matrix covers all 16 ordered strategy profiles', () {
     final result = runner.runMatrix(
       gamesPerMatchup: 1,
       maxPlies: 2,
       baseSeed: 0,
     );
 
-    expect(result.matchups, hasLength(9));
-    expect(result.totalGames, 9);
+    expect(result.matchups, hasLength(16));
+    expect(result.totalGames, 16);
     expect(
       result.matchups
-          .map((matchup) => (matchup.blackStrategy, matchup.whiteStrategy))
+          .map((matchup) => (matchup.blackProfile.id, matchup.whiteProfile.id))
           .toSet(),
-      hasLength(9),
+      hasLength(16),
     );
+  });
+
+  test('equal mix uses the balanced 34/33/33 percentages', () {
+    expect(OneStepExperimentProfile.equalMix.percentages.toJson(), {
+      'maxSelfCells': 34,
+      'minOpponentCells': 33,
+      'maxCellAdvantage': 33,
+    });
+  });
+
+  test('pure-only matrix retains the original nine pairings', () {
+    final result = runner.runMatrix(
+      profiles: OneStepExperimentProfile.pureProfiles,
+      gamesPerMatchup: 1,
+      maxPlies: 2,
+    );
+
+    expect(result.matchups, hasLength(9));
+    expect(result.totalGames, 9);
   });
 
   test('invalid trial configuration is rejected', () {
     expect(
       () => runner.runMatchup(
-        blackStrategy: OneStepGreedyStrategy.maxSelfCells,
-        whiteStrategy: OneStepGreedyStrategy.maxCellAdvantage,
+        blackProfile: OneStepExperimentProfile.maxSelf,
+        whiteProfile: OneStepExperimentProfile.maxDifference,
         games: 0,
         maxPlies: 100,
       ),
@@ -71,6 +90,17 @@ void main() {
     );
     expect(
       () => runner.runMatrix(gamesPerMatchup: 1, maxPlies: 2, baseSeed: -1),
+      throwsArgumentError,
+    );
+    expect(
+      () => runner.runMatrix(
+        profiles: const [
+          OneStepExperimentProfile.maxSelf,
+          OneStepExperimentProfile.maxSelf,
+        ],
+        gamesPerMatchup: 1,
+        maxPlies: 2,
+      ),
       throwsArgumentError,
     );
   });

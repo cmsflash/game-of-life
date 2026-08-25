@@ -3,7 +3,62 @@ import 'package:game_engine/game_engine.dart';
 import 'match_runner.dart';
 import 'one_step_greedy_agent.dart';
 
-/// One reproducible trial from a pure-strategy matchup.
+/// One reusable strategy mix for headless matchup experiments.
+final class OneStepExperimentProfile {
+  const OneStepExperimentProfile({
+    required this.id,
+    required this.label,
+    required this.percentages,
+  });
+
+  static const maxSelf = OneStepExperimentProfile(
+    id: 'maxSelf',
+    label: 'Max own cells',
+    percentages: OneStepStrategyPercentages(
+      maxSelfCells: 100,
+      minOpponentCells: 0,
+      maxCellAdvantage: 0,
+    ),
+  );
+  static const minTheirs = OneStepExperimentProfile(
+    id: 'minTheirs',
+    label: 'Min their cells',
+    percentages: OneStepStrategyPercentages(
+      maxSelfCells: 0,
+      minOpponentCells: 100,
+      maxCellAdvantage: 0,
+    ),
+  );
+  static const maxDifference = OneStepExperimentProfile(
+    id: 'maxDifference',
+    label: 'Max own − theirs',
+    percentages: OneStepStrategyPercentages(
+      maxSelfCells: 0,
+      minOpponentCells: 0,
+      maxCellAdvantage: 100,
+    ),
+  );
+  static const equalMix = OneStepExperimentProfile(
+    id: 'equalMix',
+    label: 'Equal three-way mix',
+    percentages: OneStepStrategyPercentages.balanced(),
+  );
+
+  static const pureProfiles = [maxSelf, minTheirs, maxDifference];
+  static const allProfiles = [maxSelf, minTheirs, maxDifference, equalMix];
+
+  final String id;
+  final String label;
+  final OneStepStrategyPercentages percentages;
+
+  Map<String, Object?> toJson() => {
+    'id': id,
+    'label': label,
+    'percentages': percentages.toJson(),
+  };
+}
+
+/// One reproducible trial from a strategy-profile matchup.
 final class OneStepTrialResult {
   const OneStepTrialResult({
     required this.trial,
@@ -34,13 +89,13 @@ final class OneStepTrialResult {
 /// Aggregate win-rate measurements for one ordered Black/White pairing.
 final class OneStepMatchupResult {
   OneStepMatchupResult({
-    required this.blackStrategy,
-    required this.whiteStrategy,
+    required this.blackProfile,
+    required this.whiteProfile,
     required Iterable<OneStepTrialResult> trials,
   }) : trials = List<OneStepTrialResult>.unmodifiable(trials);
 
-  final OneStepGreedyStrategy blackStrategy;
-  final OneStepGreedyStrategy whiteStrategy;
+  final OneStepExperimentProfile blackProfile;
+  final OneStepExperimentProfile whiteProfile;
   final List<OneStepTrialResult> trials;
 
   int get games => trials.length;
@@ -70,8 +125,8 @@ final class OneStepMatchupResult {
             games;
 
   Map<String, Object?> toJson({bool includeTrials = false}) => {
-    'blackStrategy': blackStrategy.name,
-    'whiteStrategy': whiteStrategy.name,
+    'blackProfile': blackProfile.toJson(),
+    'whiteProfile': whiteProfile.toJson(),
     'games': games,
     'completedGames': completedGames,
     'blackWins': blackWins,
@@ -112,7 +167,7 @@ final class OneStepExperimentResult {
       matchups.fold<int>(0, (total, matchup) => total + matchup.games);
 
   Map<String, Object?> toJson({bool includeTrials = false}) => {
-    'experiment': 'oneStepPureStrategyMatchups',
+    'experiment': 'oneStepStrategyProfileMatchups',
     'gamesPerMatchup': gamesPerMatchup,
     'maxPlies': maxPlies,
     'baseSeed': baseSeed,
@@ -124,17 +179,19 @@ final class OneStepExperimentResult {
   };
 }
 
-/// Runs reproducible pure-strategy trials without Flutter or product services.
+/// Runs reproducible strategy-profile trials without Flutter or services.
 ///
-/// Each agent always optimizes exactly one population objective. Trial seeds
-/// vary only the choice among equal-scoring best successor states, providing a
-/// distribution of games without weakening either side's pure strategy.
+/// Trial seeds vary only the choice among equal-scoring best successor states.
+/// The profile percentages still select the objective for each turn, so seeded
+/// trials never permit a lower-scoring move for that selected objective.
 final class OneStepExperimentRunner {
   const OneStepExperimentRunner({this.engine = const GameEngine()});
 
   final GameEngine engine;
 
   OneStepExperimentResult runMatrix({
+    List<OneStepExperimentProfile> profiles =
+        OneStepExperimentProfile.allProfiles,
     int gamesPerMatchup = 20,
     int maxPlies = 100,
     int baseSeed = 0,
@@ -144,13 +201,24 @@ final class OneStepExperimentRunner {
       maxPlies: maxPlies,
       baseSeed: baseSeed,
     );
+    if (profiles.isEmpty) {
+      throw ArgumentError.value(profiles, 'profiles', 'must not be empty');
+    }
+    final profileIds = profiles.map((profile) => profile.id).toSet();
+    if (profileIds.length != profiles.length) {
+      throw ArgumentError.value(
+        profiles,
+        'profiles',
+        'profile IDs must be unique',
+      );
+    }
     final matchups = <OneStepMatchupResult>[];
-    for (final blackStrategy in OneStepGreedyStrategy.values) {
-      for (final whiteStrategy in OneStepGreedyStrategy.values) {
+    for (final blackProfile in profiles) {
+      for (final whiteProfile in profiles) {
         matchups.add(
           runMatchup(
-            blackStrategy: blackStrategy,
-            whiteStrategy: whiteStrategy,
+            blackProfile: blackProfile,
+            whiteProfile: whiteProfile,
             games: gamesPerMatchup,
             maxPlies: maxPlies,
             baseSeed: baseSeed,
@@ -167,8 +235,8 @@ final class OneStepExperimentRunner {
   }
 
   OneStepMatchupResult runMatchup({
-    required OneStepGreedyStrategy blackStrategy,
-    required OneStepGreedyStrategy whiteStrategy,
+    required OneStepExperimentProfile blackProfile,
+    required OneStepExperimentProfile whiteProfile,
     required int games,
     int maxPlies = 100,
     int baseSeed = 0,
@@ -186,14 +254,14 @@ final class OneStepExperimentRunner {
       final blackSeed = baseSeed + trial * 2;
       final whiteSeed = blackSeed + 1;
       final black = OneStepGreedyAgent(
-        name: 'one-step-${blackStrategy.name}',
-        percentages: OneStepStrategyPercentages.pure(blackStrategy),
+        name: 'one-step-${blackProfile.id}',
+        percentages: blackProfile.percentages,
         tieBreakSeed: blackSeed,
         engine: engine,
       );
       final white = OneStepGreedyAgent(
-        name: 'one-step-${whiteStrategy.name}',
-        percentages: OneStepStrategyPercentages.pure(whiteStrategy),
+        name: 'one-step-${whiteProfile.id}',
+        percentages: whiteProfile.percentages,
         tieBreakSeed: whiteSeed,
         engine: engine,
       );
@@ -212,8 +280,8 @@ final class OneStepExperimentRunner {
       );
     }
     return OneStepMatchupResult(
-      blackStrategy: blackStrategy,
-      whiteStrategy: whiteStrategy,
+      blackProfile: blackProfile,
+      whiteProfile: whiteProfile,
       trials: trials,
     );
   }
