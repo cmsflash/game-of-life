@@ -26,6 +26,20 @@ dart run bin/one_step_experiment.dart \
 
 ## Results
 
+### Black win-rate matrix
+
+Rows are Black's pure strategy and columns are White's pure strategy. Each cell
+is Black's win rate across 20 trials; consult the detailed table for White wins
+and draws.
+
+| ID | Black \ White | Max own cells | Min their cells | Max own − theirs |
+| --- | --- | ---: | ---: | ---: |
+| W1 | Max own cells | 55% | 40% | 5% |
+| W2 | Min their cells | 40% | 45% | 45% |
+| W3 | Max own − theirs | 80% | 85% | 55% |
+
+### Detailed results
+
 | ID | Black strategy | White strategy | Black wins | White wins | Draws | Avg. plies |
 | --- | --- | --- | ---: | ---: | ---: | ---: |
 | M1 | Max own cells | Max own cells | 11 (55%) | 9 (45%) | 0 | 95.45 |
