@@ -55,6 +55,30 @@ objective or changes the engine. Trial seeds, outcomes, and final state hashes
 can be emitted for exact reproduction. The unseeded product agent continues to
 use the first row-major coordinate.
 
+## Mixture optimization
+
+`OneStepAdaptiveOptimizer` searches for independent Black and White mixtures
+without Flutter or product services. It begins with the three pure profiles
+and equal mix, estimates their zero-sum payoff matrix, and uses deterministic
+fictitious play to approximate the restricted-game equilibrium.
+
+For each color, the opponent equilibrium becomes the target distribution for
+an adaptive best-response search. The search starts with all 66 mixtures on a
+10-point simplex grid, then refines promising regions at 5%, 2%, and 1% while
+retaining deterministic global exploration points. At each resolution,
+candidates receive a small common-seed budget, uncertain or strong survivors
+receive a larger budget, and five finalists receive the largest budget. A
+discovered response is added to its color's strategy league before the payoff
+matrix is solved again.
+
+The final audit searches once more against both equilibrium distributions.
+Separate robust single-profile recommendations maximize Black's worst-case
+payoff and minimize White's worst-case Black payoff within the discovered
+league. Holdout games use a disjoint seed range and deterministic percentile
+bootstrap confidence intervals. Reported exploitability is the gap between
+the final externally searched Black and White best-response payoffs, rather
+than an Elo rating; the full non-transitive payoff matrix is retained.
+
 ## Turn control
 
 - In player vs AI, the human previews and confirms a move normally. The AI then

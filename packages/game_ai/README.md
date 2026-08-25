@@ -78,6 +78,29 @@ Win percentages use completed games as the denominator. Experiments default
 to the official 100-ply population limit so both colors receive the same
 number of turns.
 
+## Optimize strategy mixtures
+
+Run the offline adaptive optimizer and retain its complete reproducible data:
+
+```bash
+dart run bin/one_step_optimize.dart \
+  --output=../../docs/experiments/one-step-mixture-optimization-data.json \
+  --pretty
+```
+
+The optimizer maintains separate Black and White strategy leagues. It solves
+their restricted zero-sum payoff matrix, then searches for each color's best
+response on progressively finer 10%, 5%, 2%, and 1% grids. Each resolution
+uses uncertainty-aware successive halving, while deterministic global probes
+continue to sample unexplored regions. Newly discovered responses expand the
+restricted game before the next iteration.
+
+The final recommendations are selected by worst-case payoff within the
+discovered league. They are evaluated against each other and against all four
+baseline profiles using unseen seeds. The JSON output includes every candidate
+score, equilibrium, payoff matrix, game outcome, bootstrap confidence interval,
+and estimated exploitability needed to reproduce or inspect the result.
+
 ## Run an AI-vs-AI game
 
 The command-line experiment defaults to the bounded 100-ply population rules
