@@ -98,8 +98,9 @@ restricted game before the next iteration.
 The final recommendations are selected by worst-case payoff within the
 discovered league. They are evaluated against each other and against all four
 baseline profiles using unseen seeds. The JSON output includes every candidate
-score, equilibrium, payoff matrix, game outcome, bootstrap confidence interval,
-and estimated exploitability needed to reproduce or inspect the result.
+score, equilibrium, payoff matrix, holdout game outcome, bootstrap confidence
+interval, and estimated exploitability needed to reproduce or inspect the
+result.
 
 ## Run an AI-vs-AI game
 
