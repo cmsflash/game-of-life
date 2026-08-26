@@ -36,8 +36,27 @@ produce equal successor states are grouped and evaluated once. It scores each
 unique successor only on the strategy selected for that turn, chooses the best
 score, and uses the first row-major coordinate to break ties.
 
-The AI never predicts the opponent's next turn. Multi-step search, learned
-weights, remote inference, and adaptive difficulty are outside this version.
+The one-step AI never predicts the opponent's next turn. Learned weights,
+remote inference, and adaptive difficulty are outside this version.
+
+## Two-step max-difference search
+
+The offline `TwoStepMaxDifferenceAgent` examines each unique first-move
+successor and every legal opponent reply. A first move receives the smallest
+own-minus-theirs population advantage that any reply can produce, and the
+agent chooses the first move with the largest such worst-case score. A move
+that ends the game is evaluated immediately because it has no reply.
+
+This is a two-ply maximin search. It does not assume that the actual opponent
+uses Max difference or any other one-step profile. Seeded SHA-256 tie-breaking
+varies equal best first moves in experiments without allowing a lower-scoring
+move. The implementation lives in the standalone `game_ai` package and does
+not add a two-step option to the product UI.
+
+`TwoStepRepresentativeExperimentRunner` assigns the two-step agent to Black
+and White against the four representative one-step profiles: the three pure
+objectives and Equal mix. The experiment command can run all eight ordered
+matchups in parallel isolates and retain every trial seed and outcome.
 
 ## Headless strategy experiments
 

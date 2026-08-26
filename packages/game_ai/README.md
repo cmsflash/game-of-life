@@ -102,6 +102,30 @@ score, equilibrium, payoff matrix, holdout game outcome, bootstrap confidence
 interval, and estimated exploitability needed to reproduce or inspect the
 result.
 
+## Two-step max-difference AI
+
+`TwoStepMaxDifferenceAgent` searches two plies: each legal AI move followed by
+every legal opponent reply. It scores a first move by the AI's cell advantage
+after the reply that minimizes that advantage, then selects the move with the
+largest worst-case score. This is a depth-two maximin policy over population
+difference, not an assumption that the actual opponent uses a particular
+one-step objective.
+
+Run the agent as both Black and White against Max own cells, Min their cells,
+Max difference, and Equal mix:
+
+```bash
+dart run bin/two_step_experiment.dart \
+  --games-per-matchup=100 \
+  --include-trials \
+  --output=../../docs/experiments/two-step-vs-one-step-data.json \
+  --pretty
+```
+
+Use `--one-step-profile` or `--two-step-color` to select one pairing. Matchups
+run in parallel isolates while each game remains reproducible from its Black
+and White tie-break seeds.
+
 ## Run an AI-vs-AI game
 
 The command-line experiment defaults to the bounded 100-ply population rules
