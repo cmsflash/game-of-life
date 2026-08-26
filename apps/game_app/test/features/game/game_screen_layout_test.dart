@@ -149,8 +149,8 @@ void main() {
       config: const LocalGameConfig(
         blackName: 'Black AI',
         whiteName: 'White AI',
-        blackParticipant: LocalParticipantType.ai,
-        whiteParticipant: LocalParticipantType.ai,
+        blackParticipant: LocalParticipantType.aiLevel1,
+        whiteParticipant: LocalParticipantType.aiLevel2,
       ),
     );
     await tester.pumpWidget(
@@ -164,6 +164,7 @@ void main() {
     expect(controller.state.gameById(_gameId)!.game.ply, 0);
     expect(tester.widget<LifeBoard>(find.byType(LifeBoard)).enabled, isFalse);
     expect(find.byKey(const Key('next-ai-step')), findsOneWidget);
+    expect(find.text('Black: AI level 1 · White: AI level 2'), findsOneWidget);
 
     await tester.tap(find.byKey(const Key('next-ai-step')));
     await tester.pumpAndSettle();

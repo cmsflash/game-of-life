@@ -74,7 +74,7 @@ void main() {
     expect(controller.state.gameById('local-two')?.title, 'Lin vs Kai');
   });
 
-  testWidgets('setup creates player vs AI with a configurable strategy mix', (
+  testWidgets('setup creates player vs AI with a selected AI level', (
     tester,
   ) async {
     final controller = LocalGamesController(
@@ -96,21 +96,16 @@ void main() {
     await tester.ensureVisible(find.text('Player vs AI'));
     await tester.tap(find.text('Player vs AI'));
     await tester.pumpAndSettle();
-    expect(find.text('AI strategy mix'), findsOneWidget);
+    expect(find.text('AI level'), findsOneWidget);
     expect(find.text('You'), findsOneWidget);
-    expect(find.text('Greedy AI'), findsOneWidget);
-
-    await tester.enterText(find.byKey(const Key('ai-max-self-cells')), '20');
-    await tester.enterText(
-      find.byKey(const Key('ai-min-opponent-cells')),
-      '30',
+    expect(find.text('AI level 1'), findsWidgets);
+    await tester.tap(
+      find.descendant(
+        of: find.byKey(const Key('human-opponent-ai-level')),
+        matching: find.text('AI level 2'),
+      ),
     );
-    await tester.enterText(
-      find.byKey(const Key('ai-max-cell-advantage')),
-      '50',
-    );
-    await tester.pump();
-    expect(find.text('Total: 100%'), findsOneWidget);
+    await tester.pumpAndSettle();
 
     await tester.ensureVisible(find.byKey(const Key('start-local-game')));
     await tester.tap(find.byKey(const Key('start-local-game')));
@@ -118,10 +113,7 @@ void main() {
 
     final game = controller.state.gameById('player-ai')!;
     expect(game.config.blackParticipant, LocalParticipantType.human);
-    expect(game.config.whiteParticipant, LocalParticipantType.ai);
-    expect(game.config.aiStrategyPercentages.maxSelfCells, 20);
-    expect(game.config.aiStrategyPercentages.minOpponentCells, 30);
-    expect(game.config.aiStrategyPercentages.maxCellAdvantage, 50);
+    expect(game.config.whiteParticipant, LocalParticipantType.aiLevel2);
     expect(game.game.ply, 0);
   });
 
@@ -147,12 +139,21 @@ void main() {
     await tester.ensureVisible(find.text('AI vs AI'));
     await tester.tap(find.text('AI vs AI'));
     await tester.pumpAndSettle();
+    await tester.tap(
+      find.descendant(
+        of: find.byKey(const Key('white-ai-level')),
+        matching: find.text('AI level 2'),
+      ),
+    );
+    await tester.pumpAndSettle();
     await tester.ensureVisible(find.byKey(const Key('start-local-game')));
     await tester.tap(find.byKey(const Key('start-local-game')));
     await tester.pumpAndSettle();
 
     final game = controller.state.gameById('ai-ai')!;
     expect(game.config.isAiVsAi, isTrue);
+    expect(game.config.blackParticipant, LocalParticipantType.aiLevel1);
+    expect(game.config.whiteParticipant, LocalParticipantType.aiLevel2);
     expect(game.game.ply, 0);
   });
 }

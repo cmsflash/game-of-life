@@ -2,6 +2,11 @@
 
 Date: 2026-08-24
 
+> **Historical report.** The Max own cells and Min their cells objectives and
+> this experiment command were retired on 2026-08-26. The supported product AI
+> levels now use Max difference exclusively. These results are retained as the
+> record of the completed research run.
+
 ## Method
 
 This preliminary headless experiment ran all nine ordered pairings of the three

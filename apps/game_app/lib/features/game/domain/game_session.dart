@@ -1,4 +1,3 @@
-import 'package:game_ai/game_ai.dart';
 import 'package:game_engine/game_engine.dart' as engine;
 
 import 'move_preview.dart';
@@ -18,12 +17,22 @@ enum LocalGameMode {
 
 enum LocalParticipantType {
   human,
-  ai;
+  aiLevel1,
+  aiLevel2;
 
   static LocalParticipantType fromJson(Object? value) => switch (value) {
     'human' => LocalParticipantType.human,
-    'ai' => LocalParticipantType.ai,
+    'ai' || 'aiLevel1' => LocalParticipantType.aiLevel1,
+    'aiLevel2' => LocalParticipantType.aiLevel2,
     _ => throw FormatException('Unsupported local participant type: $value'),
+  };
+
+  bool get isAi => this != LocalParticipantType.human;
+
+  String get label => switch (this) {
+    LocalParticipantType.human => 'Human',
+    LocalParticipantType.aiLevel1 => 'AI level 1',
+    LocalParticipantType.aiLevel2 => 'AI level 2',
   };
 }
 
@@ -36,7 +45,6 @@ class LocalGameConfig {
     this.whiteName = 'White',
     this.blackParticipant = LocalParticipantType.human,
     this.whiteParticipant = LocalParticipantType.human,
-    this.aiStrategyPercentages = const OneStepStrategyPercentages.balanced(),
   });
 
   final LocalGameMode mode;
@@ -46,7 +54,6 @@ class LocalGameConfig {
   final String whiteName;
   final LocalParticipantType blackParticipant;
   final LocalParticipantType whiteParticipant;
-  final OneStepStrategyPercentages aiStrategyPercentages;
 
   engine.GameRules get rules => engine.GameRules.standard(
     victory: switch (mode) {
@@ -67,16 +74,11 @@ class LocalGameConfig {
   LocalParticipantType participantFor(engine.Player player) =>
       player == engine.Player.black ? blackParticipant : whiteParticipant;
 
-  bool isAi(engine.Player player) =>
-      participantFor(player) == LocalParticipantType.ai;
+  bool isAi(engine.Player player) => participantFor(player).isAi;
 
-  bool get hasAi =>
-      blackParticipant == LocalParticipantType.ai ||
-      whiteParticipant == LocalParticipantType.ai;
+  bool get hasAi => blackParticipant.isAi || whiteParticipant.isAi;
 
-  bool get isAiVsAi =>
-      blackParticipant == LocalParticipantType.ai &&
-      whiteParticipant == LocalParticipantType.ai;
+  bool get isAiVsAi => blackParticipant.isAi && whiteParticipant.isAi;
 
   bool get isHumanVsHuman =>
       blackParticipant == LocalParticipantType.human &&
@@ -85,7 +87,8 @@ class LocalGameConfig {
   String nameFor(engine.Player player) {
     final color = player == engine.Player.black ? 'Black' : 'White';
     final value = player == engine.Player.black ? blackName : whiteName;
-    final fallback = isAi(player) ? '$color AI' : color;
+    final participant = participantFor(player);
+    final fallback = participant.isAi ? '$color ${participant.label}' : color;
     return _nonEmpty(value, fallback);
   }
 
@@ -97,7 +100,6 @@ class LocalGameConfig {
     'whiteName': nameFor(engine.Player.white),
     'blackParticipant': blackParticipant.name,
     'whiteParticipant': whiteParticipant.name,
-    'aiStrategyPercentages': aiStrategyPercentages.toJson(),
   };
 
   factory LocalGameConfig.fromJson(Object? value) {
@@ -117,37 +119,12 @@ class LocalGameConfig {
       whiteParticipant: json['whiteParticipant'] == null
           ? LocalParticipantType.human
           : LocalParticipantType.fromJson(json['whiteParticipant']),
-      aiStrategyPercentages: json['aiStrategyPercentages'] == null
-          ? const OneStepStrategyPercentages.balanced()
-          : _strategyPercentages(json['aiStrategyPercentages']),
     );
   }
 
   static String _nonEmpty(String value, String fallback) {
     final normalized = value.trim();
     return normalized.isEmpty ? fallback : normalized;
-  }
-}
-
-OneStepStrategyPercentages _strategyPercentages(Object? value) {
-  final json = _jsonObject(value, 'config.aiStrategyPercentages');
-  try {
-    return OneStepStrategyPercentages.checked(
-      maxSelfCells: _jsonInt(
-        json['maxSelfCells'],
-        'config.aiStrategyPercentages.maxSelfCells',
-      ),
-      minOpponentCells: _jsonInt(
-        json['minOpponentCells'],
-        'config.aiStrategyPercentages.minOpponentCells',
-      ),
-      maxCellAdvantage: _jsonInt(
-        json['maxCellAdvantage'],
-        'config.aiStrategyPercentages.maxCellAdvantage',
-      ),
-    );
-  } on ArgumentError catch (error) {
-    throw FormatException(error.message);
   }
 }
 

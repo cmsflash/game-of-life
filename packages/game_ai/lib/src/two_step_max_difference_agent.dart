@@ -4,7 +4,7 @@ import 'package:crypto/crypto.dart';
 import 'package:game_engine/game_engine.dart';
 
 import 'agent.dart';
-import 'one_step_greedy_agent.dart';
+import 'one_step_max_difference_agent.dart';
 
 /// One first move evaluated by a depth-two max-difference search.
 final class TwoStepMaxDifferenceCandidate {
@@ -18,7 +18,7 @@ final class TwoStepMaxDifferenceCandidate {
     required this.opponentUniqueSuccessorCount,
   });
 
-  final OneStepGreedyCandidate firstMove;
+  final OneStepMaxDifferenceCandidate firstMove;
   final TurnResult firstTurn;
   final int immediateCellAdvantage;
   final int worstCaseCellAdvantage;
@@ -84,7 +84,7 @@ final class TwoStepMaxDifferenceDecision implements AgentDecision {
 /// immediately because it has no opponent reply.
 final class TwoStepMaxDifferenceAgent implements GameAgent {
   const TwoStepMaxDifferenceAgent({
-    this.name = 'two-step-max-difference-v1',
+    this.name = 'ai-level-2',
     this.tieBreakSeed,
     this.engine = const GameEngine(),
   }) : assert(tieBreakSeed == null || tieBreakSeed >= 0);
@@ -100,7 +100,7 @@ final class TwoStepMaxDifferenceAgent implements GameAgent {
       throw StateError('cannot analyze moves for a completed game');
     }
     final player = state.toMove!;
-    final firstMoves = OneStepGreedyAgent(engine: engine).analyze(state);
+    final firstMoves = OneStepMaxDifferenceAgent(engine: engine).analyze(state);
     return List.unmodifiable(
       firstMoves.map(
         (firstMove) => _evaluateCandidate(player: player, firstMove: firstMove),
@@ -114,7 +114,7 @@ final class TwoStepMaxDifferenceAgent implements GameAgent {
       throw StateError('cannot choose a move for a completed game');
     }
     final player = state.toMove!;
-    final firstMoves = OneStepGreedyAgent(engine: engine).analyze(state);
+    final firstMoves = OneStepMaxDifferenceAgent(engine: engine).analyze(state);
     final searchOrder = [...firstMoves]
       ..sort((left, right) {
         final scoreComparison = _cellAdvantage(
@@ -177,7 +177,7 @@ final class TwoStepMaxDifferenceAgent implements GameAgent {
 
   TwoStepMaxDifferenceCandidate? _evaluateCandidate({
     required Player player,
-    required OneStepGreedyCandidate firstMove,
+    required OneStepMaxDifferenceCandidate firstMove,
     int? abandonBelow,
   }) {
     final firstTurn = firstMove.turn;

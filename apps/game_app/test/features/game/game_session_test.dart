@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:game_ai/game_ai.dart';
 import 'package:game_engine/game_engine.dart' as engine;
 import 'package:game_of_life/features/game/data/local_game_store.dart';
 import 'package:game_of_life/features/game/domain/game_session.dart';
@@ -72,8 +71,8 @@ void main() {
         config: const LocalGameConfig(
           blackName: 'Black AI',
           whiteName: 'White AI',
-          blackParticipant: LocalParticipantType.ai,
-          whiteParticipant: LocalParticipantType.ai,
+          blackParticipant: LocalParticipantType.aiLevel1,
+          whiteParticipant: LocalParticipantType.aiLevel2,
         ),
       );
 
@@ -94,8 +93,8 @@ void main() {
       final fixture = await _Fixture.create(
         config: const LocalGameConfig(
           blackName: 'You',
-          whiteName: 'Greedy AI',
-          whiteParticipant: LocalParticipantType.ai,
+          whiteName: 'AI level 1',
+          whiteParticipant: LocalParticipantType.aiLevel1,
         ),
       );
 
@@ -113,9 +112,9 @@ void main() {
     test('a Black AI opens once when the human chooses White', () async {
       final fixture = await _Fixture.create(
         config: const LocalGameConfig(
-          blackName: 'Greedy AI',
+          blackName: 'AI level 2',
           whiteName: 'You',
-          blackParticipant: LocalParticipantType.ai,
+          blackParticipant: LocalParticipantType.aiLevel2,
         ),
       );
 
@@ -526,41 +525,45 @@ void main() {
       expect(restored.preview, isNull);
     });
 
-    test('round trips AI participants and strategy percentages', () {
+    test('round trips independent AI levels', () {
       const config = LocalGameConfig(
         blackName: 'Alpha',
         whiteName: 'Beta',
-        blackParticipant: LocalParticipantType.ai,
-        whiteParticipant: LocalParticipantType.ai,
-        aiStrategyPercentages: OneStepStrategyPercentages(
-          maxSelfCells: 20,
-          minOpponentCells: 30,
-          maxCellAdvantage: 50,
-        ),
+        blackParticipant: LocalParticipantType.aiLevel1,
+        whiteParticipant: LocalParticipantType.aiLevel2,
       );
 
       final restored = LocalGameConfig.fromJson(config.toJson());
 
-      expect(restored.blackParticipant, LocalParticipantType.ai);
-      expect(restored.whiteParticipant, LocalParticipantType.ai);
-      expect(restored.aiStrategyPercentages.maxSelfCells, 20);
-      expect(restored.aiStrategyPercentages.minOpponentCells, 30);
-      expect(restored.aiStrategyPercentages.maxCellAdvantage, 50);
+      expect(restored.blackParticipant, LocalParticipantType.aiLevel1);
+      expect(restored.whiteParticipant, LocalParticipantType.aiLevel2);
     });
 
     test('old saved configs default both participants to human', () {
       final legacy = const LocalGameConfig().toJson()
         ..remove('blackParticipant')
-        ..remove('whiteParticipant')
-        ..remove('aiStrategyPercentages');
+        ..remove('whiteParticipant');
 
       final restored = LocalGameConfig.fromJson(legacy);
 
       expect(restored.isHumanVsHuman, isTrue);
-      expect(
-        restored.aiStrategyPercentages.toJson(),
-        const OneStepStrategyPercentages.balanced().toJson(),
-      );
+    });
+
+    test('legacy AI and mixture settings migrate to AI level 1', () {
+      final legacy = const LocalGameConfig().toJson()
+        ..['blackParticipant'] = 'ai'
+        ..['whiteParticipant'] = 'ai'
+        ..['aiStrategyPercentages'] = const {
+          'maxSelfCells': 20,
+          'minOpponentCells': 30,
+          'maxCellAdvantage': 50,
+        };
+
+      final restored = LocalGameConfig.fromJson(legacy);
+
+      expect(restored.blackParticipant, LocalParticipantType.aiLevel1);
+      expect(restored.whiteParticipant, LocalParticipantType.aiLevel1);
+      expect(restored.toJson(), isNot(contains('aiStrategyPercentages')));
     });
 
     test('rejects a config that disagrees with persisted engine rules', () {

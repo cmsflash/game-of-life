@@ -3,8 +3,8 @@ import 'package:game_engine/game_engine.dart';
 import 'package:test/test.dart';
 
 void main() {
-  test('greedy-vs-greedy experiment is deterministic and bounded', () {
-    const agent = GreedyAgent();
+  test('level-1-vs-level-1 match is deterministic and bounded', () {
+    const agent = OneStepMaxDifferenceAgent();
     const runner = AiMatchRunner(black: agent, white: agent);
     final rules = GameRules.standard(victory: TurnLimitPopulationVictory(2));
 
@@ -18,7 +18,7 @@ void main() {
   });
 
   test('safety bound reports truncation without inventing an outcome', () {
-    const agent = GreedyAgent();
+    const agent = OneStepMaxDifferenceAgent();
     const runner = AiMatchRunner(black: agent, white: agent);
 
     final result = runner.play(safetyMaxPlies: 2);
@@ -30,7 +30,7 @@ void main() {
 
   test('custom nonzero-ply start records exact reproducibility metadata', () {
     const engine = GameEngine();
-    const agent = GreedyAgent();
+    const agent = OneStepMaxDifferenceAgent();
     const runner = AiMatchRunner(black: agent, white: agent);
     final rules = GameRules.standard(victory: TurnLimitPopulationVictory(4));
     var state = engine.initialState(rules);

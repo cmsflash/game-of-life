@@ -341,7 +341,7 @@ class _GamePanel extends StatelessWidget {
           ),
           SizedBox(height: compact ? 5 : 7),
           Text(
-            _strategyMixLabel(session.config),
+            _aiLevelsLabel(session.config),
             textAlign: TextAlign.center,
             style: Theme.of(context).textTheme.labelMedium,
           ),
@@ -412,12 +412,9 @@ class _GamePanel extends StatelessWidget {
     return '${config.nameFor(outcome.winner!)} wins';
   }
 
-  String _strategyMixLabel(LocalGameConfig config) {
-    final mix = config.aiStrategyPercentages;
-    return '${mix.maxSelfCells}% max own · '
-        '${mix.minOpponentCells}% min theirs · '
-        '${mix.maxCellAdvantage}% max difference';
-  }
+  String _aiLevelsLabel(LocalGameConfig config) =>
+      'Black: ${config.blackParticipant.label} · '
+      'White: ${config.whiteParticipant.label}';
 
   String _reason(engine.OutcomeReason reason) => switch (reason) {
     engine.OutcomeReason.elimination => 'The other color has been eliminated.',

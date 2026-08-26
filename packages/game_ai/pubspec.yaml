@@ -1,5 +1,5 @@
 name: game_ai
-description: Deterministic baseline agents and experiment runners for Life Duel.
+description: One-step and two-step Max Difference agents for Life Duel.
 version: 0.1.0
 publish_to: none
 

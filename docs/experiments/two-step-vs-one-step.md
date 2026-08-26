@@ -2,6 +2,10 @@
 
 Date: 2026-08-26
 
+> **Historical report.** The representative one-step objectives and this
+> experiment command were retired after this run. The product now exposes the
+> one-step and two-step Max difference agents as AI level 1 and AI level 2.
+
 ## Objective
 
 This headless experiment introduced a depth-two Max difference agent and

@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:game_ai/game_ai.dart';
 import 'package:game_engine/game_engine.dart' as engine;
 import 'package:go_router/go_router.dart';
 
@@ -22,12 +20,12 @@ class _LocalSetupScreenState extends ConsumerState<LocalSetupScreen> {
   var _humanColor = engine.Player.black;
   var _turnLimit = 100;
   var _target = 50;
+  var _humanOpponentLevel = LocalParticipantType.aiLevel1;
+  var _blackAiLevel = LocalParticipantType.aiLevel1;
+  var _whiteAiLevel = LocalParticipantType.aiLevel1;
   final _title = TextEditingController();
   final _blackName = TextEditingController(text: 'Black');
   final _whiteName = TextEditingController(text: 'White');
-  final _maxSelfCells = TextEditingController(text: '34');
-  final _minOpponentCells = TextEditingController(text: '33');
-  final _maxCellAdvantage = TextEditingController(text: '33');
   var _creating = false;
 
   @override
@@ -35,16 +33,11 @@ class _LocalSetupScreenState extends ConsumerState<LocalSetupScreen> {
     _title.dispose();
     _blackName.dispose();
     _whiteName.dispose();
-    _maxSelfCells.dispose();
-    _minOpponentCells.dispose();
-    _maxCellAdvantage.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    final strategyTotal = _strategyTotal;
-    final strategyValid = !_hasAi || _aiStrategyPercentages != null;
     return PageFrame(
       maxWidth: 920,
       child: Column(
@@ -54,7 +47,7 @@ class _LocalSetupScreenState extends ConsumerState<LocalSetupScreen> {
             eyebrow: 'Local play',
             title: 'Set the terms of life',
             description:
-                'Play another person or a one-step greedy AI. Local games need no account or connection.',
+                'Play another person, AI level 1, or AI level 2. Local games need no account or connection.',
           ),
           const SizedBox(height: 30),
           Card(
@@ -296,76 +289,39 @@ class _LocalSetupScreenState extends ConsumerState<LocalSetupScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'AI strategy mix',
+                      _matchup == _LocalMatchup.aiVsAi
+                          ? 'AI levels'
+                          : 'AI level',
                       style: Theme.of(context).textTheme.titleLarge,
                     ),
                     const SizedBox(height: 6),
                     const Text(
-                      'Each AI turn selects one strategy using these percentages, then takes the best one-step move.',
+                      'Level 1 maximizes cell difference after one move. Level 2 also checks every opponent reply.',
                     ),
                     const SizedBox(height: 18),
-                    LayoutBuilder(
-                      builder: (context, constraints) {
-                        final fields = [
-                          _StrategyPercentageField(
-                            fieldKey: const Key('ai-max-self-cells'),
-                            label: 'Max own cells',
-                            controller: _maxSelfCells,
-                            onChanged: (_) => setState(() {}),
-                          ),
-                          _StrategyPercentageField(
-                            fieldKey: const Key('ai-min-opponent-cells'),
-                            label: 'Min their cells',
-                            controller: _minOpponentCells,
-                            onChanged: (_) => setState(() {}),
-                          ),
-                          _StrategyPercentageField(
-                            fieldKey: const Key('ai-max-cell-advantage'),
-                            label: 'Max own − theirs',
-                            controller: _maxCellAdvantage,
-                            onChanged: (_) => setState(() {}),
-                          ),
-                        ];
-                        if (constraints.maxWidth >= 660) {
-                          return Row(
-                            children: [
-                              for (
-                                var index = 0;
-                                index < fields.length;
-                                index++
-                              ) ...[
-                                if (index > 0) const SizedBox(width: 14),
-                                Expanded(child: fields[index]),
-                              ],
-                            ],
-                          );
-                        }
-                        return Column(
-                          children: [
-                            for (
-                              var index = 0;
-                              index < fields.length;
-                              index++
-                            ) ...[
-                              if (index > 0) const SizedBox(height: 12),
-                              fields[index],
-                            ],
-                          ],
-                        );
-                      },
-                    ),
-                    const SizedBox(height: 10),
-                    Text(
-                      strategyTotal == 100
-                          ? 'Total: 100%'
-                          : 'Total: $strategyTotal% · must equal 100%',
-                      key: const Key('ai-strategy-total'),
-                      style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                        color: strategyTotal == 100
-                            ? Theme.of(context).colorScheme.primary
-                            : Theme.of(context).colorScheme.error,
+                    if (_matchup == _LocalMatchup.humanVsAi)
+                      _AiLevelPicker(
+                        pickerKey: const Key('human-opponent-ai-level'),
+                        selected: _humanOpponentLevel,
+                        onChanged: _selectHumanOpponentLevel,
+                      )
+                    else ...[
+                      _AiLevelPicker(
+                        pickerKey: const Key('black-ai-level'),
+                        label: 'Black',
+                        selected: _blackAiLevel,
+                        onChanged: (level) =>
+                            _selectAiVsAiLevel(engine.Player.black, level),
                       ),
-                    ),
+                      const SizedBox(height: 14),
+                      _AiLevelPicker(
+                        pickerKey: const Key('white-ai-level'),
+                        label: 'White',
+                        selected: _whiteAiLevel,
+                        onChanged: (level) =>
+                            _selectAiVsAiLevel(engine.Player.white, level),
+                      ),
+                    ],
                   ],
                 ),
               ),
@@ -385,7 +341,7 @@ class _LocalSetupScreenState extends ConsumerState<LocalSetupScreen> {
               );
               final button = FilledButton.icon(
                 key: const Key('start-local-game'),
-                onPressed: _creating || !strategyValid ? null : _startGame,
+                onPressed: _creating ? null : _startGame,
                 icon: _creating
                     ? const SizedBox.square(
                         dimension: 18,
@@ -422,41 +378,15 @@ class _LocalSetupScreenState extends ConsumerState<LocalSetupScreen> {
         _LocalMatchup.humanVsAi =>
           player == _humanColor
               ? LocalParticipantType.human
-              : LocalParticipantType.ai,
-        _LocalMatchup.aiVsAi => LocalParticipantType.ai,
+              : _humanOpponentLevel,
+        _LocalMatchup.aiVsAi =>
+          player == engine.Player.black ? _blackAiLevel : _whiteAiLevel,
       };
 
   String _participantLabel(engine.Player player) {
     final color = player == engine.Player.black ? 'Black' : 'White';
-    return _participantFor(player) == LocalParticipantType.ai
-        ? '$color AI'
-        : '$color player';
-  }
-
-  int get _strategyTotal =>
-      [_maxSelfCells, _minOpponentCells, _maxCellAdvantage].fold(0, (
-        total,
-        controller,
-      ) {
-        return total + (int.tryParse(controller.text) ?? 0);
-      });
-
-  OneStepStrategyPercentages? get _aiStrategyPercentages {
-    final maxSelf = int.tryParse(_maxSelfCells.text);
-    final minOpponent = int.tryParse(_minOpponentCells.text);
-    final maxAdvantage = int.tryParse(_maxCellAdvantage.text);
-    if (maxSelf == null || minOpponent == null || maxAdvantage == null) {
-      return null;
-    }
-    try {
-      return OneStepStrategyPercentages.checked(
-        maxSelfCells: maxSelf,
-        minOpponentCells: minOpponent,
-        maxCellAdvantage: maxAdvantage,
-      );
-    } on ArgumentError {
-      return null;
-    }
+    final participant = _participantFor(player);
+    return participant.isAi ? '$color ${participant.label}' : '$color player';
   }
 
   void _selectMatchup(_LocalMatchup matchup) {
@@ -469,8 +399,8 @@ class _LocalSetupScreenState extends ConsumerState<LocalSetupScreen> {
         case _LocalMatchup.humanVsAi:
           _setHumanVsAiNames();
         case _LocalMatchup.aiVsAi:
-          _blackName.text = 'Black AI';
-          _whiteName.text = 'White AI';
+          _blackName.text = _blackAiLevel.label;
+          _whiteName.text = _whiteAiLevel.label;
       }
     });
   }
@@ -485,16 +415,33 @@ class _LocalSetupScreenState extends ConsumerState<LocalSetupScreen> {
   void _setHumanVsAiNames() {
     if (_humanColor == engine.Player.black) {
       _blackName.text = 'You';
-      _whiteName.text = 'Greedy AI';
+      _whiteName.text = _humanOpponentLevel.label;
     } else {
-      _blackName.text = 'Greedy AI';
+      _blackName.text = _humanOpponentLevel.label;
       _whiteName.text = 'You';
     }
   }
 
+  void _selectHumanOpponentLevel(LocalParticipantType level) {
+    setState(() {
+      _humanOpponentLevel = level;
+      _setHumanVsAiNames();
+    });
+  }
+
+  void _selectAiVsAiLevel(engine.Player player, LocalParticipantType level) {
+    setState(() {
+      if (player == engine.Player.black) {
+        _blackAiLevel = level;
+        _blackName.text = level.label;
+      } else {
+        _whiteAiLevel = level;
+        _whiteName.text = level.label;
+      }
+    });
+  }
+
   Future<void> _startGame() async {
-    final strategyPercentages = _aiStrategyPercentages;
-    if (_hasAi && strategyPercentages == null) return;
     setState(() => _creating = true);
     try {
       final game = await ref
@@ -508,9 +455,6 @@ class _LocalSetupScreenState extends ConsumerState<LocalSetupScreen> {
               whiteName: _whiteName.text,
               blackParticipant: _participantFor(engine.Player.black),
               whiteParticipant: _participantFor(engine.Player.white),
-              aiStrategyPercentages:
-                  strategyPercentages ??
-                  const OneStepStrategyPercentages.balanced(),
             ),
             title: _title.text,
             opponentLabel: _matchup == _LocalMatchup.aiVsAi
@@ -537,30 +481,44 @@ class _LocalSetupScreenState extends ConsumerState<LocalSetupScreen> {
 
 enum _LocalMatchup { humanVsHuman, humanVsAi, aiVsAi }
 
-class _StrategyPercentageField extends StatelessWidget {
-  const _StrategyPercentageField({
-    required this.fieldKey,
-    required this.label,
-    required this.controller,
+class _AiLevelPicker extends StatelessWidget {
+  const _AiLevelPicker({
+    required this.pickerKey,
+    required this.selected,
     required this.onChanged,
+    this.label,
   });
 
-  final Key fieldKey;
-  final String label;
-  final TextEditingController controller;
-  final ValueChanged<String> onChanged;
+  final Key pickerKey;
+  final String? label;
+  final LocalParticipantType selected;
+  final ValueChanged<LocalParticipantType> onChanged;
 
   @override
-  Widget build(BuildContext context) => TextField(
-    key: fieldKey,
-    controller: controller,
-    keyboardType: TextInputType.number,
-    inputFormatters: [
-      FilteringTextInputFormatter.digitsOnly,
-      LengthLimitingTextInputFormatter(3),
+  Widget build(BuildContext context) => Row(
+    children: [
+      if (label != null) ...[
+        SizedBox(width: 64, child: Text(label!)),
+        const SizedBox(width: 12),
+      ],
+      Expanded(
+        child: SegmentedButton<LocalParticipantType>(
+          key: pickerKey,
+          segments: const [
+            ButtonSegment(
+              value: LocalParticipantType.aiLevel1,
+              label: Text('AI level 1'),
+            ),
+            ButtonSegment(
+              value: LocalParticipantType.aiLevel2,
+              label: Text('AI level 2'),
+            ),
+          ],
+          selected: {selected},
+          onSelectionChanged: (selection) => onChanged(selection.first),
+        ),
+      ),
     ],
-    onChanged: onChanged,
-    decoration: InputDecoration(labelText: label, suffixText: '%'),
   );
 }
 

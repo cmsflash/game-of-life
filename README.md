@@ -11,8 +11,8 @@ This repository contains the complete cross-platform product:
   and Linux.
 - `packages/game_engine` — pure, deterministic Dart rules engine shared by
   local play, the client, tests, and the authoritative server executable.
-- `packages/game_ai` — deterministic classical agents and direct-engine
-  AI-vs-AI experiment tooling, including the local one-step population AI.
+- `packages/game_ai` — the direct-engine Max Difference implementations used by
+  AI level 1 and AI level 2, available without Flutter for offline matches.
 - `tools/game_cli` — JSON/JSONL command-line interface for automation and AI.
 - `backend` — server-authoritative HTTP API, authentication bridge,
   matchmaking, persistence, and replay service.

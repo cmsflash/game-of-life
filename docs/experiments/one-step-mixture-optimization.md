@@ -2,6 +2,11 @@
 
 Date: 2026-08-25
 
+> **Historical report.** Percentage mixtures and the adaptive optimizer were
+> retired on 2026-08-26. The supported product AI levels now use Max difference
+> exclusively. These results and their raw data remain as the record of the
+> completed research run.
+
 ## Objective
 
 This offline experiment searched for separate Black and White probability

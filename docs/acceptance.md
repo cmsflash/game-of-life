@@ -23,8 +23,10 @@
 - Elimination, turn-limit population, and population-target modes finish with
   deterministic outcomes.
 - Local setup supports human vs human, player vs AI with either human color,
-  and AI vs AI. The one-step AI selects max-own-cells, min-opponent-cells, or
-  max-cell-advantage from three configurable percentages totaling 100.
+  and AI vs AI. AI level 1 maximizes cell advantage after one move; AI level 2
+  maximizes the worst-case cell advantage after every legal opponent reply.
+- Player vs AI has one level selector. AI vs AI supports independent levels
+  for Black and White.
 - A single AI opponent responds exactly once after a human move. An AI playing
   Black makes exactly one opening move when a match starts or restarts.
 - AI-vs-AI games never advance automatically. The board is read-only and each

@@ -28,13 +28,7 @@ void main() {
     final state = engine.initialState(
       GameRules.standard(victory: TurnLimitPopulationVictory(1 + 1)),
     );
-    final black = const OneStepGreedyAgent(
-      percentages: OneStepStrategyPercentages(
-        maxSelfCells: 0,
-        minOpponentCells: 0,
-        maxCellAdvantage: 100,
-      ),
-    ).chooseMove(state);
+    final black = const OneStepMaxDifferenceAgent().chooseMove(state);
     final afterBlack = engine.applyMove(state, black.move).state;
     const agent = TwoStepMaxDifferenceAgent();
 
@@ -63,7 +57,7 @@ void main() {
     final state = engine.initialState(
       GameRules.standard(victory: TurnLimitPopulationVictory(2)),
     );
-    const oneStep = OneStepGreedyAgent();
+    const oneStep = OneStepMaxDifferenceAgent();
     final black = engine.applyMove(state, oneStep.chooseMove(state).move).state;
     final completed = engine
         .applyMove(black, oneStep.chooseMove(black).move)

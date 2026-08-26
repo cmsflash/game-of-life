@@ -303,10 +303,16 @@ class LocalGamesController extends StateNotifier<LocalGamesState> {
     LocalGameSession session, {
     required DateTime updatedAt,
   }) {
-    final decision = OneStepGreedyAgent(
-      percentages: session.config.aiStrategyPercentages,
-    ).chooseMove(session.game);
-    final turn = decision.turn;
+    final participant = session.config.participantFor(session.game.toMove!);
+    final agent = switch (participant) {
+      LocalParticipantType.human => throw StateError(
+        'cannot advance an AI turn for a human participant',
+      ),
+      LocalParticipantType.aiLevel1 => const OneStepMaxDifferenceAgent(),
+      LocalParticipantType.aiLevel2 => const TwoStepMaxDifferenceAgent(),
+    };
+    final decision = agent.chooseMove(session.game);
+    final turn = _engine.applyMove(session.game, decision.move);
     return session.copyWith(
       updatedAt: updatedAt,
       game: turn.state,
