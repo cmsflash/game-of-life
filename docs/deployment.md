@@ -248,6 +248,33 @@ dedicated bucket; the identity deploying the web stack therefore also needs
 `s3:GetBucketAcl` and `s3:PutBucketAcl`. The private content bucket separately
 uses bucket-owner-enforced ownership and has ACLs disabled.
 
+## Vercel web hosting
+
+The primary browser release is deployed to the `game-of-life-game` Vercel
+project. Vercel assigns the production alias
+`https://game-of-life-game.vercel.app`; the CloudFront release remains an
+operational fallback during the migration.
+
+Deploy the same validated Flutter bundle with:
+
+```bash
+infra/deploy-vercel-web.sh \
+  --api-base-url https://REPLACE-WITH-API-BASE-URL
+```
+
+The deployer builds the release through `infra/build-web.sh`, generates the
+exact API-scoped content security policy, and deploys the static output with a
+pinned Vercel CLI. Pass `--google-sign-in-enabled true` only when the API stack
+has Google login configured. `--use-existing-build` is reserved for a locally
+verified bundle produced from the current source revision.
+
+`infra/vercel.json` preserves the CloudFront security headers, forwards
+`/font-fallback/*` to the same versioned Google Fonts origin, and rewrites
+application routes to Flutter's `index.html`. The API stack must include
+`https://game-of-life-game.vercel.app` in `CorsAllowedOrigins` and
+`https://game-of-life-game.vercel.app/auth/callback` in `AllowedReturnUrls`
+before the Vercel release becomes the primary browser origin.
+
 Use the web stack's `WebBaseUrl` output as an exact API
 `CorsAllowedOrigins` value. Add `${WebBaseUrl}/auth/callback` to the API
 `AllowedReturnUrls` parameter before enabling browser login. When either

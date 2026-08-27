@@ -9,8 +9,16 @@ SAM_CLI_TELEMETRY=0 sam validate \
   --template-file infra/web-template.yaml \
   --region us-east-1 \
   --lint
-bash -n infra/deploy-web.sh infra/test-deploy-web.sh
+bash -n \
+  infra/build-web.sh \
+  infra/deploy-web.sh \
+  infra/deploy-vercel-web.sh \
+  infra/test-deploy-web.sh \
+  infra/test-deploy-vercel-web.sh
 infra/test-deploy-web.sh
+infra/test-deploy-vercel-web.sh
+
+python3 -m json.tool infra/vercel.json >/dev/null
 
 grep -F 'id="life-startup"' apps/game_app/web/index.html >/dev/null
 grep -F 'id="life-startup-retry"' apps/game_app/web/index.html >/dev/null

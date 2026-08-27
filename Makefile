@@ -1,7 +1,7 @@
 SHELL := /bin/bash
 PYTHON ?= python3.12
 
-.PHONY: bootstrap format analyze test test-engine test-ai test-app test-brand-icons test-backend brand-icons run-app run-backend build-web docker-backend
+.PHONY: bootstrap format analyze test test-engine test-ai test-app test-brand-icons test-backend brand-icons run-app run-backend build-web deploy-vercel-web docker-backend
 
 bootstrap:
 	cd packages/game_engine && dart pub get
@@ -54,7 +54,12 @@ run-backend:
 	cd backend && ../.venv/bin/uvicorn life_api.main:app --reload --port 8080
 
 build-web:
-	cd apps/game_app && flutter build web --release --no-web-resources-cdn
+	@test -n "$(API_BASE_URL)" || (echo "API_BASE_URL is required" >&2; exit 2)
+	infra/build-web.sh --api-base-url "$(API_BASE_URL)"
+
+deploy-vercel-web:
+	@test -n "$(API_BASE_URL)" || (echo "API_BASE_URL is required" >&2; exit 2)
+	infra/deploy-vercel-web.sh --api-base-url "$(API_BASE_URL)"
 
 docker-backend:
 	docker build -f backend/Dockerfile -t life-api:local .

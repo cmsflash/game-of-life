@@ -93,7 +93,7 @@ if [[ "$google_sign_in_enabled" != "true" && "$google_sign_in_enabled" != "false
   exit 2
 fi
 
-for required_command in aws flutter; do
+for required_command in aws; do
   if ! command -v "$required_command" >/dev/null 2>&1; then
     echo "Required command is not installed: $required_command" >&2
     exit 1
@@ -170,45 +170,10 @@ if [[ ! "$distribution_id" =~ ^[A-Z0-9]+$ ]]; then
   exit 1
 fi
 
-echo "Building Flutter web application for API $api_base_url"
-(
-  cd "$app_dir"
-  flutter clean
-  flutter pub get
-  flutter build web \
-    --release \
-    --no-web-resources-cdn \
-    --output "$build_dir" \
-    --dart-define="API_BASE_URL=$api_base_url" \
-    --dart-define="GOOGLE_SIGN_IN_ENABLED=$google_sign_in_enabled"
-)
-
-required_build_files=(
-  index.html
-  flutter_bootstrap.js
-  main.dart.js
-  push-service-worker.js
-  version.json
-)
-for relative_path in "${required_build_files[@]}"; do
-  if [[ ! -f "$build_dir/$relative_path" ]]; then
-    echo "Flutter build did not produce $build_dir/$relative_path." >&2
-    exit 1
-  fi
-done
-
-if ! grep -Eq '"useLocalCanvasKit"[[:space:]]*:[[:space:]]*true' \
-  "$build_dir/flutter_bootstrap.js"; then
-  echo "Flutter build is not configured to serve CanvasKit locally." >&2
-  exit 1
-fi
-
-if ! grep -Eq \
-  '"?fontFallbackBaseUrl"?[[:space:]]*:[[:space:]]*"/font-fallback/"' \
-  "$build_dir/flutter_bootstrap.js"; then
-  echo "Flutter build is not configured to use the same-origin font proxy." >&2
-  exit 1
-fi
+"$repo_dir/infra/build-web.sh" \
+  --api-base-url "$api_base_url" \
+  --google-sign-in-enabled "$google_sign_in_enabled" \
+  --output "$build_dir"
 
 echo "Synchronizing web build to s3://$bucket_name"
 no_cache_files=(

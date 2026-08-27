@@ -26,6 +26,7 @@ samconfig.toml
 cdk.out/
 infra/.terraform/
 infra/*.tfstate*
+.vercel/
 
 # Generated secrets and local databases
 *.db
