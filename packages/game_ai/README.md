@@ -27,6 +27,18 @@ ever selecting a lower-scoring move.
 Callers provide the rules or initial state and a safety ply limit. This keeps
 offline experiments on exactly the same rules implementation used by the app.
 
+Run seeded AI-level-1 self-play under elimination-only rules, retaining every
+trial and reporting any game still active at the safety horizon:
+
+```bash
+dart run bin/max_difference_elimination_experiment.dart \
+  --games=100 \
+  --safety-max-plies=1000 \
+  --concurrency=100 \
+  --output=../../docs/experiments/one-step-max-difference-elimination-data.json \
+  --pretty
+```
+
 ## Test
 
 ```bash
