@@ -99,6 +99,8 @@ void main() {
     expect(find.text('AI level'), findsOneWidget);
     expect(find.text('You'), findsOneWidget);
     expect(find.text('AI level 1'), findsWidgets);
+    expect(find.textContaining('maximizes cell difference'), findsNothing);
+    expect(find.textContaining('opponent reply'), findsNothing);
     await tester.tap(
       find.descendant(
         of: find.byKey(const Key('human-opponent-ai-level')),

@@ -294,11 +294,7 @@ class _LocalSetupScreenState extends ConsumerState<LocalSetupScreen> {
                           : 'AI level',
                       style: Theme.of(context).textTheme.titleLarge,
                     ),
-                    const SizedBox(height: 6),
-                    const Text(
-                      'Level 1 maximizes cell difference after one move. Level 2 also checks every opponent reply.',
-                    ),
-                    const SizedBox(height: 18),
+                    const SizedBox(height: 16),
                     if (_matchup == _LocalMatchup.humanVsAi)
                       _AiLevelPicker(
                         pickerKey: const Key('human-opponent-ai-level'),
