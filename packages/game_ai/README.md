@@ -39,6 +39,19 @@ dart run bin/max_difference_elimination_experiment.dart \
   --pretty
 ```
 
+For the historical one-step Max Self strategy, use the experiment-only runner:
+
+```bash
+dart run bin/max_self_elimination_experiment.dart \
+  --games=100 \
+  --safety-max-plies=1000 \
+  --concurrency=100 \
+  --output=../../docs/experiments/one-step-max-self-elimination-data.json \
+  --pretty
+```
+
+This does not restore Max Self as an app AI level or a supported package agent.
+
 ## Test
 
 ```bash
