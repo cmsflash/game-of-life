@@ -66,3 +66,9 @@ that they did not finish within the 1,000-ply horizon.
 A sequential rerun of trials 0 and 1 reproduced their populations and final
 state hashes exactly. Complete seeds, outcomes, cutoff populations, plies, and
 hashes are in the [raw JSON data](./one-step-max-self-elimination-data.json).
+
+## Follow-up
+
+A reproducible random sample of 10 unfinished trials was extended to 10,000
+plies. Eight remained active; see the
+[10,000-ply sample report](./one-step-max-self-elimination-10k-sample.md).

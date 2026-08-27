@@ -16,13 +16,15 @@ Future<void> main(List<String> arguments) async {
     }
 
     final stopwatch = Stopwatch()..start();
-    final trials = List<Map<String, Object?>?>.filled(options.games, null);
-    var nextTrial = 0;
+    final trialIds = options.trialIds;
+    final trials = List<Map<String, Object?>?>.filled(trialIds.length, null);
+    var nextIndex = 0;
 
     Future<void> runWorker() async {
-      while (nextTrial < options.games) {
-        final trial = nextTrial++;
-        trials[trial] = await Isolate.run(
+      while (nextIndex < trialIds.length) {
+        final index = nextIndex++;
+        final trial = trialIds[index];
+        trials[index] = await Isolate.run(
           () => _runTrial(
             trial: trial,
             baseSeed: options.baseSeed,
@@ -34,7 +36,7 @@ Future<void> main(List<String> arguments) async {
 
     await Future.wait(
       List.generate(
-        math.min(options.concurrency, options.games),
+        math.min(options.concurrency, trialIds.length),
         (_) => runWorker(),
       ),
     );
@@ -115,13 +117,14 @@ Map<String, Object?> _resultDocument({
     'experiment': 'oneStepMaxSelfSelfPlayElimination',
     'definition': 'both players maximize their own population after one ply',
     'victoryRule': 'elimination',
-    'games': options.games,
+    'games': options.trialIds.length,
+    'trialIds': options.trialIds,
     'baseSeed': options.baseSeed,
     'tieBreakMethod': 'seededSha256AmongEqualBestSuccessors',
     'safetyMaxPlies': options.safetyMaxPlies,
-    'parallelWorkers': math.min(options.concurrency, options.games),
+    'parallelWorkers': math.min(options.concurrency, options.trialIds.length),
     'elapsedMilliseconds': elapsedMilliseconds,
-    'completedGames': options.games - truncated,
+    'completedGames': options.trialIds.length - truncated,
     'truncatedGames': truncated,
     'outcomeReasons': outcomeReasons,
     'blackWins': _winnerCount(trials, 'black'),
@@ -229,7 +232,7 @@ final class _MaxSelfDecision implements AgentDecision {
 
 final class _Options {
   const _Options({
-    required this.games,
+    required this.trialIds,
     required this.safetyMaxPlies,
     required this.baseSeed,
     required this.concurrency,
@@ -238,7 +241,7 @@ final class _Options {
     required this.help,
   });
 
-  final int games;
+  final List<int> trialIds;
   final int safetyMaxPlies;
   final int baseSeed;
   final int concurrency;
@@ -248,6 +251,8 @@ final class _Options {
 
   factory _Options.parse(List<String> arguments) {
     var games = 100;
+    var gamesProvided = false;
+    List<int>? trialIds;
     var safetyMaxPlies = 1000;
     var baseSeed = 0;
     var concurrency = Platform.numberOfProcessors;
@@ -261,6 +266,12 @@ final class _Options {
         help = true;
       } else if (argument.startsWith('--games=')) {
         games = _integerValue(argument, '--games=');
+        gamesProvided = true;
+      } else if (argument.startsWith('--trial-ids=')) {
+        if (trialIds != null) {
+          throw const FormatException('--trial-ids may be provided only once');
+        }
+        trialIds = _trialIdsValue(argument.substring('--trial-ids='.length));
       } else if (argument.startsWith('--safety-max-plies=')) {
         safetyMaxPlies = _integerValue(argument, '--safety-max-plies=');
       } else if (argument.startsWith('--base-seed=')) {
@@ -279,6 +290,9 @@ final class _Options {
     if (games <= 0) {
       throw const FormatException('--games must be positive');
     }
+    if (gamesProvided && trialIds != null) {
+      throw const FormatException('--games and --trial-ids cannot be combined');
+    }
     if (safetyMaxPlies <= 0) {
       throw const FormatException('--safety-max-plies must be positive');
     }
@@ -289,7 +303,9 @@ final class _Options {
       throw const FormatException('--concurrency must be positive');
     }
     return _Options(
-      games: games,
+      trialIds: List<int>.unmodifiable(
+        trialIds ?? List<int>.generate(games, (trial) => trial),
+      ),
       safetyMaxPlies: safetyMaxPlies,
       baseSeed: baseSeed,
       concurrency: concurrency,
@@ -306,6 +322,24 @@ final class _Options {
           'invalid ${prefix.substring(0, prefix.length - 1)} value: $value',
         ));
   }
+
+  static List<int> _trialIdsValue(String value) {
+    if (value.isEmpty) {
+      throw const FormatException('--trial-ids requires at least one ID');
+    }
+    final ids = <int>[];
+    for (final part in value.split(',')) {
+      final id = int.tryParse(part);
+      if (id == null || id < 0) {
+        throw FormatException('invalid --trial-ids value: $value');
+      }
+      if (ids.contains(id)) {
+        throw FormatException('duplicate trial ID: $id');
+      }
+      ids.add(id);
+    }
+    return ids;
+  }
 }
 
 const _usage = '''
@@ -316,6 +350,7 @@ Usage:
 
 Options:
   --games=N              Number of seeded trials (default: 100).
+  --trial-ids=I,J,...    Run exact original trial IDs instead of --games.
   --safety-max-plies=N   Report an active game as truncated here (default: 1000).
   --base-seed=N          First Black tie-break seed (default: 0).
   --concurrency=N        Parallel game workers (default: processor count).

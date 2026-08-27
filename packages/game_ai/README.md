@@ -51,6 +51,19 @@ dart run bin/max_self_elimination_experiment.dart \
 ```
 
 This does not restore Max Self as an app AI level or a supported package agent.
+Exact trial IDs from a prior result can be replayed with
+`--trial-ids=0,19,30`.
+
+The recorded 10,000-ply follow-up uses:
+
+```bash
+dart run bin/max_self_elimination_experiment.dart \
+  --trial-ids=0,19,30,48,52,64,67,72,79,85 \
+  --safety-max-plies=10000 \
+  --concurrency=10 \
+  --output=../../docs/experiments/one-step-max-self-elimination-10k-sample-data.json \
+  --pretty
+```
 
 ## Test
 
