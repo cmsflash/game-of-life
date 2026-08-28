@@ -65,6 +65,8 @@ dart run bin/max_self_elimination_experiment.dart \
   --pretty
 ```
 
+The trial 0 follow-up uses `--trial-ids=0 --safety-max-plies=100000`.
+
 ## Test
 
 ```bash

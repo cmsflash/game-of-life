@@ -62,3 +62,8 @@ The eight active observations are right-censored at 10,000 plies. This result
 does not establish that they continue indefinitely. Complete cutoff
 populations and final hashes are in the
 [raw JSON data](./one-step-max-self-elimination-10k-sample-data.json).
+
+## Follow-up
+
+Trial 0 was extended with a 100,000-ply safety horizon and eliminated at ply
+14,303; see the [trial 0 report](./one-step-max-self-elimination-100k-trial-0.md).
