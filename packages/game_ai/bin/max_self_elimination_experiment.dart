@@ -29,6 +29,7 @@ Future<void> main(List<String> arguments) async {
             trial: trial,
             baseSeed: options.baseSeed,
             safetyMaxPlies: options.safetyMaxPlies,
+            progressEvery: options.progressEvery,
           ),
         );
       }
@@ -72,6 +73,7 @@ Map<String, Object?> _runTrial({
   required int trial,
   required int baseSeed,
   required int safetyMaxPlies,
+  required int? progressEvery,
 }) {
   final blackSeed = baseSeed + trial * 2;
   final whiteSeed = blackSeed + 1;
@@ -93,6 +95,12 @@ Map<String, Object?> _runTrial({
       );
     }
     state = engine.applyMove(state, decision.move).state;
+    if (progressEvery != null && state.ply % progressEvery == 0) {
+      stderr.writeln(
+        'Trial $trial reached ${state.ply} plies '
+        '(Black ${state.blackPopulation}, White ${state.whitePopulation}).',
+      );
+    }
   }
   final outcome = state.outcome;
   return {
@@ -247,6 +255,7 @@ final class _Options {
     required this.safetyMaxPlies,
     required this.baseSeed,
     required this.concurrency,
+    required this.progressEvery,
     required this.outputPath,
     required this.pretty,
     required this.help,
@@ -256,6 +265,7 @@ final class _Options {
   final int safetyMaxPlies;
   final int baseSeed;
   final int concurrency;
+  final int? progressEvery;
   final String? outputPath;
   final bool pretty;
   final bool help;
@@ -267,6 +277,7 @@ final class _Options {
     var safetyMaxPlies = 1000;
     var baseSeed = 0;
     var concurrency = Platform.numberOfProcessors;
+    int? progressEvery;
     String? outputPath;
     var pretty = false;
     var help = false;
@@ -289,6 +300,8 @@ final class _Options {
         baseSeed = _integerValue(argument, '--base-seed=');
       } else if (argument.startsWith('--concurrency=')) {
         concurrency = _integerValue(argument, '--concurrency=');
+      } else if (argument.startsWith('--progress-every=')) {
+        progressEvery = _integerValue(argument, '--progress-every=');
       } else if (argument.startsWith('--output=')) {
         outputPath = argument.substring('--output='.length);
         if (outputPath.isEmpty) {
@@ -313,6 +326,9 @@ final class _Options {
     if (concurrency <= 0) {
       throw const FormatException('--concurrency must be positive');
     }
+    if (progressEvery != null && progressEvery <= 0) {
+      throw const FormatException('--progress-every must be positive');
+    }
     return _Options(
       trialIds: List<int>.unmodifiable(
         trialIds ?? List<int>.generate(games, (trial) => trial),
@@ -320,6 +336,7 @@ final class _Options {
       safetyMaxPlies: safetyMaxPlies,
       baseSeed: baseSeed,
       concurrency: concurrency,
+      progressEvery: progressEvery,
       outputPath: outputPath,
       pretty: pretty,
       help: help,
@@ -365,6 +382,7 @@ Options:
   --safety-max-plies=N   Report an active game as truncated here (default: 1000).
   --base-seed=N          First Black tie-break seed (default: 0).
   --concurrency=N        Parallel game workers (default: processor count).
+  --progress-every=N     Report each trial every N plies to stderr.
   --output=PATH          Write complete JSON data to this path.
   --pretty               Pretty-print JSON output.
   -h, --help             Show this help.

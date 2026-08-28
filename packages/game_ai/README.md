@@ -79,6 +79,19 @@ dart run bin/max_self_elimination_experiment.dart \
   --pretty
 ```
 
+The final active sampled trial was replayed toward a 1,000,000-ply horizon
+with exact progress checkpoints:
+
+```bash
+dart run bin/max_self_elimination_experiment.dart \
+  --trial-ids=52 \
+  --safety-max-plies=1000000 \
+  --concurrency=1 \
+  --progress-every=10000 \
+  --output=../../docs/experiments/one-step-max-self-elimination-1m-trial-52-data.json \
+  --pretty
+```
+
 ## Test
 
 ```bash

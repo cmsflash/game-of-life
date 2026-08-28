@@ -43,6 +43,12 @@ At the cutoff, unfinished trial 52 had 23 Black cells and 17 White cells. Its
 trajectory remains right-censored: it may eliminate later, but this experiment
 does not establish that it continues indefinitely.
 
+## Follow-up
+
+Trial 52 was replayed with a 1,000,000-ply safety horizon and White eliminated
+Black at ply 102,486. All 10 sampled games therefore finished; see the
+[trial 52 follow-up](./one-step-max-self-elimination-1m-trial-52.md).
+
 ## Interpretation
 
 The 10,000-ply checkpoint substantially understated eventual termination:
