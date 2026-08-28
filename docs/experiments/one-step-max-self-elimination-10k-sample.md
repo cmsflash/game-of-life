@@ -63,7 +63,12 @@ does not establish that they continue indefinitely. Complete cutoff
 populations and final hashes are in the
 [raw JSON data](./one-step-max-self-elimination-10k-sample-data.json).
 
-## Follow-up
+## Follow-ups
 
-Trial 0 was extended with a 100,000-ply safety horizon and eliminated at ply
-14,303; see the [trial 0 report](./one-step-max-self-elimination-100k-trial-0.md).
+| ID | Trial | 100,000-ply follow-up |
+| --- | ---: | --- |
+| F1 | 0 | Black eliminated White at ply 14,303 |
+| F2 | 19 | White eliminated Black at ply 93,580 |
+
+See the detailed [trial 0 report](./one-step-max-self-elimination-100k-trial-0.md)
+and [trial 19 report](./one-step-max-self-elimination-100k-trial-19.md).

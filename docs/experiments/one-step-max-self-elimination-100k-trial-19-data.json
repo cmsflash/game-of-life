@@ -1,0 +1,44 @@
+{
+  "experiment": "oneStepMaxSelfSelfPlayElimination",
+  "definition": "both players maximize their own population after one ply",
+  "victoryRule": "elimination",
+  "games": 1,
+  "trialIds": [
+    19
+  ],
+  "baseSeed": 0,
+  "tieBreakMethod": "seededSha256AmongEqualBestSuccessors",
+  "safetyMaxPlies": 100000,
+  "parallelWorkers": 1,
+  "elapsedMilliseconds": 1206901,
+  "completedGames": 1,
+  "truncatedGames": 0,
+  "outcomeReasons": {
+    "elimination": 1
+  },
+  "blackWins": 0,
+  "whiteWins": 1,
+  "draws": 0,
+  "plies": {
+    "minimum": 93580,
+    "median": 93580.0,
+    "mean": 93580.0,
+    "p95": 93580,
+    "maximum": 93580
+  },
+  "trials": [
+    {
+      "trial": 19,
+      "blackTieBreakSeed": 38,
+      "whiteTieBreakSeed": 39,
+      "winner": "white",
+      "outcomeReason": "elimination",
+      "plies": 93580,
+      "truncated": false,
+      "blackPopulation": 0,
+      "whitePopulation": 65,
+      "finalPositionHash": "c4550470fa91a1ec2a96f3d04000ac1c574e378b9797a787bf79b6afcc7a5a4e",
+      "finalStateHash": "a021f2b8734081d077b840a5ba0329d908b337eb151942710c9964dcd062fb1e"
+    }
+  ]
+}
