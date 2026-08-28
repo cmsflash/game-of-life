@@ -92,6 +92,23 @@ dart run bin/max_self_elimination_experiment.dart \
   --pretty
 ```
 
+Run the ordered 4×4 elimination tournament for the historical Max Self and Min
+Theirs strategies plus the two supported Max Difference levels:
+
+```bash
+dart run bin/four_strategy_elimination_tournament.dart \
+  --games-per-cell=10 \
+  --safety-max-plies=1000000 \
+  --concurrency=8 \
+  --progress-every=1000 \
+  --output=../../docs/experiments/four-strategy-elimination-1m-data.json \
+  --resume \
+  --pretty
+```
+
+The output is atomically checkpointed after every game and can be resumed with
+the same configuration.
+
 ## Test
 
 ```bash
