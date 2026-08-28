@@ -75,27 +75,38 @@ Map<String, Object?> _runTrial({
 }) {
   final blackSeed = baseSeed + trial * 2;
   final whiteSeed = blackSeed + 1;
-  final match =
-      AiMatchRunner(
-        black: _OneStepMaxSelfAgent(tieBreakSeed: blackSeed),
-        white: _OneStepMaxSelfAgent(tieBreakSeed: whiteSeed),
-      ).play(
-        rules: GameRules.standard(victory: const EliminationVictory()),
-        safetyMaxPlies: safetyMaxPlies,
+  final black = _OneStepMaxSelfAgent(tieBreakSeed: blackSeed);
+  final white = _OneStepMaxSelfAgent(tieBreakSeed: whiteSeed);
+  const engine = GameEngine();
+  final initialState = engine.initialState(
+    GameRules.standard(victory: const EliminationVictory()),
+  );
+  var state = initialState;
+  while (state.isActive && state.ply < safetyMaxPlies) {
+    final agent = state.toMove == Player.black ? black : white;
+    final decision = agent.chooseMove(state);
+    final validation = engine.validateMove(state, decision.move);
+    if (!validation.isValid) {
+      throw StateError(
+        'agent ${agent.name} returned an illegal move: '
+        '${validation.code?.name}: ${validation.message}',
       );
-  final outcome = match.finalState.outcome;
+    }
+    state = engine.applyMove(state, decision.move).state;
+  }
+  final outcome = state.outcome;
   return {
     'trial': trial,
     'blackTieBreakSeed': blackSeed,
     'whiteTieBreakSeed': whiteSeed,
     'winner': outcome?.winner?.name,
     'outcomeReason': outcome?.reason.name,
-    'plies': match.finalState.ply - match.initialState.ply,
-    'truncated': match.truncated,
-    'blackPopulation': match.finalState.blackPopulation,
-    'whitePopulation': match.finalState.whitePopulation,
-    'finalPositionHash': match.finalState.positionHash,
-    'finalStateHash': match.finalState.stateHash,
+    'plies': state.ply - initialState.ply,
+    'truncated': state.isActive,
+    'blackPopulation': state.blackPopulation,
+    'whitePopulation': state.whitePopulation,
+    'finalPositionHash': state.positionHash,
+    'finalStateHash': state.stateHash,
   };
 }
 

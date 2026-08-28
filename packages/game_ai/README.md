@@ -68,6 +68,17 @@ dart run bin/max_self_elimination_experiment.dart \
 The single-game follow-ups use `--trial-ids=0 --safety-max-plies=100000` and
 `--trial-ids=19 --safety-max-plies=100000`.
 
+The remaining six sampled trials use:
+
+```bash
+dart run bin/max_self_elimination_experiment.dart \
+  --trial-ids=48,52,64,67,72,85 \
+  --safety-max-plies=100000 \
+  --concurrency=6 \
+  --output=../../docs/experiments/one-step-max-self-elimination-100k-remainder-data.json \
+  --pretty
+```
+
 ## Test
 
 ```bash

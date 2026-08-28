@@ -1,0 +1,114 @@
+{
+  "experiment": "oneStepMaxSelfSelfPlayElimination",
+  "definition": "both players maximize their own population after one ply",
+  "victoryRule": "elimination",
+  "games": 6,
+  "trialIds": [
+    48,
+    52,
+    64,
+    67,
+    72,
+    85
+  ],
+  "baseSeed": 0,
+  "tieBreakMethod": "seededSha256AmongEqualBestSuccessors",
+  "safetyMaxPlies": 100000,
+  "parallelWorkers": 6,
+  "elapsedMilliseconds": 1653987,
+  "completedGames": 5,
+  "truncatedGames": 1,
+  "outcomeReasons": {
+    "elimination": 5
+  },
+  "blackWins": 3,
+  "whiteWins": 2,
+  "draws": 0,
+  "plies": {
+    "minimum": 15768,
+    "median": 37781.0,
+    "mean": 49701.5,
+    "p95": 100000,
+    "maximum": 100000
+  },
+  "trials": [
+    {
+      "trial": 48,
+      "blackTieBreakSeed": 96,
+      "whiteTieBreakSeed": 97,
+      "winner": "black",
+      "outcomeReason": "elimination",
+      "plies": 55673,
+      "truncated": false,
+      "blackPopulation": 62,
+      "whitePopulation": 0,
+      "finalPositionHash": "98ebc016ebce2f294a74300268b748e920034506b385a2d92b67ad505d8899b6",
+      "finalStateHash": "1e3882e2de545f105869ea0d32fa4f8f45c321fc55c6e406ca7827f43cfb2821"
+    },
+    {
+      "trial": 52,
+      "blackTieBreakSeed": 104,
+      "whiteTieBreakSeed": 105,
+      "winner": null,
+      "outcomeReason": null,
+      "plies": 100000,
+      "truncated": true,
+      "blackPopulation": 23,
+      "whitePopulation": 17,
+      "finalPositionHash": "450989339d1c80a6762ad458f1bfc6f6ca841a02ee48b0b0473dc55cc6eafcfb",
+      "finalStateHash": "b1ca7f1c05f4db94e7259998fb1ff2e1f119dbb6483e8aa0f913f1f66890278d"
+    },
+    {
+      "trial": 64,
+      "blackTieBreakSeed": 128,
+      "whiteTieBreakSeed": 129,
+      "winner": "white",
+      "outcomeReason": "elimination",
+      "plies": 15768,
+      "truncated": false,
+      "blackPopulation": 0,
+      "whitePopulation": 59,
+      "finalPositionHash": "b194bb49e60d08bdd561ad838a9f71820d2cb57872ae1107a0bd33164021eac8",
+      "finalStateHash": "f01911a099a29e2e111f1ef8d1d7f3706c31f0d8c3349bcf3c37037c8476f615"
+    },
+    {
+      "trial": 67,
+      "blackTieBreakSeed": 134,
+      "whiteTieBreakSeed": 135,
+      "winner": "black",
+      "outcomeReason": "elimination",
+      "plies": 19889,
+      "truncated": false,
+      "blackPopulation": 66,
+      "whitePopulation": 0,
+      "finalPositionHash": "f5c8fec97d45bab1bb6994122899bdfe56eee062586a6ff22ac06184f46c9420",
+      "finalStateHash": "125949312285df5fbae93c297c8f2517b355e4f3775ef7c6b789578e0f97b845"
+    },
+    {
+      "trial": 72,
+      "blackTieBreakSeed": 144,
+      "whiteTieBreakSeed": 145,
+      "winner": "white",
+      "outcomeReason": "elimination",
+      "plies": 15776,
+      "truncated": false,
+      "blackPopulation": 0,
+      "whitePopulation": 57,
+      "finalPositionHash": "c466dc4fd24dccbcb0be3c1e396d9e28865d1863bb21b32165f49dac2e898b98",
+      "finalStateHash": "1cdc67880fb6bd80e544d315469c0715f42e4de962944922cc9d39a9f18a684f"
+    },
+    {
+      "trial": 85,
+      "blackTieBreakSeed": 170,
+      "whiteTieBreakSeed": 171,
+      "winner": "black",
+      "outcomeReason": "elimination",
+      "plies": 91103,
+      "truncated": false,
+      "blackPopulation": 32,
+      "whitePopulation": 0,
+      "finalPositionHash": "d5fa6731b0149276e0aea2f9a32f9293d7f42de18b64e76af25af379cdfbe566",
+      "finalStateHash": "9ffbbcf5f2e5050cbe614097b13e925516a533a6686544aab2bbe850b450513f"
+    }
+  ]
+}

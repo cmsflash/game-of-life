@@ -44,6 +44,23 @@ void main() {
     expect((trials.last! as Map<String, Object?>)['whiteTieBreakSeed'], 17);
   });
 
+  test('memory-efficient replay preserves the recorded trajectory', () async {
+    final result = await _runCli([
+      '--trial-ids=48',
+      '--safety-max-plies=10',
+      '--base-seed=0',
+      '--concurrency=1',
+    ]);
+
+    expect(result.exitCode, 0, reason: result.stderr as String);
+    final output = _decodeOutput(result);
+    final trial = (output['trials']! as List<Object?>).single!;
+    expect(
+      (trial as Map<String, Object?>)['finalStateHash'],
+      'b07a24bf2de87e7aef6844968b051b6cd8a65836e9f26297b8b8d20df7128ba5',
+    );
+  });
+
   test('invalid numeric options fail with usage', () async {
     for (final arguments in [
       ['--games=0'],
