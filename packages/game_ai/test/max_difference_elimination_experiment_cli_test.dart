@@ -15,6 +15,7 @@ void main() {
     expect(result.exitCode, 0, reason: result.stderr as String);
     final output = _decodeOutput(result);
     expect(output['victoryRule'], 'elimination');
+    expect(output['evaluationVersion'], 'terminalUtilityV1');
     expect(output['games'], 2);
     expect(output['parallelWorkers'], 2);
     expect(output['truncatedGames'], 2);

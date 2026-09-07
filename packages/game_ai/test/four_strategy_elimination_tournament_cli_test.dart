@@ -15,6 +15,7 @@ void main() {
     expect(result.exitCode, 0, reason: result.stderr as String);
     final output = _decodeOutput(result);
     expect(output['victoryRule'], 'elimination');
+    expect(output['evaluationVersion'], 'terminalUtilityV1');
     expect(output['plannedGames'], 16);
     expect(output['recordedGames'], 16);
     expect(output['runComplete'], isTrue);
@@ -92,6 +93,54 @@ void main() {
       expect(result.stderr as String, contains('Usage:'));
     }
   });
+
+  test(
+    'rejects legacy or differently scored checkpoints without writing',
+    () async {
+      final directory = await Directory.systemTemp.createTemp(
+        'four-strategy-tournament-version-test.',
+      );
+      final checkpoint = File('${directory.path}/checkpoint.json');
+      try {
+        final arguments = [
+          '--black-strategy=one-step-diff',
+          '--white-strategy=one-step-diff',
+          '--games-per-cell=1',
+          '--safety-max-plies=2',
+          '--concurrency=1',
+          '--output=${checkpoint.path}',
+        ];
+        final first = await _runCli(arguments);
+        expect(first.exitCode, 0, reason: first.stderr as String);
+        final original = (jsonDecode(await checkpoint.readAsString()) as Map)
+            .cast<String, Object?>();
+
+        for (final version in <String?>[null, 'populationDifferenceV0']) {
+          final document = Map<String, Object?>.from(original);
+          if (version == null) {
+            document.remove('evaluationVersion');
+          } else {
+            document['evaluationVersion'] = version;
+          }
+          final contents = jsonEncode(document);
+          await checkpoint.writeAsString(contents);
+
+          final resumed = await _runCli([...arguments, '--resume']);
+
+          expect(resumed.exitCode, 64);
+          expect(
+            resumed.stderr as String,
+            contains('checkpoint evaluation version'),
+          );
+          expect(resumed.stdout, isEmpty);
+          expect(await checkpoint.readAsString(), contents);
+          expect(await File('${checkpoint.path}.tmp').exists(), isFalse);
+        }
+      } finally {
+        await directory.delete(recursive: true);
+      }
+    },
+  );
 }
 
 Future<ProcessResult> _runCli(List<String> arguments) => Process.run(

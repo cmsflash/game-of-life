@@ -4,16 +4,19 @@ import 'package:crypto/crypto.dart';
 import 'package:game_engine/game_engine.dart';
 
 import 'agent.dart';
+import 'position_evaluation.dart';
 
-/// The population difference for one successor state.
+/// The outcome-aware score and raw population for one successor state.
 final class OneStepDifferenceEvaluation {
   const OneStepDifferenceEvaluation({
     required this.selfCells,
     required this.opponentCells,
+    required this.score,
   });
 
   final int selfCells;
   final int opponentCells;
+  final int score;
 
   int get cellAdvantage => selfCells - opponentCells;
 
@@ -21,6 +24,7 @@ final class OneStepDifferenceEvaluation {
     'selfCells': selfCells,
     'opponentCells': opponentCells,
     'cellAdvantage': cellAdvantage,
+    'score': score,
   };
 }
 
@@ -68,6 +72,7 @@ final class OneStepMaxDifferenceDecision implements AgentDecision {
   Map<String, Object?> toJson() => {
     'move': move.toJson(),
     'strategy': 'maxCellAdvantage',
+    'evaluationVersion': evaluationVersion,
     'searchPlies': 1,
     'evaluation': evaluation.toJson(),
     'legalMoveCount': legalMoveCount,
@@ -78,7 +83,7 @@ final class OneStepMaxDifferenceDecision implements AgentDecision {
   };
 }
 
-/// AI level 1: maximize own-minus-opponent population after one move.
+/// AI level 1: maximize outcome-aware utility after one move.
 final class OneStepMaxDifferenceAgent implements GameAgent {
   const OneStepMaxDifferenceAgent({
     this.name = 'ai-level-1',
@@ -125,6 +130,7 @@ final class OneStepMaxDifferenceAgent implements GameAgent {
             evaluation: OneStepDifferenceEvaluation(
               selfCells: board.population(player.cell),
               opponentCells: board.population(player.opponent.cell),
+              score: evaluatePosition(group.turn.state, player),
             ),
           );
         })
@@ -141,10 +147,10 @@ final class OneStepMaxDifferenceAgent implements GameAgent {
   OneStepMaxDifferenceDecision chooseMove(GameState state) {
     final candidates = analyze(state);
     final bestScore = candidates
-        .map((candidate) => candidate.evaluation.cellAdvantage)
+        .map((candidate) => candidate.evaluation.score)
         .reduce((left, right) => left > right ? left : right);
     final tiedBest = candidates
-        .where((candidate) => candidate.evaluation.cellAdvantage == bestScore)
+        .where((candidate) => candidate.evaluation.score == bestScore)
         .toList(growable: false);
     final best = tiedBest[_tieBreakIndex(state, tiedBest.length)];
     final legalMoveCount = candidates.fold<int>(

@@ -5,7 +5,7 @@ import 'package:test/test.dart';
 void main() {
   const engine = GameEngine();
 
-  test('chooses the largest worst-case two-ply cell advantage', () {
+  test('chooses the largest worst-case two-ply outcome-aware score', () {
     final state = engine.initialState(
       GameRules.standard(victory: TurnLimitPopulationVictory(100)),
     );
@@ -14,14 +14,16 @@ void main() {
     final candidates = agent.analyze(state);
     final decision = agent.chooseMove(state);
     final bestScore = candidates
-        .map((candidate) => candidate.worstCaseCellAdvantage)
+        .map((candidate) => candidate.worstCaseScore)
         .reduce((left, right) => left > right ? left : right);
 
+    expect(decision.worstCaseScore, bestScore);
     expect(decision.worstCaseCellAdvantage, bestScore);
     expect(decision.worstReply, isNotNull);
     expect(decision.opponentLegalMoveCount, greaterThan(0));
     expect(decision.opponentUniqueSuccessorCount, greaterThan(0));
     expect(engine.validateMove(state, decision.move).isValid, isTrue);
+    expect(decision.toJson()['evaluationVersion'], 'terminalUtilityV1');
   });
 
   test('scores a terminal first move without an opponent reply', () {
@@ -38,6 +40,11 @@ void main() {
     expect(decision.worstReply, isNull);
     expect(decision.opponentLegalMoveCount, 0);
     expect(decision.worstCaseCellAdvantage, decision.immediateCellAdvantage);
+    expect(decision.worstCaseScore, decision.immediateScore);
+    expect(
+      decision.worstCaseScore,
+      evaluatePosition(decision.turn.state, afterBlack.toMove!),
+    );
   });
 
   test('seeded tie-breaking is reproducible', () {

@@ -5,7 +5,7 @@ import 'package:test/test.dart';
 void main() {
   const engine = GameEngine();
 
-  test('chooses the largest one-ply population difference', () {
+  test('chooses the largest one-ply outcome-aware score', () {
     const agent = OneStepMaxDifferenceAgent();
     final state = engine.initialState(
       GameRules.standard(victory: TurnLimitPopulationVictory(100)),
@@ -14,14 +14,16 @@ void main() {
     final candidates = agent.analyze(state);
     final decision = agent.chooseMove(state);
     final bestScore = candidates
-        .map((candidate) => candidate.evaluation.cellAdvantage)
+        .map((candidate) => candidate.evaluation.score)
         .reduce((left, right) => left > right ? left : right);
 
+    expect(decision.evaluation.score, bestScore);
     expect(decision.evaluation.cellAdvantage, bestScore);
     expect(engine.validateMove(state, decision.move).isValid, isTrue);
     expect(decision.legalMoveCount, 396);
     expect(decision.uniqueSuccessorCount, 25);
     expect(decision.toJson()['searchPlies'], 1);
+    expect(decision.toJson()['evaluationVersion'], 'terminalUtilityV1');
   });
 
   test('seeded tie-breaking is reproducible and varies equal best moves', () {

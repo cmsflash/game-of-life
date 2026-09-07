@@ -3,6 +3,17 @@ import 'result.dart';
 import 'rules.dart';
 import 'state.dart';
 
+/// One distinct legal successor, represented by its first row-major move.
+///
+/// Search does not need the animation events produced by [TurnResult]. Apply
+/// [move] with [GameEngine.applyMove] when committing it to a played game.
+final class SearchSuccessor {
+  const SearchSuccessor({required this.move, required this.state});
+
+  final GameMove move;
+  final GameState state;
+}
+
 final class GameEngine {
   const GameEngine();
 
@@ -137,19 +148,7 @@ final class GameEngine {
         }
 
         final current = postPlacementBoard.at(row, column);
-        final liveNeighbors = blackNeighbors + whiteNeighbors;
-        final next = switch (current) {
-          CellState.black || CellState.white =>
-            liveNeighbors == 2 || liveNeighbors == 3
-                ? current
-                : CellState.empty,
-          CellState.empty =>
-            liveNeighbors == 3
-                ? (blackNeighbors > whiteNeighbors
-                      ? CellState.black
-                      : CellState.white)
-                : CellState.empty,
-        };
+        final next = _nextCell(current, blackNeighbors, whiteNeighbors);
         final coordinate = Coordinate(row, column);
         nextCells[coordinate.indexFor(postPlacementBoard.columns)] = next;
         if (current == CellState.empty && next != CellState.empty) {
@@ -176,6 +175,100 @@ final class GameEngine {
 
   List<Coordinate> legalMoves(GameState state) =>
       state.isActive ? state.board.emptyCoordinates() : const [];
+
+  /// Lazily yields exactly one representative of every legal successor state.
+  ///
+  /// A placement changes only its own cell and its eight neighbors in the next
+  /// generation. Compute the unmodified board's evolution once, then describe
+  /// each candidate by its exact changes to that common base. Equal signatures
+  /// are discarded before allocating a successor board. An ineffectual distant
+  /// placement still keeps its first legal representative.
+  Iterable<SearchSuccessor> searchSuccessors(GameState state) sync* {
+    if (!state.isActive) return;
+    final board = state.board;
+    final cells = board.cells;
+    final rows = board.rows;
+    final columns = board.columns;
+    final blackNeighbors = List<int>.filled(board.length, 0);
+    final whiteNeighbors = List<int>.filled(board.length, 0);
+    for (var index = 0; index < cells.length; index++) {
+      final cell = cells[index];
+      if (cell == CellState.empty) continue;
+      final counts = cell == CellState.black ? blackNeighbors : whiteNeighbors;
+      final row = index ~/ columns;
+      final column = index % columns;
+      for (var rowDelta = -1; rowDelta <= 1; rowDelta++) {
+        final neighborRow = row + rowDelta;
+        if (neighborRow < 0 || neighborRow >= rows) continue;
+        for (var columnDelta = -1; columnDelta <= 1; columnDelta++) {
+          if (rowDelta == 0 && columnDelta == 0) continue;
+          final neighborColumn = column + columnDelta;
+          if (neighborColumn < 0 || neighborColumn >= columns) continue;
+          counts[neighborRow * columns + neighborColumn]++;
+        }
+      }
+    }
+    final base = List<CellState>.generate(
+      board.length,
+      (index) =>
+          _nextCell(cells[index], blackNeighbors[index], whiteNeighbors[index]),
+      growable: false,
+    );
+    final player = state.toMove!;
+    final seen = <_SuccessorSignature>{};
+    for (var placement = 0; placement < cells.length; placement++) {
+      if (cells[placement] != CellState.empty) continue;
+      final row = placement ~/ columns;
+      final column = placement % columns;
+      final changes = <int>[];
+      for (var rowDelta = -1; rowDelta <= 1; rowDelta++) {
+        final affectedRow = row + rowDelta;
+        if (affectedRow < 0 || affectedRow >= rows) continue;
+        for (var columnDelta = -1; columnDelta <= 1; columnDelta++) {
+          final affectedColumn = column + columnDelta;
+          if (affectedColumn < 0 || affectedColumn >= columns) continue;
+          final index = affectedRow * columns + affectedColumn;
+          final isPlacement = index == placement;
+          final next = _nextCell(
+            isPlacement ? player.cell : cells[index],
+            blackNeighbors[index] +
+                (!isPlacement && player == Player.black ? 1 : 0),
+            whiteNeighbors[index] +
+                (!isPlacement && player == Player.white ? 1 : 0),
+          );
+          if (next != base[index]) {
+            // Row-major (index, value) pairs form an exact board signature.
+            changes.add(index * CellState.values.length + next.wireValue);
+          }
+        }
+      }
+      if (!seen.add(_SuccessorSignature(changes))) continue;
+      final nextCells = List<CellState>.of(base);
+      for (final change in changes) {
+        nextCells[change ~/ CellState.values.length] =
+            CellState.values[change % CellState.values.length];
+      }
+      final nextBoard = Board(rows: rows, columns: columns, cells: nextCells);
+      final nextPly = state.ply + 1;
+      final outcome = evaluateOutcome(nextBoard, state.rules, ply: nextPly);
+      yield SearchSuccessor(
+        move: GameMove(
+          player: player,
+          row: row,
+          column: column,
+          expectedRevision: state.revision,
+        ),
+        state: GameState(
+          rules: state.rules,
+          board: nextBoard,
+          ply: nextPly,
+          revision: state.revision + 1,
+          toMove: outcome == null ? player.opponent : null,
+          outcome: outcome,
+        ),
+      );
+    }
+  }
 
   GameOutcome? evaluateOutcome(
     Board board,
@@ -274,4 +367,39 @@ final class GameEngine {
     }
     return state;
   }
+}
+
+CellState _nextCell(CellState current, int blackNeighbors, int whiteNeighbors) {
+  final liveNeighbors = blackNeighbors + whiteNeighbors;
+  return switch (current) {
+    CellState.black || CellState.white =>
+      liveNeighbors == 2 || liveNeighbors == 3 ? current : CellState.empty,
+    CellState.empty =>
+      liveNeighbors == 3
+          ? (blackNeighbors > whiteNeighbors
+                ? CellState.black
+                : CellState.white)
+          : CellState.empty,
+  };
+}
+
+final class _SuccessorSignature {
+  const _SuccessorSignature(this.changes);
+
+  final List<int> changes;
+
+  @override
+  bool operator ==(Object other) {
+    if (other is! _SuccessorSignature ||
+        changes.length != other.changes.length) {
+      return false;
+    }
+    for (var index = 0; index < changes.length; index++) {
+      if (changes[index] != other.changes[index]) return false;
+    }
+    return true;
+  }
+
+  @override
+  int get hashCode => Object.hashAll(changes);
 }

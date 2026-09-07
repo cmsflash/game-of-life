@@ -5,6 +5,7 @@ import 'package:game_engine/game_engine.dart';
 
 import 'agent.dart';
 import 'one_step_max_difference_agent.dart';
+import 'position_evaluation.dart';
 
 /// One first move evaluated by a depth-two max-difference search.
 final class TwoStepMaxDifferenceCandidate {
@@ -13,6 +14,8 @@ final class TwoStepMaxDifferenceCandidate {
     required this.firstTurn,
     required this.immediateCellAdvantage,
     required this.worstCaseCellAdvantage,
+    required this.immediateScore,
+    required this.worstCaseScore,
     required this.worstReply,
     required this.opponentLegalMoveCount,
     required this.opponentUniqueSuccessorCount,
@@ -21,7 +24,11 @@ final class TwoStepMaxDifferenceCandidate {
   final OneStepMaxDifferenceCandidate firstMove;
   final TurnResult firstTurn;
   final int immediateCellAdvantage;
+
+  /// Raw population difference at [worstReply], not terminal utility.
   final int worstCaseCellAdvantage;
+  final int immediateScore;
+  final int worstCaseScore;
   final GameMove? worstReply;
   final int opponentLegalMoveCount;
   final int opponentUniqueSuccessorCount;
@@ -34,6 +41,8 @@ final class TwoStepMaxDifferenceDecision implements AgentDecision {
     required this.turn,
     required this.immediateCellAdvantage,
     required this.worstCaseCellAdvantage,
+    required this.immediateScore,
+    required this.worstCaseScore,
     required this.worstReply,
     required this.legalMoveCount,
     required this.uniqueSuccessorCount,
@@ -48,7 +57,11 @@ final class TwoStepMaxDifferenceDecision implements AgentDecision {
   final GameMove move;
   final TurnResult turn;
   final int immediateCellAdvantage;
+
+  /// Raw population difference at [worstReply], not terminal utility.
   final int worstCaseCellAdvantage;
+  final int immediateScore;
+  final int worstCaseScore;
   final GameMove? worstReply;
   final int legalMoveCount;
   final int uniqueSuccessorCount;
@@ -62,9 +75,12 @@ final class TwoStepMaxDifferenceDecision implements AgentDecision {
   Map<String, Object?> toJson() => {
     'move': move.toJson(),
     'strategy': 'maxCellAdvantage',
+    'evaluationVersion': evaluationVersion,
     'searchPlies': 2,
     'immediateCellAdvantage': immediateCellAdvantage,
     'worstCaseCellAdvantage': worstCaseCellAdvantage,
+    'immediateScore': immediateScore,
+    'worstCaseScore': worstCaseScore,
     'worstReply': worstReply?.toJson(),
     'legalMoveCount': legalMoveCount,
     'uniqueSuccessorCount': uniqueSuccessorCount,
@@ -78,8 +94,8 @@ final class TwoStepMaxDifferenceDecision implements AgentDecision {
 
 /// Looks ahead through one move and every legal opponent reply.
 ///
-/// Each first move is scored by the AI's population advantage after the
-/// opponent reply that minimizes that advantage. The agent chooses the move
+/// Each first move is scored by the AI's outcome-aware utility after the
+/// opponent reply that minimizes that utility. The agent chooses the move
 /// with the largest such worst-case score. A move that ends the game is scored
 /// immediately because it has no opponent reply.
 final class TwoStepMaxDifferenceAgent implements GameAgent {
@@ -117,10 +133,10 @@ final class TwoStepMaxDifferenceAgent implements GameAgent {
     final firstMoves = OneStepMaxDifferenceAgent(engine: engine).analyze(state);
     final searchOrder = [...firstMoves]
       ..sort((left, right) {
-        final scoreComparison = _cellAdvantage(
+        final scoreComparison = evaluatePosition(
           right.turn.state,
           player,
-        ).compareTo(_cellAdvantage(left.turn.state, player));
+        ).compareTo(evaluatePosition(left.turn.state, player));
         return scoreComparison != 0
             ? scoreComparison
             : left.representativeMove.coordinate.compareTo(
@@ -128,7 +144,7 @@ final class TwoStepMaxDifferenceAgent implements GameAgent {
               );
       });
 
-    var bestScore = -GameRules.cellCount - 1;
+    var bestScore = -terminalScore - 1;
     final best = <TwoStepMaxDifferenceCandidate>[];
     for (final firstMove in searchOrder) {
       final candidate = _evaluateCandidate(
@@ -137,12 +153,12 @@ final class TwoStepMaxDifferenceAgent implements GameAgent {
         abandonBelow: bestScore,
       );
       if (candidate == null) continue;
-      if (candidate.worstCaseCellAdvantage > bestScore) {
-        bestScore = candidate.worstCaseCellAdvantage;
+      if (candidate.worstCaseScore > bestScore) {
+        bestScore = candidate.worstCaseScore;
         best
           ..clear()
           ..add(candidate);
-      } else if (candidate.worstCaseCellAdvantage == bestScore) {
+      } else if (candidate.worstCaseScore == bestScore) {
         best.add(candidate);
       }
     }
@@ -164,6 +180,8 @@ final class TwoStepMaxDifferenceAgent implements GameAgent {
       turn: selected.firstTurn,
       immediateCellAdvantage: selected.immediateCellAdvantage,
       worstCaseCellAdvantage: selected.worstCaseCellAdvantage,
+      immediateScore: selected.immediateScore,
+      worstCaseScore: selected.worstCaseScore,
       worstReply: selected.worstReply,
       legalMoveCount: legalMoveCount,
       uniqueSuccessorCount: firstMoves.length,
@@ -182,19 +200,23 @@ final class TwoStepMaxDifferenceAgent implements GameAgent {
   }) {
     final firstTurn = firstMove.turn;
     final immediate = _cellAdvantage(firstTurn.state, player);
+    final immediateScore = evaluatePosition(firstTurn.state, player);
     if (!firstTurn.state.isActive) {
       return TwoStepMaxDifferenceCandidate(
         firstMove: firstMove,
         firstTurn: firstTurn,
         immediateCellAdvantage: immediate,
         worstCaseCellAdvantage: immediate,
+        immediateScore: immediateScore,
+        worstCaseScore: immediateScore,
         worstReply: null,
         opponentLegalMoveCount: 0,
         opponentUniqueSuccessorCount: 0,
       );
     }
 
-    var worstScore = GameRules.cellCount + 1;
+    var worstScore = terminalScore + 1;
+    var worstCellAdvantage = 0;
     GameMove? worstReply;
     var legalReplies = 0;
     final uniqueReplies = <GameState>{};
@@ -208,9 +230,10 @@ final class TwoStepMaxDifferenceAgent implements GameAgent {
       final reply = engine.applyMove(firstTurn.state, move);
       legalReplies++;
       uniqueReplies.add(reply.state);
-      final score = _cellAdvantage(reply.state, player);
+      final score = evaluatePosition(reply.state, player);
       if (score < worstScore) {
         worstScore = score;
+        worstCellAdvantage = _cellAdvantage(reply.state, player);
         worstReply = move;
         if (abandonBelow != null && worstScore < abandonBelow) return null;
       }
@@ -219,7 +242,9 @@ final class TwoStepMaxDifferenceAgent implements GameAgent {
       firstMove: firstMove,
       firstTurn: firstTurn,
       immediateCellAdvantage: immediate,
-      worstCaseCellAdvantage: worstScore,
+      worstCaseCellAdvantage: worstCellAdvantage,
+      immediateScore: immediateScore,
+      worstCaseScore: worstScore,
       worstReply: worstReply,
       opponentLegalMoveCount: legalReplies,
       opponentUniqueSuccessorCount: uniqueReplies.length,

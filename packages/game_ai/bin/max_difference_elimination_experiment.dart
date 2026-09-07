@@ -112,8 +112,10 @@ Map<String, Object?> _resultDocument({
   }
   return {
     'experiment': 'oneStepMaxDifferenceSelfPlayElimination',
+    'evaluationVersion': evaluationVersion,
     'definition':
-        'both players maximize own-minus-opponent population after one ply',
+        'both players maximize terminal win/loss utility after one ply, '
+        'using own-minus-opponent population for unfinished positions',
     'victoryRule': 'elimination',
     'games': options.games,
     'baseSeed': options.baseSeed,

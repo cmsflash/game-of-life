@@ -1,5 +1,5 @@
 name: game_ai
-description: One-step and two-step Max Difference agents for Life Duel.
+description: Terminal-aware local AI levels and iterative search for Life Duel.
 version: 0.1.0
 publish_to: none
 

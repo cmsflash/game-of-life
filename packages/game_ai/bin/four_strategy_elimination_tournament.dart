@@ -216,6 +216,12 @@ Future<Map<String, Map<String, Object?>>> _readCheckpoint({
   if (!await file.exists()) return {};
   final document = (jsonDecode(await file.readAsString()) as Map)
       .cast<String, Object?>();
+  if (document['evaluationVersion'] != evaluationVersion) {
+    throw const FormatException(
+      'checkpoint evaluation version does not match $evaluationVersion; '
+      'start a new tournament instead of mixing legacy scores',
+    );
+  }
   if (document['gamesPerCell'] != options.gamesPerCell ||
       document['safetyMaxPlies'] != options.safetyMaxPlies ||
       document['baseSeed'] != options.baseSeed) {
@@ -314,6 +320,7 @@ Map<String, Object?> _resultDocument({
   final truncated = orderedResults.where(_isTruncated).length;
   return {
     'experiment': 'fourStrategyEliminationTournament',
+    'evaluationVersion': evaluationVersion,
     'definition':
         'ordered 4x4 tournament of one-step Max Self, one-step Min Theirs, '
         'one-step Max Difference, and two-step Max Difference',
@@ -364,13 +371,15 @@ enum _Strategy {
     id: 'one-step-max-difference',
     label: '1-step Max Difference',
     searchPlies: 1,
-    objective: 'maximize own-minus-opponent population',
+    objective:
+        'maximize terminal win/loss utility, otherwise own-minus-opponent population',
   ),
   twoStepDifference(
     id: 'two-step-max-difference',
     label: '2-step Max Difference',
     searchPlies: 2,
-    objective: 'maximize worst-case own-minus-opponent population',
+    objective:
+        'maximize worst-case terminal win/loss utility, otherwise own-minus-opponent population',
   );
 
   const _Strategy({

@@ -1,31 +1,66 @@
 # game_ai
 
-The two supported Max Difference AI levels for Life Duel. This package imports
-`game_engine` directly and has no Flutter, network, persistence, or clock
-dependency, so it can also be used for headless offline experiments.
+Local AI levels 1, 2 and experimental 2.9 for Life Duel. This package imports
+`game_engine` directly and has no Flutter, network or persistence dependency,
+so it can also be used for headless offline experiments.
+
+All supported agents score a win +401, loss -401, draw 0, and an active position
+by own-minus-opponent population. This terminal utility overrides population
+size for every supported victory rule. Raw population diagnostics remain
+separate from score fields.
 
 ## AI level 1
 
 `OneStepMaxDifferenceAgent` applies every legal move with the canonical engine,
 groups moves that produce the same successor state, and chooses the successor
-with the largest own-minus-opponent living-cell count.
+with the highest terminal-aware score.
 
 ## AI level 2
 
 `TwoStepMaxDifferenceAgent` examines every unique first-move successor and every
-legal opponent reply. It scores each first move by the smallest population
-advantage an opponent reply can leave, then chooses the move with the largest
-worst-case score.
+legal opponent reply (with exact branch pruning). It scores each first move by
+the smallest terminal-aware score an opponent reply can leave, then chooses the
+move with the largest worst-case score.
 
 Both agents use a deterministic row-major tie break by default. A non-negative
 tie-break seed can select reproducibly among equally good successors without
 ever selecting a lower-scoring move.
+
+## Experimental AI level 2.9
+
+`IterativeDeepeningAgent` completes three plies by default, then deepens within
+a one-second soft total budget. It returns the last fully completed iteration,
+never a partially searched root. The minimum three plies can exceed the time
+budget. Optional `minDepth`, `maxDepth` (at most 64), `timeBudget`, `maxNodes` and
+`tieBreakSeed` support experiments. Fixed depth or node budgets with a generous
+time budget are reproducible; time-budgeted depth can vary by device/load.
+
+The engine provides exact incremental, deduplicated successors. Alpha-beta
+search orders moves and caches depth-qualified exact values/bounds without
+introducing a repetition-draw rule. Terminal-aware cell difference remains the
+leaf evaluator; there is no beam cutoff or learned policy.
+
+Use synchronous `chooseMove` in headless runners, or
+`await agent.chooseMoveAsync(state, isCancelled: () => cancelled)` for a
+responsive UI including web. Cancellation throws `SearchCancelledException`.
+Decisions expose completed/attempted depth, utility, work and latency counters.
+The product name stays **AI level 2.9** until separately evaluated and promoted.
+
+```bash
+dart run bin/search_benchmark.dart
+```
+
+This runs a bounded move benchmark on four positions, not a tournament.
 
 ## Headless matches
 
 `AiMatchRunner` runs any two `GameAgent` implementations against each other.
 Callers provide the rules or initial state and a safety ply limit. This keeps
 offline experiments on exactly the same rules implementation used by the app.
+
+Historical reports predate terminal utility V1 and do not describe the corrected
+L1/L2 policy. Use a new output path for new runs; old tournament checkpoints
+cannot be resumed into the new scoring policy.
 
 Run seeded AI-level-1 self-play under elimination-only rules, retaining every
 trial and reporting any game still active at the safety horizon:
@@ -101,7 +136,7 @@ dart run bin/four_strategy_elimination_tournament.dart \
   --safety-max-plies=1000000 \
   --concurrency=8 \
   --progress-every=1000 \
-  --output=../../docs/experiments/four-strategy-elimination-1m-data.json \
+  --output=../../docs/experiments/four-strategy-terminal-utility-data.json \
   --resume \
   --pretty
 ```
