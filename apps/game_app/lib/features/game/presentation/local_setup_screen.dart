@@ -509,6 +509,10 @@ class _AiLevelPicker extends StatelessWidget {
               value: LocalParticipantType.aiLevel2,
               label: Text('AI level 2'),
             ),
+            ButtonSegment(
+              value: LocalParticipantType.aiLevel29,
+              label: Text('AI level 2.9'),
+            ),
           ],
           selected: {selected},
           onSelectionChanged: (selection) => onChanged(selection.first),

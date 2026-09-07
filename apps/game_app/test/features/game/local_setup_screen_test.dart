@@ -74,9 +74,7 @@ void main() {
     expect(controller.state.gameById('local-two')?.title, 'Lin vs Kai');
   });
 
-  testWidgets('setup creates player vs AI with a selected AI level', (
-    tester,
-  ) async {
+  testWidgets('setup creates player vs AI with AI level 2.9', (tester) async {
     final controller = LocalGamesController(
       MemoryLocalGameStore(),
       idFactory: () => 'player-ai',
@@ -101,10 +99,11 @@ void main() {
     expect(find.text('AI level 1'), findsWidgets);
     expect(find.textContaining('maximizes cell difference'), findsNothing);
     expect(find.textContaining('opponent reply'), findsNothing);
+    expect(find.textContaining('search'), findsNothing);
     await tester.tap(
       find.descendant(
         of: find.byKey(const Key('human-opponent-ai-level')),
-        matching: find.text('AI level 2'),
+        matching: find.text('AI level 2.9'),
       ),
     );
     await tester.pumpAndSettle();
@@ -115,7 +114,7 @@ void main() {
 
     final game = controller.state.gameById('player-ai')!;
     expect(game.config.blackParticipant, LocalParticipantType.human);
-    expect(game.config.whiteParticipant, LocalParticipantType.aiLevel2);
+    expect(game.config.whiteParticipant, LocalParticipantType.aiLevel29);
     expect(game.game.ply, 0);
   });
 
@@ -143,6 +142,13 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(
       find.descendant(
+        of: find.byKey(const Key('black-ai-level')),
+        matching: find.text('AI level 2.9'),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.descendant(
         of: find.byKey(const Key('white-ai-level')),
         matching: find.text('AI level 2'),
       ),
@@ -154,7 +160,7 @@ void main() {
 
     final game = controller.state.gameById('ai-ai')!;
     expect(game.config.isAiVsAi, isTrue);
-    expect(game.config.blackParticipant, LocalParticipantType.aiLevel1);
+    expect(game.config.blackParticipant, LocalParticipantType.aiLevel29);
     expect(game.config.whiteParticipant, LocalParticipantType.aiLevel2);
     expect(game.game.ply, 0);
   });

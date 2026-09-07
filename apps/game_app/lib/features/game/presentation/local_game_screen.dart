@@ -42,6 +42,7 @@ class LocalGameScreen extends ConsumerWidget {
       );
     }
     final game = session.game;
+    final isBusy = games.busyGameIds.contains(session.id);
     final isHumanTurn = game.isActive && !session.config.isAi(game.toMove!);
     final viewSettings = ref.watch(gameViewSettingsProvider);
     return Scaffold(
@@ -73,7 +74,7 @@ class LocalGameScreen extends ConsumerWidget {
           board: LifeBoard(
             key: const Key('local-life-board'),
             board: game.board,
-            enabled: isHumanTurn,
+            enabled: isHumanTurn && !isBusy,
             lastMove: session.lastMove,
             previewBoard: session.preview?.board,
             tentativeMove: session.preview?.coordinate,
@@ -100,6 +101,7 @@ class LocalGameScreen extends ConsumerWidget {
           ),
           panel: _GamePanel(
             session: session,
+            isBusy: isBusy,
             onCommit: () => _commit(context, ref, session.id),
             onAdvanceAi: () => _advanceAi(context, ref, session.id),
           ),
@@ -265,11 +267,13 @@ class _UnavailableLocalGame extends StatelessWidget {
 class _GamePanel extends StatelessWidget {
   const _GamePanel({
     required this.session,
+    required this.isBusy,
     required this.onCommit,
     required this.onAdvanceAi,
   });
 
   final LocalGameSession session;
+  final bool isBusy;
   final VoidCallback onCommit;
   final VoidCallback onAdvanceAi;
 
@@ -305,7 +309,9 @@ class _GamePanel extends StatelessWidget {
                 SizedBox(height: compact ? 6 : 8),
                 Text(
                   outcome == null
-                      ? preview == null
+                      ? isBusy
+                            ? 'Working…'
+                            : preview == null
                             ? session.config.isAiVsAi
                                   ? '${session.config.nameFor(game.toMove!)} is ready'
                                   : '${session.config.nameFor(game.toMove!)} to move'
@@ -319,7 +325,9 @@ class _GamePanel extends StatelessWidget {
                 SizedBox(height: compact ? 5 : 7),
                 Text(
                   outcome == null
-                      ? preview == null
+                      ? isBusy
+                            ? 'Please wait for this move to finish.'
+                            : preview == null
                             ? session.config.isAiVsAi
                                   ? 'Press Next step to let this AI make exactly one move.'
                                   : 'Choose an empty square to preview the next round.'
@@ -335,9 +343,9 @@ class _GamePanel extends StatelessWidget {
           SizedBox(height: sectionGap),
           FilledButton.icon(
             key: const Key('next-ai-step'),
-            onPressed: onAdvanceAi,
+            onPressed: isBusy ? null : onAdvanceAi,
             icon: const Icon(Icons.skip_next),
-            label: const Text('Next step'),
+            label: Text(isBusy ? 'Thinking…' : 'Next step'),
           ),
           SizedBox(height: compact ? 5 : 7),
           Text(
@@ -355,7 +363,10 @@ class _GamePanel extends StatelessWidget {
                 color: engine.Player.black,
                 score: displayBoard.population(engine.CellState.black),
                 active: game.toMove == engine.Player.black,
-                onCommit: preview != null && game.toMove == engine.Player.black
+                onCommit:
+                    !isBusy &&
+                        preview != null &&
+                        game.toMove == engine.Player.black
                     ? onCommit
                     : null,
               ),
@@ -367,7 +378,10 @@ class _GamePanel extends StatelessWidget {
                 color: engine.Player.white,
                 score: displayBoard.population(engine.CellState.white),
                 active: game.toMove == engine.Player.white,
-                onCommit: preview != null && game.toMove == engine.Player.white
+                onCommit:
+                    !isBusy &&
+                        preview != null &&
+                        game.toMove == engine.Player.white
                     ? onCommit
                     : null,
               ),

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -196,17 +198,82 @@ void main() {
     expect(find.text('Delete game'), findsOneWidget);
     expect(controller.state.gameById(_gameId), isNotNull);
   });
+
+  testWidgets('level 2.9 keeps controls responsive while Next step waits', (
+    tester,
+  ) async {
+    configureGameViewport(tester, gameLayoutViewports.last);
+    final result = Completer<engine.GameMove>();
+    late engine.GameState searchedPosition;
+    final controller = await _localController(
+      config: const LocalGameConfig(
+        blackParticipant: LocalParticipantType.aiLevel29,
+        whiteParticipant: LocalParticipantType.aiLevel1,
+      ),
+      level29MoveChooser: (state, {required isCancelled}) {
+        searchedPosition = state;
+        return result.future;
+      },
+    );
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [localGamesProvider.overrideWith((ref) => controller)],
+        child: const MaterialApp(home: LocalGameScreen(gameId: _gameId)),
+      ),
+    );
+    await tester.pump();
+    expect(
+      find.text('Black: AI level 2.9 · White: AI level 1'),
+      findsOneWidget,
+    );
+
+    await tester.tap(find.byKey(const Key('next-ai-step')));
+    await tester.pump();
+    expect(find.text('Thinking…'), findsOneWidget);
+    expect(
+      tester
+          .widget<FilledButton>(find.byKey(const Key('next-ai-step')))
+          .onPressed,
+      isNull,
+    );
+    expect(controller.state.gameById(_gameId)!.game.ply, 0);
+    await tester.tap(find.byTooltip('Delete local game'));
+    await tester.pumpAndSettle();
+    expect(find.text('Delete this local game?'), findsOneWidget);
+    await tester.tap(find.text('Keep game'));
+    await tester.pumpAndSettle();
+
+    result.complete(
+      engine.GameMove(
+        player: searchedPosition.toMove!,
+        row: 0,
+        column: 0,
+        expectedRevision: searchedPosition.revision,
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(controller.state.gameById(_gameId)!.game.ply, 1);
+    expect(find.text('Next step'), findsOneWidget);
+    expect(
+      tester
+          .widget<FilledButton>(find.byKey(const Key('next-ai-step')))
+          .onPressed,
+      isNotNull,
+    );
+  });
 }
 
 const _gameId = 'local-widget-test';
 
 Future<LocalGamesController> _localController({
   LocalGameConfig config = const LocalGameConfig(),
+  LocalAiMoveChooser? level29MoveChooser,
 }) async {
   final controller = LocalGamesController(
     MemoryLocalGameStore(),
     idFactory: () => _gameId,
     clock: () => DateTime.utc(2026, 8, 14),
+    level29MoveChooser: level29MoveChooser,
   );
   await controller.load();
   await controller.create(config);

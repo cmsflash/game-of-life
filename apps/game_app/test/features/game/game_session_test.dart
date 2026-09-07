@@ -127,6 +127,123 @@ void main() {
     });
 
     test(
+      'level 2.9 waits asynchronously and prevents duplicate steps',
+      () async {
+        final search = _ControlledAiSearch();
+        final fixture = await _Fixture.create(
+          config: const LocalGameConfig(
+            blackParticipant: LocalParticipantType.aiLevel29,
+            whiteParticipant: LocalParticipantType.aiLevel2,
+          ),
+          level29MoveChooser: search.choose,
+        );
+        final writesBefore = fixture.store.writeCount;
+
+        final step = fixture.controller.advanceAi(fixture.id);
+        await search.started.future;
+        expect(fixture.current.game.ply, 0);
+        expect(fixture.controller.state.busyGameIds, contains(fixture.id));
+        expect(await fixture.controller.advanceAi(fixture.id), isFalse);
+        expect(fixture.store.writeCount, writesBefore);
+
+        search.complete();
+        expect(await step, isTrue);
+        expect(fixture.current.game.ply, 1);
+        expect(fixture.current.game.toMove, engine.Player.white);
+        expect(fixture.controller.state.busyGameIds, isEmpty);
+        expect(fixture.store.writeCount, writesBefore + 1);
+      },
+    );
+
+    test(
+      'level 2.9 answers a human move only after search completes',
+      () async {
+        final search = _ControlledAiSearch();
+        final fixture = await _Fixture.create(
+          config: const LocalGameConfig(
+            whiteParticipant: LocalParticipantType.aiLevel29,
+          ),
+          level29MoveChooser: search.choose,
+        );
+        fixture.controller.consider(fixture.id, 0, 0);
+
+        final committed = fixture.controller.commit(fixture.id);
+        await search.started.future;
+        expect(search.position.toMove, engine.Player.white);
+        expect(search.position.ply, 1);
+        expect(fixture.current.game.ply, 0);
+        expect(fixture.controller.consider(fixture.id, 8, 9), isFalse);
+
+        search.complete();
+        expect(await committed, isTrue);
+        expect(fixture.current.game.ply, 2);
+        expect(fixture.current.game.toMove, engine.Player.black);
+        expect(fixture.current.preview, isNull);
+      },
+    );
+
+    test('level 2.9 opens once when the human chooses White', () async {
+      var calls = 0;
+      final fixture = await _Fixture.create(
+        config: const LocalGameConfig(
+          blackParticipant: LocalParticipantType.aiLevel29,
+        ),
+        level29MoveChooser: (position, {required isCancelled}) async {
+          calls++;
+          expect(isCancelled(), isFalse);
+          return _quietMove(position);
+        },
+      );
+
+      expect(fixture.current.game.ply, 1);
+      expect(calls, 1);
+      expect(await fixture.controller.restart(fixture.id), isTrue);
+      expect(fixture.current.game.ply, 1);
+      expect(calls, 2);
+    });
+
+    for (final action in ['restart', 'delete', 'dispose']) {
+      test('$action cancels level 2.9 and discards its stale result', () async {
+        final search = _ControlledAiSearch();
+        final fixture = await _Fixture.create(
+          config: const LocalGameConfig(
+            blackParticipant: LocalParticipantType.aiLevel29,
+            whiteParticipant: LocalParticipantType.aiLevel1,
+          ),
+          level29MoveChooser: search.choose,
+        );
+        final writesBefore = fixture.store.writeCount;
+        final step = fixture.controller.advanceAi(fixture.id);
+        await search.started.future;
+        final Future<bool>? mutation;
+        switch (action) {
+          case 'restart':
+            mutation = fixture.controller.restart(fixture.id);
+          case 'delete':
+            mutation = fixture.controller.delete(fixture.id);
+          default:
+            fixture.controller.dispose();
+            mutation = null;
+        }
+        expect(search.isCancelled(), isTrue);
+
+        // Even a chooser that ignores cancellation must not apply its result.
+        search.complete();
+        expect(await step, isFalse);
+        if (mutation != null) expect(await mutation, isTrue);
+        expect(
+          fixture.store.writeCount,
+          writesBefore + (action == 'dispose' ? 0 : 1),
+        );
+        if (action == 'delete') {
+          expect(fixture.store.games, isEmpty);
+        } else {
+          expect(fixture.store.games.single.game.ply, 0);
+        }
+      });
+    }
+
+    test(
       'previews without persisting or advancing authoritative state',
       () async {
         final fixture = await _Fixture.create();
@@ -539,6 +656,22 @@ void main() {
       expect(restored.whiteParticipant, LocalParticipantType.aiLevel2);
     });
 
+    test('round trips AI level 2.9 without exposing its strategy', () {
+      const config = LocalGameConfig(
+        blackName: '',
+        blackParticipant: LocalParticipantType.aiLevel29,
+        whiteParticipant: LocalParticipantType.aiLevel2,
+      );
+      final json = config.toJson();
+      final restored = LocalGameConfig.fromJson(json);
+
+      expect(json['blackParticipant'], 'aiLevel29');
+      expect(restored.blackParticipant, LocalParticipantType.aiLevel29);
+      expect(restored.whiteParticipant, LocalParticipantType.aiLevel2);
+      expect(restored.blackParticipant.label, 'AI level 2.9');
+      expect(restored.nameFor(engine.Player.black), 'Black AI level 2.9');
+    });
+
     test('old saved configs default both participants to human', () {
       final legacy = const LocalGameConfig().toJson()
         ..remove('blackParticipant')
@@ -588,7 +721,12 @@ void main() {
 }
 
 class _Fixture {
-  _Fixture(this.store, this.id, this.clock) {
+  _Fixture(
+    this.store,
+    this.id,
+    this.clock, {
+    LocalAiMoveChooser? level29MoveChooser,
+  }) {
     controller = LocalGamesController(
       store,
       idFactory: () {
@@ -596,14 +734,21 @@ class _Fixture {
         return suffix == 0 ? id : '$id-$suffix';
       },
       clock: () => clock,
+      level29MoveChooser: level29MoveChooser,
     );
   }
 
   static Future<_Fixture> create({
     LocalGameConfig config = const LocalGameConfig(),
+    LocalAiMoveChooser? level29MoveChooser,
   }) async {
     final store = MemoryLocalGameStore();
-    final fixture = _Fixture(store, 'local-test', DateTime.utc(2026, 8, 14));
+    final fixture = _Fixture(
+      store,
+      'local-test',
+      DateTime.utc(2026, 8, 14),
+      level29MoveChooser: level29MoveChooser,
+    );
     await fixture.controller.load();
     await fixture.controller.create(config);
     return fixture;
@@ -617,6 +762,32 @@ class _Fixture {
 
   LocalGameSession get game => controller.state.gameById(id)!;
   LocalGameSession get current => game;
+}
+
+engine.GameMove _quietMove(engine.GameState position) => engine.GameMove(
+  player: position.toMove!,
+  row: 0,
+  column: 0,
+  expectedRevision: position.revision,
+);
+
+class _ControlledAiSearch {
+  final started = Completer<void>();
+  final _result = Completer<engine.GameMove>();
+  late engine.GameState position;
+  late bool Function() isCancelled;
+
+  Future<engine.GameMove> choose(
+    engine.GameState state, {
+    required bool Function() isCancelled,
+  }) {
+    position = state;
+    this.isCancelled = isCancelled;
+    started.complete();
+    return _result.future;
+  }
+
+  void complete() => _result.complete(_quietMove(position));
 }
 
 class _BlockingSetup {
