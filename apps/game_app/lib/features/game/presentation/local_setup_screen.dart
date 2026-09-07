@@ -47,7 +47,7 @@ class _LocalSetupScreenState extends ConsumerState<LocalSetupScreen> {
             eyebrow: 'Local play',
             title: 'Set the terms of life',
             description:
-                'Play another person, AI level 1, or AI level 2. Local games need no account or connection.',
+                'Play another person or choose an AI level. Local games need no account or connection.',
           ),
           const SizedBox(height: 30),
           Card(
