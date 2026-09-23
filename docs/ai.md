@@ -114,3 +114,23 @@ resumable tournament rejects checkpoints from the old scoring policy.
 
 Run `dart run bin/search_benchmark.dart` in `packages/game_ai` for a small local
 move-latency/depth smoke benchmark. It is not a win-rate or graduation test.
+
+## Budget-controlled offline research
+
+The separate `experimental_search.dart` entry point exposes
+`BudgetedSearchAgent` for fixed-ceiling comparisons of depth caps and selective
+search. Unlike the app's L2.9 soft budget, this agent never overrides its hard
+successor-generation budget to finish a minimum depth. The last completed
+iteration supplies the move. All generated distinct successors are charged,
+including ordering, discarded beam candidates and iterative regeneration.
+
+`bin/budgeted_search_tournament.dart` runs configured Black/White pairings in
+local workers with strict configuration-matched resume and per-game checkpoints.
+It uses elimination only and records active safety-cap games as unfinished,
+not population wins or draws. Per-turn records distinguish completed horizon
+from deepest actually visited ply, including unfinished search iterations.
+
+The [study protocol](experiments/budgeted-search-protocol.md) specifies the
+candidate profiles, common work ceiling, screening and fresh-seed confirmation.
+This research does not change the app's level names or automatically graduate
+an experimental policy to AI level 3.
