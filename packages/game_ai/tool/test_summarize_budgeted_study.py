@@ -7,6 +7,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from unittest.mock import patch
 
 import summarize_budgeted_study as report
 
@@ -44,11 +45,21 @@ def game(cfg, black="D2", white="D5", trial=0, status="complete", winner="black"
     totals.update({"moves": plies, "budgetExhaustedMoves": sum(m["budgetExhausted"] for m in moves),
                    "maxVisitedPly": 1 if moves else 0,
                    "completedDepthHistogram": dict(report.Counter(str(m["completedDepth"]) for m in moves))})
+    complete = status == "complete"
+    cells = ([1] * 3 if winner == "black" else [2] * 3 if winner == "white" else []) if complete else [1, 1, 2, 2]
+    cells += [0] * (400 - len(cells))
+    populations = {"blackPopulation": cells.count(1), "whitePopulation": cells.count(2)}
+    reason = ("elimination" if winner else "mutualExtinction") if complete else None
+    outcome = {"type": "win" if winner else "draw", "winner": winner,
+               "reason": reason, **populations} if complete else None
     return {
         **report.identity(cfg, black, white, trial),
-        "status": status, "complete": status == "complete", "truncated": status == "truncated",
+        "status": status, "complete": complete, "truncated": status == "truncated",
         "plies": plies, "winner": winner,
-        "outcomeReason": "extinction" if status == "complete" else None,
+        "outcomeReason": reason, **populations,
+        "state": {"cells": cells, "ply": plies, "revision": plies,
+                  "toMove": None if complete else "black" if plies % 2 == 0 else "white",
+                  "status": "completed" if complete else "active", "outcome": outcome},
         "moves": moves, "searchTotals": totals,
     }
 
@@ -146,6 +157,63 @@ class ReportTests(unittest.TestCase):
         path = self.write_study(cfg, summary_games=[game(cfg)])
         with self.assertRaisesRegex(report.ValidationError, "checkpoint is missing"):
             report.summarize_study(path)
+
+    def test_loads_checkpoint_created_after_initial_directory_listing(self):
+        cfg = config()
+        item = game(cfg, winner="white")
+        path = self.write_study(cfg, summary_games=[item]).resolve()
+        checkpoint = path / "games" / "D2__D5__0.json"
+        read_object = report.read_object
+
+        def read_with_new_checkpoint(source):
+            if source == path / "summary.json":
+                checkpoint.write_text(json.dumps(item), encoding="utf-8")
+            return read_object(source)
+
+        with patch.object(report, "read_object", side_effect=read_with_new_checkpoint) as reads:
+            result = report.summarize_study(path)
+        self.assertEqual(result["pairs"][0]["losses"], 1)
+        self.assertEqual(result["pairs"][0]["draws"], 0)
+        self.assertEqual(sum(call.args[0] == checkpoint for call in reads.call_args_list), 1)
+
+    def test_newly_discovered_checkpoint_still_requires_valid_identity(self):
+        cfg = config()
+        item = game(cfg)
+        path = self.write_study(cfg, [item], summary_games=[item])
+        item["blackTieBreakSeed"] += 1
+        (path / "games" / "D2__D5__0.json").write_text(json.dumps(item), encoding="utf-8")
+        with patch.object(Path, "glob", return_value=[]):
+            with self.assertRaisesRegex(report.ValidationError, "game identity mismatch"):
+                report.summarize_study(path)
+
+    def test_rejects_missing_or_inconsistent_saved_outcomes(self):
+        changes = {
+            "missing winner": lambda item: item.pop("winner"),
+            "missing reason": lambda item: item.pop("outcomeReason"),
+            "wrong winner": lambda item: item.update(winner="white"),
+            "wrong reason": lambda item: item.update(outcomeReason="mutualExtinction"),
+            "missing state": lambda item: item.pop("state"),
+            "missing state outcome": lambda item: item["state"].pop("outcome"),
+            "wrong completion": lambda item: item["state"].update(outcome=None),
+            "wrong status": lambda item: item["state"].update(status="active"),
+            "wrong turn": lambda item: item["state"].update(toMove="white"),
+            "wrong ply": lambda item: item["state"].update(ply=2),
+            "wrong revision": lambda item: item["state"].update(revision=2),
+            "wrong population": lambda item: item.update(blackPopulation=4),
+            "wrong outcome population": lambda item: item["state"]["outcome"].update(blackPopulation=4),
+            "wrong cells": lambda item: item["state"]["cells"].pop(),
+            "invalid cell": lambda item: item["state"]["cells"].__setitem__(0, True),
+            "win without winner": lambda item: item["state"]["outcome"].update(winner=None),
+            "draw with winner": lambda item: item["state"]["outcome"].update(type="draw"),
+        }
+        for name, change in changes.items():
+            with self.subTest(name=name):
+                cfg = config()
+                item = game(cfg)
+                change(item)
+                path = self.write_study(cfg, [item], name=name)
+                with self.assertRaises(report.ValidationError):
+                    report.summarize_study(path)
 
     def test_duplicate_paths_are_not_double_counted_and_copies_rejected(self):
         cfg = config()

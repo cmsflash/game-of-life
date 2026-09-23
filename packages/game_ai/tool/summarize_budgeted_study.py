@@ -133,6 +133,47 @@ def game_key(game):
     return (game.get("blackProfile"), game.get("whiteProfile"), game.get("trial"))
 
 
+def validate_saved_state(game, plies):
+    """Check report-driving JSON fields; canonical move replay stays in Dart."""
+    require({"winner", "outcomeReason", "blackPopulation", "whitePopulation", "state"} <= game.keys(),
+            "missing game outcome/state fields")
+    state = game["state"]
+    require(isinstance(state, dict) and
+            {"cells", "ply", "revision", "toMove", "status", "outcome"} <= state.keys(),
+            "missing saved state fields")
+    for key in ("ply", "revision"):
+        require(integer(state[key], f"state.{key}") == plies, "state/game ply mismatch")
+    cells = state["cells"]
+    require(isinstance(cells, list) and len(cells) == 400 and
+            all(type(value) is int and value in (0, 1, 2) for value in cells),
+            "invalid saved state cells")
+    populations = {"blackPopulation": cells.count(1), "whitePopulation": cells.count(2)}
+    for key, value in populations.items():
+        require(integer(game[key], key, maximum=400) == value, "state/game population mismatch")
+    outcome = state["outcome"]
+    require(game["complete"] == (outcome is not None), "state/game completion mismatch")
+    require(state["status"] == ("completed" if game["complete"] else "active"),
+            "state status/completion mismatch")
+    require(state["toMove"] == (None if game["complete"] else "black" if plies % 2 == 0 else "white"),
+            "state toMove/completion mismatch")
+    if outcome is None:
+        require(game["winner"] is None and game["outcomeReason"] is None,
+                "active state has terminal game outcome")
+        return
+    require(isinstance(outcome, dict) and set(outcome) ==
+            {"type", "winner", "reason", "blackPopulation", "whitePopulation"},
+            "invalid saved state outcome")
+    require(outcome["type"] in {"win", "draw"} and
+            ((outcome["type"] == "win" and outcome["winner"] in {"black", "white"}) or
+             (outcome["type"] == "draw" and outcome["winner"] is None)),
+            "invalid saved state outcome type/winner")
+    require(game["winner"] == outcome["winner"] and game["outcomeReason"] == outcome["reason"],
+            "state/game outcome mismatch")
+    for key, value in populations.items():
+        require(integer(outcome[key], f"outcome.{key}", maximum=400) == value,
+                "state/outcome population mismatch")
+
+
 def validate_game(game, expected, config, profiles):
     for key, value in expected.items():
         require(game.get(key) == value and type(game.get(key)) is type(value),
@@ -156,6 +197,7 @@ def validate_game(game, expected, config, profiles):
             "completed game has no terminal reason")
     require(game["truncated"] == (not game["complete"] and plies >= config["safetyMaxPlies"]),
             "truncation/cap mismatch")
+    validate_saved_state(game, plies)
     totals = Counter()
     depths = Counter()
     for index, move in enumerate(moves):
@@ -275,19 +317,27 @@ def summarize_study(directory):
         for black, white in pairs for trial in range(config["gamesPerCell"])
     }
     games = {}
+
+    def load_checkpoint(path, key, game=None):
+        if game is None:
+            game = read_object(path)
+        require(game_key(game) == key, f"{path}: filename/identity mismatch")
+        try:
+            validate_game(game, expected[key], config, profiles)
+        except ValidationError as error:
+            raise ValidationError(f"{path}: {error}") from error
+        games[key] = game
+
     for path in sorted((directory / "games").glob("*.json")):
         game = read_object(path)
         key = game_key(game)
         require(key in expected, f"{path}: unexpected game identity")
         require(key not in games, f"{path}: duplicate game identity")
         require(path.name == f"{key[0]}__{key[1]}__{key[2]}.json", f"{path}: filename/identity mismatch")
-        try:
-            validate_game(game, expected[key], config, profiles)
-        except ValidationError as error:
-            raise ValidationError(f"{path}: {error}") from error
-        games[key] = game
-    # Per-game checkpoints are newer than the aggregate summary during a run.
-    # The only summary-only result supported is an error before a checkpoint exists.
+        load_checkpoint(path, key, game)
+    # A summary read after directory discovery can reference a newly created
+    # checkpoint. Load that specific path once before declaring it missing.
+    # Existing checkpoint snapshots still take precedence over summary entries.
     summary_path = directory / "summary.json"
     if summary_path.exists():
         summary = read_object(summary_path)
@@ -303,9 +353,13 @@ def summarize_study(directory):
             for field, value in expected[key].items():
                 require(compact.get(field) == value, f"summary game identity mismatch: {field}")
             if key not in games:
-                require(compact.get("status") == "error" and "plies" not in compact,
-                        "summary records a game whose checkpoint is missing")
-                games[key] = {**compact, "moves": []}
+                path = directory / "games" / f"{key[0]}__{key[1]}__{key[2]}.json"
+                if path.exists():
+                    load_checkpoint(path, key)
+                else:
+                    require(compact.get("status") == "error" and "plies" not in compact,
+                            "summary records a game whose checkpoint is missing")
+                    games[key] = {**compact, "moves": []}
     all_games = [games.get(key, {**value, "status": "notStarted", "moves": []})
                  for key, value in expected.items()]
     pair_results = [
