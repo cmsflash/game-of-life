@@ -1,0 +1,145 @@
+{
+  "studyId": "budgeted-search-screen-2026-09-23",
+  "sourceRevision": "6ee821c0c83b0b79c7e0608c159990515a7966bf",
+  "evaluationVersion": "terminalUtilityV1",
+  "baseSeed": 6000000,
+  "gamesPerCell": 2,
+  "safetyMaxPlies": 1000000,
+  "transitionBudget": 100000,
+  "profiles": [
+    {
+      "id": "D1",
+      "maxDepth": 1,
+      "fullWidthDepth": 64,
+      "beamWidth": 8
+    },
+    {
+      "id": "D2",
+      "maxDepth": 2,
+      "fullWidthDepth": 64,
+      "beamWidth": 8
+    },
+    {
+      "id": "D3",
+      "maxDepth": 3,
+      "fullWidthDepth": 64,
+      "beamWidth": 8
+    },
+    {
+      "id": "D4",
+      "maxDepth": 4,
+      "fullWidthDepth": 64,
+      "beamWidth": 8
+    },
+    {
+      "id": "D5",
+      "maxDepth": 5,
+      "fullWidthDepth": 64,
+      "beamWidth": 8
+    },
+    {
+      "id": "D8",
+      "maxDepth": 8,
+      "fullWidthDepth": 64,
+      "beamWidth": 8
+    },
+    {
+      "id": "F1B4",
+      "maxDepth": 8,
+      "fullWidthDepth": 1,
+      "beamWidth": 4
+    },
+    {
+      "id": "F1B8",
+      "maxDepth": 8,
+      "fullWidthDepth": 1,
+      "beamWidth": 8
+    },
+    {
+      "id": "F2B4",
+      "maxDepth": 8,
+      "fullWidthDepth": 2,
+      "beamWidth": 4
+    },
+    {
+      "id": "F2B8",
+      "maxDepth": 8,
+      "fullWidthDepth": 2,
+      "beamWidth": 8
+    }
+  ],
+  "pairings": [
+    {
+      "black": "D1",
+      "white": "D2"
+    },
+    {
+      "black": "D2",
+      "white": "D1"
+    },
+    {
+      "black": "D3",
+      "white": "D2"
+    },
+    {
+      "black": "D2",
+      "white": "D3"
+    },
+    {
+      "black": "D4",
+      "white": "D2"
+    },
+    {
+      "black": "D2",
+      "white": "D4"
+    },
+    {
+      "black": "D5",
+      "white": "D2"
+    },
+    {
+      "black": "D2",
+      "white": "D5"
+    },
+    {
+      "black": "D8",
+      "white": "D2"
+    },
+    {
+      "black": "D2",
+      "white": "D8"
+    },
+    {
+      "black": "F1B4",
+      "white": "D2"
+    },
+    {
+      "black": "D2",
+      "white": "F1B4"
+    },
+    {
+      "black": "F1B8",
+      "white": "D2"
+    },
+    {
+      "black": "D2",
+      "white": "F1B8"
+    },
+    {
+      "black": "F2B4",
+      "white": "D2"
+    },
+    {
+      "black": "D2",
+      "white": "F2B4"
+    },
+    {
+      "black": "F2B8",
+      "white": "D2"
+    },
+    {
+      "black": "D2",
+      "white": "F2B8"
+    }
+  ]
+}

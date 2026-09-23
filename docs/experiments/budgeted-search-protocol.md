@@ -49,8 +49,15 @@ Transposition-table hits do not regenerate states. The table is capped at
 This is an equal ceiling, not equal actual work: a depth-1 policy usually stops
 well below the ceiling. Duplicate-detection work, sorting, hashing and other
 overhead are not identical per charged successor. Report actual work and move
-latency alongside results; do not call this equal wall-clock time. Six local
+latency alongside results; do not call this equal wall-clock time. Local
 workers run the compiled offline runner. No AWS or other cloud compute is used.
+
+Scheduling amendment during the screen: started with six concurrent games,
+then resumed from checkpoints with eighteen slots so long full-width games did
+not prevent the selective variants from starting. Search is deterministic and
+has no time cutoff, so this does not change moves or work ceilings. Tournament
+latencies mix concurrency levels and are descriptive, not controlled speed
+comparisons. The original source revision and game configuration remain intact.
 
 Opening/ply-4/ply-8 smoke benchmarks motivated 100,000: 10,000 mostly stopped at
 depth 3, whereas 100,000 allowed some full-width depth 4 and selective depth
