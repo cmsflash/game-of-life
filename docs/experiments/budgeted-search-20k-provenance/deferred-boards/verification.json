@@ -1,0 +1,9 @@
+{
+  "matchedCases": 120,
+  "wallSeconds": {
+    "original_historical": 122.219496,
+    "cached_historical": 53.999791,
+    "new": 19.998177
+  },
+  "referenceVersions": "All non-time diagnostics and moves match original & cached binaries across all 120 cases."
+}

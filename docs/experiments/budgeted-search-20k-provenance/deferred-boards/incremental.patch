@@ -1,0 +1,106 @@
+--- a/packages/game_engine/lib/src/board.dart
++++ b/packages/game_engine/lib/src/board.dart
+@@ -93,7 +93,9 @@
+     required this.rows,
+     required this.columns,
+     required Iterable<CellState> cells,
+-  }) : _cells = List<CellState>.unmodifiable(cells) {
++  }) : _baseCells = List<CellState>.unmodifiable(cells),
++       _changes = const [],
++       _knownPopulations = null {
+     if (rows <= 0 || columns <= 0) {
+       throw ArgumentError('board dimensions must be positive');
+     }
+@@ -103,6 +105,8 @@
+       );
+     }
+   }
++
++  Board._patched(this.rows, this.columns, this._baseCells, this._changes, this._knownPopulations);
+ 
+   factory Board.empty({required int rows, required int columns}) => Board(
+     rows: rows,
+@@ -126,10 +130,39 @@
+ 
+   final int rows;
+   final int columns;
+-  final List<CellState> _cells;
++  final List<CellState> _baseCells;
++  final List<int> _changes;
++  final List<int>? _knownPopulations;
++  late final List<CellState> _cells = _materialize();
++
++  List<CellState> _materialize() {
++    if (_changes.isEmpty) return _baseCells;
++    final result = List<CellState>.of(_baseCells, growable: false);
++    for (final change in _changes) {
++      result[change ~/ CellState.values.length] = CellState.values[change % CellState.values.length];
++    }
++    return result;
++  }
++
++  /// Makes an immutable board from sorted (index * 3 + cell wire value) patches.
++  Board withSearchChanges(List<int> changes) {
++    if (changes.isEmpty) return this;
++    final counts = List<int>.of(_populationCounts, growable: false);
++    var previous = -1;
++    for (final change in changes) {
++      final index = change ~/ CellState.values.length;
++      if (change < 0 || index <= previous || index >= length) {
++        throw ArgumentError.value(changes, 'changes');
++      }
++      counts[_cells[index].index]--;
++      counts[change % CellState.values.length]++;
++      previous = index;
++    }
++    return Board._patched(rows, columns, _cells, List<int>.unmodifiable(changes), counts);
++  }
+ 
+   // Local experiment optimization: Board cells cannot change after creation.
+-  late final List<int> _populationCounts = _countPopulations();
++  late final List<int> _populationCounts = _knownPopulations ?? _countPopulations();
+   late final int _cachedHashCode = Object.hash(rows, columns, hashList(_cells));
+ 
+   List<int> _countPopulations() {
+@@ -142,7 +175,7 @@
+ 
+   UnmodifiableListView<CellState> get cells => UnmodifiableListView(_cells);
+ 
+-  int get length => _cells.length;
++  int get length => _baseCells.length;
+ 
+   bool contains(Coordinate coordinate) =>
+       coordinate.row >= 0 &&
+@@ -174,7 +207,7 @@
+ 
+   int populationFor(Player player) => population(player.cell);
+ 
+-  bool get hasEmptyCell => _cells.contains(CellState.empty);
++  bool get hasEmptyCell => population(CellState.empty) != 0;
+ 
+   List<Coordinate> emptyCoordinates() {
+     final result = <Coordinate>[];
+--- a/packages/game_engine/lib/src/engine.dart
++++ b/packages/game_engine/lib/src/engine.dart
+@@ -214,6 +214,7 @@
+           _nextCell(cells[index], blackNeighbors[index], whiteNeighbors[index]),
+       growable: false,
+     );
++    final baseBoard = Board(rows: rows, columns: columns, cells: base);
+     final player = state.toMove!;
+     final seen = <_SuccessorSignature>{};
+     for (var placement = 0; placement < cells.length; placement++) {
+@@ -243,12 +244,7 @@
+         }
+       }
+       if (!seen.add(_SuccessorSignature(changes))) continue;
+-      final nextCells = List<CellState>.of(base);
+-      for (final change in changes) {
+-        nextCells[change ~/ CellState.values.length] =
+-            CellState.values[change % CellState.values.length];
+-      }
+-      final nextBoard = Board(rows: rows, columns: columns, cells: nextCells);
++      final nextBoard = baseBoard.withSearchChanges(changes);
+       final nextPly = state.ply + 1;
+       final outcome = evaluateOutcome(nextBoard, state.rules, ply: nextPly);
+       yield SearchSuccessor(

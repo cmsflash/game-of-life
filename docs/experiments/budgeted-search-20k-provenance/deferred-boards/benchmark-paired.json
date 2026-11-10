@@ -1,0 +1,20 @@
+{
+  "order": [
+    "fast",
+    "fast2",
+    "fast2",
+    "fast"
+  ],
+  "casesPerRun": 12,
+  "wallSeconds": {
+    "fast": [
+      6.373051,
+      6.617186
+    ],
+    "fast2": [
+      2.766559,
+      2.744867
+    ]
+  },
+  "speedup": 2.356964785520118
+}
