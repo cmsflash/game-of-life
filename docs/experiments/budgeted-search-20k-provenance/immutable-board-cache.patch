@@ -1,0 +1,40 @@
+--- a/packages/game_engine/lib/src/board.dart
++++ b/packages/game_engine/lib/src/board.dart
+@@ -128,6 +128,18 @@
+   final int columns;
+   final List<CellState> _cells;
+ 
++  // Local experiment optimization: Board cells cannot change after creation.
++  late final List<int> _populationCounts = _countPopulations();
++  late final int _cachedHashCode = Object.hash(rows, columns, hashList(_cells));
++
++  List<int> _countPopulations() {
++    final counts = List<int>.filled(CellState.values.length, 0);
++    for (final cell in _cells) {
++      counts[cell.index]++;
++    }
++    return counts;
++  }
++
+   UnmodifiableListView<CellState> get cells => UnmodifiableListView(_cells);
+ 
+   int get length => _cells.length;
+@@ -158,8 +170,7 @@
+     return Board(rows: rows, columns: columns, cells: next);
+   }
+ 
+-  int population(CellState state) =>
+-      _cells.where((cell) => cell == state).length;
++  int population(CellState state) => _populationCounts[state.index];
+ 
+   int populationFor(Player player) => population(player.cell);
+ 
+@@ -189,7 +200,7 @@
+       listEquals(_cells, other._cells);
+ 
+   @override
+-  int get hashCode => Object.hash(rows, columns, hashList(_cells));
++  int get hashCode => _cachedHashCode;
+ 
+   @override
+   String toString() => 'Board(${rows}x$columns)';

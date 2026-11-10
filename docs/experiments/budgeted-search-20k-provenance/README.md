@@ -1,0 +1,9 @@
+# 20,000-ply screen: executable provenance
+
+The original study configuration, opening, policy parameters, seeds and engine semantics are unchanged. The operational `--pause-at-plies=20000` control comes from the local game-of-life commit `5347c9bc6307899a3617be04beee2dd6bd7bde27`. Config `sourceRevision` identifies the original study, not the binary used for the resumed segment.
+
+On 2026-11-10 at 12:23 Pacific the runner switched to a locally compiled executable, SHA-256 `7571d518a10afe4cba063a04b4aeb4aa4b3c8485cef54eaebd03ec92c554c674`, with the additional `immutable-board-cache.patch`. The immutable cell list, population counts and board hash have the same values; only repeated computation is removed. `boundaries.json` records the exact last saved ply under the previous implementation for every game. No elapsed-time metric should be used as a controlled comparison across this boundary. Per-move logical work is measured as before.
+
+The two executables agreed in 120 deterministic test decisions on six positions, all ten policies, and two seeds. This comparison excludes wall clock only. Historical moves and logical work also matched where the checked positions had a corresponding recorded next move. See `verification.json`, the two raw differential files, and `probe.dart`.
+
+The timing cross-check (`benchmark-paired.json`) repeated 12 decisions per pass in cached/original/original/cached order. It measured a 2.35× speedup under concurrent load; the tournament itself is not a controlled timing trial. To reproduce the build, apply the provided patch to a separate copy of commit `5347c9b`, resolve the Dart package dependencies with Dart 3.12.2, then compile `packages/game_ai/bin/budgeted_search_tournament.dart` there. Use the original study config and `--resume --pause-at-plies=20000`.

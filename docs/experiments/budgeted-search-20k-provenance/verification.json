@@ -1,0 +1,23 @@
+{
+  "matchedCases": 120,
+  "positionCount": 6,
+  "seedCount": 2,
+  "wallSeconds": {
+    "original": 122.219496,
+    "optimized": 53.999791
+  },
+  "endToEndSpeedup": 2.2633327599360524,
+  "perProfileSpeedup": {
+    "D1": 3.022232444035572,
+    "D2": 2.0526762778261265,
+    "D3": 2.456569619755166,
+    "D4": 2.332674592193704,
+    "D5": 2.449138652291579,
+    "D8": 2.227849987936254,
+    "F1B4": 2.0844134285820664,
+    "F1B8": 2.225209650271395,
+    "F2B4": 2.2193941367468044,
+    "F2B8": 2.215045209836505
+  },
+  "midgameBaselineHistoricalMoveAndWorkMatches": 3
+}
