@@ -1,0 +1,375 @@
+{
+  "status": "final",
+  "verifiedAt": "2026-11-10T21:28:57.946263Z",
+  "canonicalEngineRevision": "6ee821c0c83b0b79c7e0608c159990515a7966bf",
+  "configHash": "1014f085a5a9b014fe89633a1e0c3a9ed79683bdd83604c94cd3ab9ae862e853",
+  "opening": "standard centered diagonal",
+  "pauseAtPlies": 20000,
+  "scheduledGames": 36,
+  "verifiedGames": 36,
+  "verifiedPlacements": 344619,
+  "naturalOutcomes": 27,
+  "unresolvedAtPause": 9,
+  "games": [
+    {
+      "game": "D1__D2__0",
+      "plies": 6,
+      "status": "natural",
+      "winner": "white",
+      "reason": "elimination",
+      "positionHash": "44575b6e1a7a45d31090e2616a91618e23dffd9748269dab94b30f52cf717b77",
+      "stateHash": "4614083422937f509028a44ea95d52c1f82c5ba510bc39bc67c0b9b8b1362684",
+      "checkpointSha256": "e8088e80a5c0721ae22c323ac291740445eb265286626702b81a8930bc60af6c"
+    },
+    {
+      "game": "D1__D2__1",
+      "plies": 6,
+      "status": "natural",
+      "winner": "white",
+      "reason": "elimination",
+      "positionHash": "44575b6e1a7a45d31090e2616a91618e23dffd9748269dab94b30f52cf717b77",
+      "stateHash": "4614083422937f509028a44ea95d52c1f82c5ba510bc39bc67c0b9b8b1362684",
+      "checkpointSha256": "4764955287d9bd093af0efa58e851ad2bfd8151924a9acb7cc5884cd9399ff1d"
+    },
+    {
+      "game": "D2__D1__0",
+      "plies": 9,
+      "status": "natural",
+      "winner": "black",
+      "reason": "elimination",
+      "positionHash": "5042c1bcd3fb47961f099fe9e989c66f2170f01918db1675fa705baae73d3db7",
+      "stateHash": "fb44bf34684d3d30b13c72663e68aa0e813e6cd9606727a0a7031ae3ce3e5838",
+      "checkpointSha256": "b3d872f88d10f9154014be75a45405dde87a4ce6c285b46802043692b92ee8e4"
+    },
+    {
+      "game": "D2__D1__1",
+      "plies": 15,
+      "status": "natural",
+      "winner": "black",
+      "reason": "elimination",
+      "positionHash": "1919d0161c9ebffaa8d8377847bf9ecc0c681b5e0a5ed76f6d154d319ffbbabf",
+      "stateHash": "49129c7e2c220c5c6136c83550cdaa95872c50f650dbeb40100121f842cfe84f",
+      "checkpointSha256": "eef3f3ff24bcce5c4e8ef4b8132fdee16000d8cc9c21ed1564159e5fc9dd226d"
+    },
+    {
+      "game": "D3__D2__0",
+      "plies": 18508,
+      "status": "natural",
+      "winner": "black",
+      "reason": "elimination",
+      "positionHash": "447c43f33935e154c5ef1694cee8511e20caf729366c2e5be2d50353431daffd",
+      "stateHash": "17484b1f3fb92de16320cf6429da2a0b85e7d77313ffd0ebcae901a0c2c4dc5c",
+      "checkpointSha256": "5a8dc1df83506331ee1cfaee5eb3a62922fac1663b8e999774b860ebcf2c82c0"
+    },
+    {
+      "game": "D3__D2__1",
+      "plies": 12973,
+      "status": "natural",
+      "winner": "black",
+      "reason": "elimination",
+      "positionHash": "883192fb25418a1a0c0456882b87a2e67de38e92af1bd8b21c4d06babbc9cebe",
+      "stateHash": "fdcc717e5dec9ef5e83ebe401179fbd68df5889873417b0ee70a7b91069ee584",
+      "checkpointSha256": "fcba9f008cc8b613e596d7a375655d63ab50ae383325375df68a9fdacc974a4d"
+    },
+    {
+      "game": "D2__D3__0",
+      "plies": 18195,
+      "status": "natural",
+      "winner": "white",
+      "reason": "elimination",
+      "positionHash": "5e55d6b689824279673b9099584dfddd76ab5157eab117f343f89031feae72ca",
+      "stateHash": "ced04c8cca92653da7df22d68096786d688b1d93b7c2fed261a0611931a48aa8",
+      "checkpointSha256": "132a1c944b03d8b803a34258429d71d7dfe0d6294ef51b1b7b06333e451ea5f0"
+    },
+    {
+      "game": "D2__D3__1",
+      "plies": 8533,
+      "status": "natural",
+      "winner": "white",
+      "reason": "elimination",
+      "positionHash": "1166aa7368870b05097172a22ef86230eac1bb8709a73a533bc3392efa026a4a",
+      "stateHash": "f709cea1bdbc1ddb057f975ce0efa88eefef89b78844ee7bb37407bf210858c1",
+      "checkpointSha256": "f5120696c3c1f8060f6c24dbf59f0f4fbf7670b6f206e0a8497a7811e1239093"
+    },
+    {
+      "game": "D4__D2__0",
+      "plies": 3249,
+      "status": "natural",
+      "winner": "black",
+      "reason": "elimination",
+      "positionHash": "daccfaae0e31e9b309daa434c961219712118e5326119b90259ca7b38f5508d8",
+      "stateHash": "ab17f8e7b18da153dff50d1d541416357c7931dcfcfdd503faf39b382b488a00",
+      "checkpointSha256": "2698cce3580f9f23de57e46a289f0e93804be1927a99b1e0014fd6210c314844"
+    },
+    {
+      "game": "D4__D2__1",
+      "plies": 20000,
+      "status": "paused",
+      "winner": null,
+      "reason": null,
+      "positionHash": "58fdd43d67dd5368efe84b232f289a8a4c3fe576f0dc2b94ab543036f47748b6",
+      "stateHash": "56f73866758564232307722ce7ea1ce439579ce36068f6c2591125e582e457ea",
+      "checkpointSha256": "191e80e84297d75ea7b20291f59e5daeae2a42f2683c2755ebb46144715c4619"
+    },
+    {
+      "game": "D2__D4__0",
+      "plies": 1523,
+      "status": "natural",
+      "winner": "white",
+      "reason": "elimination",
+      "positionHash": "78dbbcdcd7beece2462cdb5e146198ee185c14f86112b8bb234f1b8375505cd1",
+      "stateHash": "3cd30b06b5ea50519183d6fdeeddbc9ea7e28d6677ce8a13a0121744e17c9b56",
+      "checkpointSha256": "27d88026850fd41d67b942960abfacb41c642b1263c34046a7bb782d9af3d029"
+    },
+    {
+      "game": "D2__D4__1",
+      "plies": 20000,
+      "status": "paused",
+      "winner": null,
+      "reason": null,
+      "positionHash": "e69a6be3d376523bbcc45f1225db479569cb7448dfc45e51e7953c277b854715",
+      "stateHash": "ccb4682c26755a7ef4b4a611f0b51f8561751bfb24f053409b77c8bdbb3589f1",
+      "checkpointSha256": "ab909b290848b3c1245244e6269a907bc25edceb1e93d0cc3db94aea56341c18"
+    },
+    {
+      "game": "D5__D2__0",
+      "plies": 3249,
+      "status": "natural",
+      "winner": "black",
+      "reason": "elimination",
+      "positionHash": "758512bb7d4ec4d864af367dae807a2e517dddf4dfe7f469b41f96937a0f5e14",
+      "stateHash": "fa422dc1389caaebbd2b8009457e5bd282d91e7f3d37d32836ca0c9226640128",
+      "checkpointSha256": "3ca698246a9e4987daca5c308c061e1a78b0514b963f384f0913a9f553780b01"
+    },
+    {
+      "game": "D5__D2__1",
+      "plies": 20000,
+      "status": "paused",
+      "winner": null,
+      "reason": null,
+      "positionHash": "58fdd43d67dd5368efe84b232f289a8a4c3fe576f0dc2b94ab543036f47748b6",
+      "stateHash": "56f73866758564232307722ce7ea1ce439579ce36068f6c2591125e582e457ea",
+      "checkpointSha256": "b6c7eeb390b1730fdb99edfa2fb894848fb89a97daee43de508f44c6ddcd2b06"
+    },
+    {
+      "game": "D2__D5__0",
+      "plies": 1523,
+      "status": "natural",
+      "winner": "white",
+      "reason": "elimination",
+      "positionHash": "78dbbcdcd7beece2462cdb5e146198ee185c14f86112b8bb234f1b8375505cd1",
+      "stateHash": "3cd30b06b5ea50519183d6fdeeddbc9ea7e28d6677ce8a13a0121744e17c9b56",
+      "checkpointSha256": "68c2181190d642ee2d0aba580a1ff3d853e5efe5d39c6da1ed74ee68d173dd8d"
+    },
+    {
+      "game": "D2__D5__1",
+      "plies": 20000,
+      "status": "paused",
+      "winner": null,
+      "reason": null,
+      "positionHash": "e69a6be3d376523bbcc45f1225db479569cb7448dfc45e51e7953c277b854715",
+      "stateHash": "ccb4682c26755a7ef4b4a611f0b51f8561751bfb24f053409b77c8bdbb3589f1",
+      "checkpointSha256": "8de41ac370cc05093ab6b2a74f455451d815ea03762f3678ec2793cca00af45d"
+    },
+    {
+      "game": "D8__D2__0",
+      "plies": 3249,
+      "status": "natural",
+      "winner": "black",
+      "reason": "elimination",
+      "positionHash": "daccfaae0e31e9b309daa434c961219712118e5326119b90259ca7b38f5508d8",
+      "stateHash": "ab17f8e7b18da153dff50d1d541416357c7931dcfcfdd503faf39b382b488a00",
+      "checkpointSha256": "0c0f15100863faa0d952ad39606a5a837827ba10d5fe939d34f469a4d7081102"
+    },
+    {
+      "game": "D8__D2__1",
+      "plies": 20000,
+      "status": "paused",
+      "winner": null,
+      "reason": null,
+      "positionHash": "58fdd43d67dd5368efe84b232f289a8a4c3fe576f0dc2b94ab543036f47748b6",
+      "stateHash": "56f73866758564232307722ce7ea1ce439579ce36068f6c2591125e582e457ea",
+      "checkpointSha256": "1686e6cd0f3b017d44eb2f2b6990a2a2de988099a5d45d8642c03624daf302e7"
+    },
+    {
+      "game": "D2__D8__0",
+      "plies": 1523,
+      "status": "natural",
+      "winner": "white",
+      "reason": "elimination",
+      "positionHash": "78dbbcdcd7beece2462cdb5e146198ee185c14f86112b8bb234f1b8375505cd1",
+      "stateHash": "3cd30b06b5ea50519183d6fdeeddbc9ea7e28d6677ce8a13a0121744e17c9b56",
+      "checkpointSha256": "8c6491a70604f7a6f63890f0c2978d4dfc26d54b6f27960b3e46d3d6ede80fe5"
+    },
+    {
+      "game": "D2__D8__1",
+      "plies": 20000,
+      "status": "paused",
+      "winner": null,
+      "reason": null,
+      "positionHash": "e69a6be3d376523bbcc45f1225db479569cb7448dfc45e51e7953c277b854715",
+      "stateHash": "ccb4682c26755a7ef4b4a611f0b51f8561751bfb24f053409b77c8bdbb3589f1",
+      "checkpointSha256": "10038d4430b85dd55c9f9998d14e15680703c2b6b17dc4ef90230e5a1c03079e"
+    },
+    {
+      "game": "F1B4__D2__0",
+      "plies": 5162,
+      "status": "natural",
+      "winner": "black",
+      "reason": "elimination",
+      "positionHash": "2e844e856cd1c705c68e69c674772e71473a9ca1ebc46cbe354120afa497e0b8",
+      "stateHash": "d6a59b92bb26952178aeeaca03dc0bedb763d419533f7c976bbc6b21776d0618",
+      "checkpointSha256": "2b5bb9f142b00192ef82f43e42433476f954fe657f9b8d4526b60516c3e6b9d1"
+    },
+    {
+      "game": "F1B4__D2__1",
+      "plies": 3538,
+      "status": "natural",
+      "winner": "black",
+      "reason": "elimination",
+      "positionHash": "096e6526500d07fc2fd62c23c1782838a2a3e972b4f3826a56e4a06e45845b74",
+      "stateHash": "e11cce1168bbc09f47b05ca9cbac458147aeb49a019bb995f20d8e997533712d",
+      "checkpointSha256": "a5bbff35d71ce7d066f909fb8d696275dbc7b70a2ac28fa2a83a99433fb32629"
+    },
+    {
+      "game": "D2__F1B4__0",
+      "plies": 1525,
+      "status": "natural",
+      "winner": "white",
+      "reason": "elimination",
+      "positionHash": "685a34a36c4573e0cc0c4f1facd9a6a9398a35fedba31335e564440836372144",
+      "stateHash": "32aa24064d26fc5b0c26a75c49b785b83fc4379bf073a3f8884603251f3ed4cd",
+      "checkpointSha256": "a2b1c388aa9f5627b1a0f58a6c7542b4c764ec8863eca4fc62c225b91874d4fd"
+    },
+    {
+      "game": "D2__F1B4__1",
+      "plies": 11005,
+      "status": "natural",
+      "winner": "white",
+      "reason": "elimination",
+      "positionHash": "844256c0ce66aad6a7630d80c1bddf5e8a4fe20dd1ccdda311f90af9d21e9a1e",
+      "stateHash": "4d2ebbef5aa4febcac9193bf368898e8a1fe2969e8443e0fd278a224fad240b7",
+      "checkpointSha256": "ea3f16bfce23820f74d8d986d665566f3dbe757b5d5b14d2105bb646f321851b"
+    },
+    {
+      "game": "F1B8__D2__0",
+      "plies": 4158,
+      "status": "natural",
+      "winner": "black",
+      "reason": "elimination",
+      "positionHash": "6c2f1405479b7cd417aea8106eb5876fe854ca438f1908618da9930db772fe12",
+      "stateHash": "360990303372619b683897e47dd2a3f4f0bb8210b393a7299215d8c37a17dc36",
+      "checkpointSha256": "a4d71f45a158f355c60ec0d395c280192f33c13478d351d30a75522667fbcaf0"
+    },
+    {
+      "game": "F1B8__D2__1",
+      "plies": 7846,
+      "status": "natural",
+      "winner": "black",
+      "reason": "elimination",
+      "positionHash": "8ac0acc1ff312c293f6acd959a13ab29471e9f0aa35d0cba905279e08975a5cb",
+      "stateHash": "e88c4396777186c06dbbca9586520dc2bf7ccc1586b8b536dcccc66f54adb9ab",
+      "checkpointSha256": "c836c46cd3ce40b0a740055f2eefb42208bb7e1f64219d426c5b141ad0744fae"
+    },
+    {
+      "game": "D2__F1B8__0",
+      "plies": 20000,
+      "status": "paused",
+      "winner": null,
+      "reason": null,
+      "positionHash": "46f57354803d67cd9009d1da78fbaa86fca841512033a01178dad06f415b1dcc",
+      "stateHash": "62fdecb886fea14b92a164b3dfb3f706632e5ac06e56df7ff78ac82eef715bc7",
+      "checkpointSha256": "7569687d072ba68e8dc0bb108212d226a3d7ebd07555bc077745688771f73949"
+    },
+    {
+      "game": "D2__F1B8__1",
+      "plies": 20000,
+      "status": "paused",
+      "winner": null,
+      "reason": null,
+      "positionHash": "73ea5e714dc78f53842325a66fa2141860f2371b4849f6c9df8c33a4d60eaf98",
+      "stateHash": "2cb031ffce604585e333ab6189540f85923cb0e08725e01acb1840895f2ae52c",
+      "checkpointSha256": "2d703ace2b3e5e8a042865f365f2f7cdc8e7bc30d8b911cf7eeae262f91b07f4"
+    },
+    {
+      "game": "F2B4__D2__0",
+      "plies": 20000,
+      "status": "paused",
+      "winner": null,
+      "reason": null,
+      "positionHash": "1af10637032a50af5b18f7fcdccec2cab824a9941f55f72c75cf7cdc637cc96b",
+      "stateHash": "aeaedc75026da2e989f997ed0075a8f42b3194889c8de9fb3d044cea7a4a14e6",
+      "checkpointSha256": "81e061a06db1ea401fcc0e7d9408d9ca7dab4e006d146ea688218260ef9d7422"
+    },
+    {
+      "game": "F2B4__D2__1",
+      "plies": 6826,
+      "status": "natural",
+      "winner": "black",
+      "reason": "elimination",
+      "positionHash": "7ec7a3da5456bef2fb911a460feb603e5d55b58a6c87dd0fc990a583bbd4b173",
+      "stateHash": "e5389769ed56baa60b0652854b24f15a01cf7c542123a3ba6ef6bb03f4b61983",
+      "checkpointSha256": "32a554ec7c6ba7d13e42c3e11549cce56fd2c45f2ddd0d15b33c94087ce95850"
+    },
+    {
+      "game": "D2__F2B4__0",
+      "plies": 4836,
+      "status": "natural",
+      "winner": "white",
+      "reason": "elimination",
+      "positionHash": "b34ad0910663de5155d44ef7753ab3cd45264cf4b34ae315f0f2b7f48bd4410e",
+      "stateHash": "897fd0bf2a5e9a24cd5b0dd778342724ab6458018e46addf33608d242ddab56b",
+      "checkpointSha256": "6896af3cd95872cb83a36a584617849fa0d4ec3fd5d73d0e44395eeb595b17cc"
+    },
+    {
+      "game": "D2__F2B4__1",
+      "plies": 17,
+      "status": "natural",
+      "winner": "white",
+      "reason": "elimination",
+      "positionHash": "6e6c230eac86c8bc8b7972d251f348529694ac250e51e481a0225662fc2d3aa5",
+      "stateHash": "8e6747b3fc41a73d276aae0f558e5b74876af204d1baa6c2c0f04afe7a961e78",
+      "checkpointSha256": "7667604cc058d96b10ae3f7b1ff193773548046cf9b7f4e6483bc9eb8b57a658"
+    },
+    {
+      "game": "F2B8__D2__0",
+      "plies": 1611,
+      "status": "natural",
+      "winner": "black",
+      "reason": "elimination",
+      "positionHash": "10335117ebee4b5d3dff2d59786673728fc379f1d282359f88ad7d0da3364a42",
+      "stateHash": "05fb7a8e0959ae1c4c5bfae7adf34355b67aeda04ba53c7628f618a90f244cd8",
+      "checkpointSha256": "01da1d40720def99931d7f323a1f3275487cc33eab6cf2c6fe325fe7c6e6c6ff"
+    },
+    {
+      "game": "F2B8__D2__1",
+      "plies": 18310,
+      "status": "natural",
+      "winner": "black",
+      "reason": "elimination",
+      "positionHash": "6087121a251e9733874213ae9dc2063724a27bb52be8321b5c182a408e66aaa9",
+      "stateHash": "82256380b789ede6a6f6f89cca2fcfc1e3b581a15ac0083d676c2b77721759d8",
+      "checkpointSha256": "5ddda2d27dcd7006902382846de7ce59ae9521b480fef5398b661e7d5b72fb11"
+    },
+    {
+      "game": "D2__F2B8__0",
+      "plies": 12937,
+      "status": "natural",
+      "winner": "white",
+      "reason": "elimination",
+      "positionHash": "49a286e340ee1f8a38ad08c835fb9bc6de0ceb1e9fca7dc4825c6fd391357be8",
+      "stateHash": "6308d40988c8c008348082ddd02c3c22604f59c0d15bce89a9cab5cc7a40dc18",
+      "checkpointSha256": "33b8200e28adb66191c08fe65e1a10250c6199334b1818c52569c41bbafdcf5f"
+    },
+    {
+      "game": "D2__F2B8__1",
+      "plies": 14287,
+      "status": "natural",
+      "winner": "white",
+      "reason": "elimination",
+      "positionHash": "fa4b848a966ce2e8beb2aadfd25d7d760d700156760f60f6cdcd56d80927d17d",
+      "stateHash": "91c2a29557caacef0d802be9e2f6d5016a50432ab523768402ff8958846d23c7",
+      "checkpointSha256": "a63827ad49d637e5df5f4653452adacb23182925066259443d676c6fb3cedd94"
+    }
+  ]
+}

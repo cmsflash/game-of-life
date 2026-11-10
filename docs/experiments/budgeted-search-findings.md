@@ -1,5 +1,7 @@
 # Budgeted search: first findings
 
+For the November 10 results and continuation recommendation, see the [20,000-ply review](budgeted-search-20k-review.md). The September notes below are historical.
+
 Date: 2026-09-23. **Interim: the win-rate screen is still running.** No finalist
 has been selected and the fresh-seed confirmation tournament has not started.
 

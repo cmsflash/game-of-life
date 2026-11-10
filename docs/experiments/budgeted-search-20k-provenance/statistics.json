@@ -1,0 +1,4751 @@
+{
+  "reportVersion": 1,
+  "snapshotUtc": "2026-11-10T21:28:45.127275+00:00",
+  "studies": [
+    {
+      "directory": "/Users/zhuoran/Programs/game-of-life/docs/experiments/budgeted-search-screen",
+      "config": {
+        "studyId": "budgeted-search-screen-2026-09-23",
+        "sourceRevision": "6ee821c0c83b0b79c7e0608c159990515a7966bf",
+        "evaluationVersion": "terminalUtilityV1",
+        "baseSeed": 6000000,
+        "gamesPerCell": 2,
+        "safetyMaxPlies": 1000000,
+        "transitionBudget": 100000,
+        "profiles": [
+          {
+            "id": "D1",
+            "maxDepth": 1,
+            "fullWidthDepth": 64,
+            "beamWidth": 8
+          },
+          {
+            "id": "D2",
+            "maxDepth": 2,
+            "fullWidthDepth": 64,
+            "beamWidth": 8
+          },
+          {
+            "id": "D3",
+            "maxDepth": 3,
+            "fullWidthDepth": 64,
+            "beamWidth": 8
+          },
+          {
+            "id": "D4",
+            "maxDepth": 4,
+            "fullWidthDepth": 64,
+            "beamWidth": 8
+          },
+          {
+            "id": "D5",
+            "maxDepth": 5,
+            "fullWidthDepth": 64,
+            "beamWidth": 8
+          },
+          {
+            "id": "D8",
+            "maxDepth": 8,
+            "fullWidthDepth": 64,
+            "beamWidth": 8
+          },
+          {
+            "id": "F1B4",
+            "maxDepth": 8,
+            "fullWidthDepth": 1,
+            "beamWidth": 4
+          },
+          {
+            "id": "F1B8",
+            "maxDepth": 8,
+            "fullWidthDepth": 1,
+            "beamWidth": 8
+          },
+          {
+            "id": "F2B4",
+            "maxDepth": 8,
+            "fullWidthDepth": 2,
+            "beamWidth": 4
+          },
+          {
+            "id": "F2B8",
+            "maxDepth": 8,
+            "fullWidthDepth": 2,
+            "beamWidth": 8
+          }
+        ],
+        "pairings": [
+          {
+            "black": "D1",
+            "white": "D2"
+          },
+          {
+            "black": "D2",
+            "white": "D1"
+          },
+          {
+            "black": "D3",
+            "white": "D2"
+          },
+          {
+            "black": "D2",
+            "white": "D3"
+          },
+          {
+            "black": "D4",
+            "white": "D2"
+          },
+          {
+            "black": "D2",
+            "white": "D4"
+          },
+          {
+            "black": "D5",
+            "white": "D2"
+          },
+          {
+            "black": "D2",
+            "white": "D5"
+          },
+          {
+            "black": "D8",
+            "white": "D2"
+          },
+          {
+            "black": "D2",
+            "white": "D8"
+          },
+          {
+            "black": "F1B4",
+            "white": "D2"
+          },
+          {
+            "black": "D2",
+            "white": "F1B4"
+          },
+          {
+            "black": "F1B8",
+            "white": "D2"
+          },
+          {
+            "black": "D2",
+            "white": "F1B8"
+          },
+          {
+            "black": "F2B4",
+            "white": "D2"
+          },
+          {
+            "black": "D2",
+            "white": "F2B4"
+          },
+          {
+            "black": "F2B8",
+            "white": "D2"
+          },
+          {
+            "black": "D2",
+            "white": "F2B8"
+          }
+        ],
+        "runnerVersion": "budgetedSearchTournamentV1",
+        "configHash": "1014f085a5a9b014fe89633a1e0c3a9ed79683bdd83604c94cd3ab9ae862e853"
+      },
+      "opening": "centered2x2Diagonal",
+      "victoryRule": "elimination",
+      "budgetMetric": "generatedUniqueSuccessors",
+      "overallBlack": {
+        "plannedGames": 36,
+        "completed": 27,
+        "wins": 14,
+        "losses": 13,
+        "draws": 0,
+        "unfinished": 9,
+        "truncated": 0,
+        "active": 9,
+        "error": 0,
+        "notStarted": 0,
+        "winRate": null,
+        "completedOnlyWinRate": 0.5185185185185185,
+        "winRateBounds": [
+          0.3888888888888889,
+          0.6388888888888888
+        ],
+        "scoreRate": null,
+        "scoreRateBounds": [
+          0.3888888888888889,
+          0.6388888888888888
+        ],
+        "nominalWilson95WinRate": null,
+        "completedLengthPlies": {
+          "n": 27,
+          "total": 164619,
+          "mean": 6097,
+          "median": 3538,
+          "p90": 18195,
+          "p95": 18310,
+          "min": 6,
+          "max": 18508
+        },
+        "truncatedObservedPlies": {
+          "n": 0,
+          "total": 0,
+          "mean": null,
+          "median": null,
+          "p90": null,
+          "p95": null,
+          "min": null,
+          "max": null
+        },
+        "activeObservedPlies": {
+          "n": 9,
+          "total": 180000,
+          "mean": 20000,
+          "median": 20000,
+          "p90": 20000,
+          "p95": 20000,
+          "min": 20000,
+          "max": 20000
+        },
+        "errorObservedPlies": {
+          "n": 0,
+          "total": 0,
+          "mean": null,
+          "median": null,
+          "p90": null,
+          "p95": null,
+          "min": null,
+          "max": null
+        }
+      },
+      "pairs": [
+        {
+          "black": "D1",
+          "white": "D2",
+          "plannedGames": 2,
+          "completed": 2,
+          "wins": 0,
+          "losses": 2,
+          "draws": 0,
+          "unfinished": 0,
+          "truncated": 0,
+          "active": 0,
+          "error": 0,
+          "notStarted": 0,
+          "winRate": 0.0,
+          "completedOnlyWinRate": 0.0,
+          "winRateBounds": [
+            0.0,
+            0.0
+          ],
+          "scoreRate": 0.0,
+          "scoreRateBounds": [
+            0.0,
+            0.0
+          ],
+          "nominalWilson95WinRate": [
+            0,
+            0.6576197724933469
+          ],
+          "completedLengthPlies": {
+            "n": 2,
+            "total": 12,
+            "mean": 6,
+            "median": 6.0,
+            "p90": 6,
+            "p95": 6,
+            "min": 6,
+            "max": 6
+          },
+          "truncatedObservedPlies": {
+            "n": 0,
+            "total": 0,
+            "mean": null,
+            "median": null,
+            "p90": null,
+            "p95": null,
+            "min": null,
+            "max": null
+          },
+          "activeObservedPlies": {
+            "n": 0,
+            "total": 0,
+            "mean": null,
+            "median": null,
+            "p90": null,
+            "p95": null,
+            "min": null,
+            "max": null
+          },
+          "errorObservedPlies": {
+            "n": 0,
+            "total": 0,
+            "mean": null,
+            "median": null,
+            "p90": null,
+            "p95": null,
+            "min": null,
+            "max": null
+          }
+        },
+        {
+          "black": "D2",
+          "white": "D1",
+          "plannedGames": 2,
+          "completed": 2,
+          "wins": 2,
+          "losses": 0,
+          "draws": 0,
+          "unfinished": 0,
+          "truncated": 0,
+          "active": 0,
+          "error": 0,
+          "notStarted": 0,
+          "winRate": 1.0,
+          "completedOnlyWinRate": 1.0,
+          "winRateBounds": [
+            1.0,
+            1.0
+          ],
+          "scoreRate": 1.0,
+          "scoreRateBounds": [
+            1.0,
+            1.0
+          ],
+          "nominalWilson95WinRate": [
+            0.34238022750665303,
+            1
+          ],
+          "completedLengthPlies": {
+            "n": 2,
+            "total": 24,
+            "mean": 12,
+            "median": 12.0,
+            "p90": 15,
+            "p95": 15,
+            "min": 9,
+            "max": 15
+          },
+          "truncatedObservedPlies": {
+            "n": 0,
+            "total": 0,
+            "mean": null,
+            "median": null,
+            "p90": null,
+            "p95": null,
+            "min": null,
+            "max": null
+          },
+          "activeObservedPlies": {
+            "n": 0,
+            "total": 0,
+            "mean": null,
+            "median": null,
+            "p90": null,
+            "p95": null,
+            "min": null,
+            "max": null
+          },
+          "errorObservedPlies": {
+            "n": 0,
+            "total": 0,
+            "mean": null,
+            "median": null,
+            "p90": null,
+            "p95": null,
+            "min": null,
+            "max": null
+          }
+        },
+        {
+          "black": "D3",
+          "white": "D2",
+          "plannedGames": 2,
+          "completed": 2,
+          "wins": 2,
+          "losses": 0,
+          "draws": 0,
+          "unfinished": 0,
+          "truncated": 0,
+          "active": 0,
+          "error": 0,
+          "notStarted": 0,
+          "winRate": 1.0,
+          "completedOnlyWinRate": 1.0,
+          "winRateBounds": [
+            1.0,
+            1.0
+          ],
+          "scoreRate": 1.0,
+          "scoreRateBounds": [
+            1.0,
+            1.0
+          ],
+          "nominalWilson95WinRate": [
+            0.34238022750665303,
+            1
+          ],
+          "completedLengthPlies": {
+            "n": 2,
+            "total": 31481,
+            "mean": 15740.5,
+            "median": 15740.5,
+            "p90": 18508,
+            "p95": 18508,
+            "min": 12973,
+            "max": 18508
+          },
+          "truncatedObservedPlies": {
+            "n": 0,
+            "total": 0,
+            "mean": null,
+            "median": null,
+            "p90": null,
+            "p95": null,
+            "min": null,
+            "max": null
+          },
+          "activeObservedPlies": {
+            "n": 0,
+            "total": 0,
+            "mean": null,
+            "median": null,
+            "p90": null,
+            "p95": null,
+            "min": null,
+            "max": null
+          },
+          "errorObservedPlies": {
+            "n": 0,
+            "total": 0,
+            "mean": null,
+            "median": null,
+            "p90": null,
+            "p95": null,
+            "min": null,
+            "max": null
+          }
+        },
+        {
+          "black": "D2",
+          "white": "D3",
+          "plannedGames": 2,
+          "completed": 2,
+          "wins": 0,
+          "losses": 2,
+          "draws": 0,
+          "unfinished": 0,
+          "truncated": 0,
+          "active": 0,
+          "error": 0,
+          "notStarted": 0,
+          "winRate": 0.0,
+          "completedOnlyWinRate": 0.0,
+          "winRateBounds": [
+            0.0,
+            0.0
+          ],
+          "scoreRate": 0.0,
+          "scoreRateBounds": [
+            0.0,
+            0.0
+          ],
+          "nominalWilson95WinRate": [
+            0,
+            0.6576197724933469
+          ],
+          "completedLengthPlies": {
+            "n": 2,
+            "total": 26728,
+            "mean": 13364,
+            "median": 13364.0,
+            "p90": 18195,
+            "p95": 18195,
+            "min": 8533,
+            "max": 18195
+          },
+          "truncatedObservedPlies": {
+            "n": 0,
+            "total": 0,
+            "mean": null,
+            "median": null,
+            "p90": null,
+            "p95": null,
+            "min": null,
+            "max": null
+          },
+          "activeObservedPlies": {
+            "n": 0,
+            "total": 0,
+            "mean": null,
+            "median": null,
+            "p90": null,
+            "p95": null,
+            "min": null,
+            "max": null
+          },
+          "errorObservedPlies": {
+            "n": 0,
+            "total": 0,
+            "mean": null,
+            "median": null,
+            "p90": null,
+            "p95": null,
+            "min": null,
+            "max": null
+          }
+        },
+        {
+          "black": "D4",
+          "white": "D2",
+          "plannedGames": 2,
+          "completed": 1,
+          "wins": 1,
+          "losses": 0,
+          "draws": 0,
+          "unfinished": 1,
+          "truncated": 0,
+          "active": 1,
+          "error": 0,
+          "notStarted": 0,
+          "winRate": null,
+          "completedOnlyWinRate": 1.0,
+          "winRateBounds": [
+            0.5,
+            1.0
+          ],
+          "scoreRate": null,
+          "scoreRateBounds": [
+            0.5,
+            1.0
+          ],
+          "nominalWilson95WinRate": null,
+          "completedLengthPlies": {
+            "n": 1,
+            "total": 3249,
+            "mean": 3249,
+            "median": 3249,
+            "p90": 3249,
+            "p95": 3249,
+            "min": 3249,
+            "max": 3249
+          },
+          "truncatedObservedPlies": {
+            "n": 0,
+            "total": 0,
+            "mean": null,
+            "median": null,
+            "p90": null,
+            "p95": null,
+            "min": null,
+            "max": null
+          },
+          "activeObservedPlies": {
+            "n": 1,
+            "total": 20000,
+            "mean": 20000,
+            "median": 20000,
+            "p90": 20000,
+            "p95": 20000,
+            "min": 20000,
+            "max": 20000
+          },
+          "errorObservedPlies": {
+            "n": 0,
+            "total": 0,
+            "mean": null,
+            "median": null,
+            "p90": null,
+            "p95": null,
+            "min": null,
+            "max": null
+          }
+        },
+        {
+          "black": "D2",
+          "white": "D4",
+          "plannedGames": 2,
+          "completed": 1,
+          "wins": 0,
+          "losses": 1,
+          "draws": 0,
+          "unfinished": 1,
+          "truncated": 0,
+          "active": 1,
+          "error": 0,
+          "notStarted": 0,
+          "winRate": null,
+          "completedOnlyWinRate": 0.0,
+          "winRateBounds": [
+            0.0,
+            0.5
+          ],
+          "scoreRate": null,
+          "scoreRateBounds": [
+            0.0,
+            0.5
+          ],
+          "nominalWilson95WinRate": null,
+          "completedLengthPlies": {
+            "n": 1,
+            "total": 1523,
+            "mean": 1523,
+            "median": 1523,
+            "p90": 1523,
+            "p95": 1523,
+            "min": 1523,
+            "max": 1523
+          },
+          "truncatedObservedPlies": {
+            "n": 0,
+            "total": 0,
+            "mean": null,
+            "median": null,
+            "p90": null,
+            "p95": null,
+            "min": null,
+            "max": null
+          },
+          "activeObservedPlies": {
+            "n": 1,
+            "total": 20000,
+            "mean": 20000,
+            "median": 20000,
+            "p90": 20000,
+            "p95": 20000,
+            "min": 20000,
+            "max": 20000
+          },
+          "errorObservedPlies": {
+            "n": 0,
+            "total": 0,
+            "mean": null,
+            "median": null,
+            "p90": null,
+            "p95": null,
+            "min": null,
+            "max": null
+          }
+        },
+        {
+          "black": "D5",
+          "white": "D2",
+          "plannedGames": 2,
+          "completed": 1,
+          "wins": 1,
+          "losses": 0,
+          "draws": 0,
+          "unfinished": 1,
+          "truncated": 0,
+          "active": 1,
+          "error": 0,
+          "notStarted": 0,
+          "winRate": null,
+          "completedOnlyWinRate": 1.0,
+          "winRateBounds": [
+            0.5,
+            1.0
+          ],
+          "scoreRate": null,
+          "scoreRateBounds": [
+            0.5,
+            1.0
+          ],
+          "nominalWilson95WinRate": null,
+          "completedLengthPlies": {
+            "n": 1,
+            "total": 3249,
+            "mean": 3249,
+            "median": 3249,
+            "p90": 3249,
+            "p95": 3249,
+            "min": 3249,
+            "max": 3249
+          },
+          "truncatedObservedPlies": {
+            "n": 0,
+            "total": 0,
+            "mean": null,
+            "median": null,
+            "p90": null,
+            "p95": null,
+            "min": null,
+            "max": null
+          },
+          "activeObservedPlies": {
+            "n": 1,
+            "total": 20000,
+            "mean": 20000,
+            "median": 20000,
+            "p90": 20000,
+            "p95": 20000,
+            "min": 20000,
+            "max": 20000
+          },
+          "errorObservedPlies": {
+            "n": 0,
+            "total": 0,
+            "mean": null,
+            "median": null,
+            "p90": null,
+            "p95": null,
+            "min": null,
+            "max": null
+          }
+        },
+        {
+          "black": "D2",
+          "white": "D5",
+          "plannedGames": 2,
+          "completed": 1,
+          "wins": 0,
+          "losses": 1,
+          "draws": 0,
+          "unfinished": 1,
+          "truncated": 0,
+          "active": 1,
+          "error": 0,
+          "notStarted": 0,
+          "winRate": null,
+          "completedOnlyWinRate": 0.0,
+          "winRateBounds": [
+            0.0,
+            0.5
+          ],
+          "scoreRate": null,
+          "scoreRateBounds": [
+            0.0,
+            0.5
+          ],
+          "nominalWilson95WinRate": null,
+          "completedLengthPlies": {
+            "n": 1,
+            "total": 1523,
+            "mean": 1523,
+            "median": 1523,
+            "p90": 1523,
+            "p95": 1523,
+            "min": 1523,
+            "max": 1523
+          },
+          "truncatedObservedPlies": {
+            "n": 0,
+            "total": 0,
+            "mean": null,
+            "median": null,
+            "p90": null,
+            "p95": null,
+            "min": null,
+            "max": null
+          },
+          "activeObservedPlies": {
+            "n": 1,
+            "total": 20000,
+            "mean": 20000,
+            "median": 20000,
+            "p90": 20000,
+            "p95": 20000,
+            "min": 20000,
+            "max": 20000
+          },
+          "errorObservedPlies": {
+            "n": 0,
+            "total": 0,
+            "mean": null,
+            "median": null,
+            "p90": null,
+            "p95": null,
+            "min": null,
+            "max": null
+          }
+        },
+        {
+          "black": "D8",
+          "white": "D2",
+          "plannedGames": 2,
+          "completed": 1,
+          "wins": 1,
+          "losses": 0,
+          "draws": 0,
+          "unfinished": 1,
+          "truncated": 0,
+          "active": 1,
+          "error": 0,
+          "notStarted": 0,
+          "winRate": null,
+          "completedOnlyWinRate": 1.0,
+          "winRateBounds": [
+            0.5,
+            1.0
+          ],
+          "scoreRate": null,
+          "scoreRateBounds": [
+            0.5,
+            1.0
+          ],
+          "nominalWilson95WinRate": null,
+          "completedLengthPlies": {
+            "n": 1,
+            "total": 3249,
+            "mean": 3249,
+            "median": 3249,
+            "p90": 3249,
+            "p95": 3249,
+            "min": 3249,
+            "max": 3249
+          },
+          "truncatedObservedPlies": {
+            "n": 0,
+            "total": 0,
+            "mean": null,
+            "median": null,
+            "p90": null,
+            "p95": null,
+            "min": null,
+            "max": null
+          },
+          "activeObservedPlies": {
+            "n": 1,
+            "total": 20000,
+            "mean": 20000,
+            "median": 20000,
+            "p90": 20000,
+            "p95": 20000,
+            "min": 20000,
+            "max": 20000
+          },
+          "errorObservedPlies": {
+            "n": 0,
+            "total": 0,
+            "mean": null,
+            "median": null,
+            "p90": null,
+            "p95": null,
+            "min": null,
+            "max": null
+          }
+        },
+        {
+          "black": "D2",
+          "white": "D8",
+          "plannedGames": 2,
+          "completed": 1,
+          "wins": 0,
+          "losses": 1,
+          "draws": 0,
+          "unfinished": 1,
+          "truncated": 0,
+          "active": 1,
+          "error": 0,
+          "notStarted": 0,
+          "winRate": null,
+          "completedOnlyWinRate": 0.0,
+          "winRateBounds": [
+            0.0,
+            0.5
+          ],
+          "scoreRate": null,
+          "scoreRateBounds": [
+            0.0,
+            0.5
+          ],
+          "nominalWilson95WinRate": null,
+          "completedLengthPlies": {
+            "n": 1,
+            "total": 1523,
+            "mean": 1523,
+            "median": 1523,
+            "p90": 1523,
+            "p95": 1523,
+            "min": 1523,
+            "max": 1523
+          },
+          "truncatedObservedPlies": {
+            "n": 0,
+            "total": 0,
+            "mean": null,
+            "median": null,
+            "p90": null,
+            "p95": null,
+            "min": null,
+            "max": null
+          },
+          "activeObservedPlies": {
+            "n": 1,
+            "total": 20000,
+            "mean": 20000,
+            "median": 20000,
+            "p90": 20000,
+            "p95": 20000,
+            "min": 20000,
+            "max": 20000
+          },
+          "errorObservedPlies": {
+            "n": 0,
+            "total": 0,
+            "mean": null,
+            "median": null,
+            "p90": null,
+            "p95": null,
+            "min": null,
+            "max": null
+          }
+        },
+        {
+          "black": "F1B4",
+          "white": "D2",
+          "plannedGames": 2,
+          "completed": 2,
+          "wins": 2,
+          "losses": 0,
+          "draws": 0,
+          "unfinished": 0,
+          "truncated": 0,
+          "active": 0,
+          "error": 0,
+          "notStarted": 0,
+          "winRate": 1.0,
+          "completedOnlyWinRate": 1.0,
+          "winRateBounds": [
+            1.0,
+            1.0
+          ],
+          "scoreRate": 1.0,
+          "scoreRateBounds": [
+            1.0,
+            1.0
+          ],
+          "nominalWilson95WinRate": [
+            0.34238022750665303,
+            1
+          ],
+          "completedLengthPlies": {
+            "n": 2,
+            "total": 8700,
+            "mean": 4350,
+            "median": 4350.0,
+            "p90": 5162,
+            "p95": 5162,
+            "min": 3538,
+            "max": 5162
+          },
+          "truncatedObservedPlies": {
+            "n": 0,
+            "total": 0,
+            "mean": null,
+            "median": null,
+            "p90": null,
+            "p95": null,
+            "min": null,
+            "max": null
+          },
+          "activeObservedPlies": {
+            "n": 0,
+            "total": 0,
+            "mean": null,
+            "median": null,
+            "p90": null,
+            "p95": null,
+            "min": null,
+            "max": null
+          },
+          "errorObservedPlies": {
+            "n": 0,
+            "total": 0,
+            "mean": null,
+            "median": null,
+            "p90": null,
+            "p95": null,
+            "min": null,
+            "max": null
+          }
+        },
+        {
+          "black": "D2",
+          "white": "F1B4",
+          "plannedGames": 2,
+          "completed": 2,
+          "wins": 0,
+          "losses": 2,
+          "draws": 0,
+          "unfinished": 0,
+          "truncated": 0,
+          "active": 0,
+          "error": 0,
+          "notStarted": 0,
+          "winRate": 0.0,
+          "completedOnlyWinRate": 0.0,
+          "winRateBounds": [
+            0.0,
+            0.0
+          ],
+          "scoreRate": 0.0,
+          "scoreRateBounds": [
+            0.0,
+            0.0
+          ],
+          "nominalWilson95WinRate": [
+            0,
+            0.6576197724933469
+          ],
+          "completedLengthPlies": {
+            "n": 2,
+            "total": 12530,
+            "mean": 6265,
+            "median": 6265.0,
+            "p90": 11005,
+            "p95": 11005,
+            "min": 1525,
+            "max": 11005
+          },
+          "truncatedObservedPlies": {
+            "n": 0,
+            "total": 0,
+            "mean": null,
+            "median": null,
+            "p90": null,
+            "p95": null,
+            "min": null,
+            "max": null
+          },
+          "activeObservedPlies": {
+            "n": 0,
+            "total": 0,
+            "mean": null,
+            "median": null,
+            "p90": null,
+            "p95": null,
+            "min": null,
+            "max": null
+          },
+          "errorObservedPlies": {
+            "n": 0,
+            "total": 0,
+            "mean": null,
+            "median": null,
+            "p90": null,
+            "p95": null,
+            "min": null,
+            "max": null
+          }
+        },
+        {
+          "black": "F1B8",
+          "white": "D2",
+          "plannedGames": 2,
+          "completed": 2,
+          "wins": 2,
+          "losses": 0,
+          "draws": 0,
+          "unfinished": 0,
+          "truncated": 0,
+          "active": 0,
+          "error": 0,
+          "notStarted": 0,
+          "winRate": 1.0,
+          "completedOnlyWinRate": 1.0,
+          "winRateBounds": [
+            1.0,
+            1.0
+          ],
+          "scoreRate": 1.0,
+          "scoreRateBounds": [
+            1.0,
+            1.0
+          ],
+          "nominalWilson95WinRate": [
+            0.34238022750665303,
+            1
+          ],
+          "completedLengthPlies": {
+            "n": 2,
+            "total": 12004,
+            "mean": 6002,
+            "median": 6002.0,
+            "p90": 7846,
+            "p95": 7846,
+            "min": 4158,
+            "max": 7846
+          },
+          "truncatedObservedPlies": {
+            "n": 0,
+            "total": 0,
+            "mean": null,
+            "median": null,
+            "p90": null,
+            "p95": null,
+            "min": null,
+            "max": null
+          },
+          "activeObservedPlies": {
+            "n": 0,
+            "total": 0,
+            "mean": null,
+            "median": null,
+            "p90": null,
+            "p95": null,
+            "min": null,
+            "max": null
+          },
+          "errorObservedPlies": {
+            "n": 0,
+            "total": 0,
+            "mean": null,
+            "median": null,
+            "p90": null,
+            "p95": null,
+            "min": null,
+            "max": null
+          }
+        },
+        {
+          "black": "D2",
+          "white": "F1B8",
+          "plannedGames": 2,
+          "completed": 0,
+          "wins": 0,
+          "losses": 0,
+          "draws": 0,
+          "unfinished": 2,
+          "truncated": 0,
+          "active": 2,
+          "error": 0,
+          "notStarted": 0,
+          "winRate": null,
+          "completedOnlyWinRate": null,
+          "winRateBounds": [
+            0.0,
+            1.0
+          ],
+          "scoreRate": null,
+          "scoreRateBounds": [
+            0.0,
+            1.0
+          ],
+          "nominalWilson95WinRate": null,
+          "completedLengthPlies": {
+            "n": 0,
+            "total": 0,
+            "mean": null,
+            "median": null,
+            "p90": null,
+            "p95": null,
+            "min": null,
+            "max": null
+          },
+          "truncatedObservedPlies": {
+            "n": 0,
+            "total": 0,
+            "mean": null,
+            "median": null,
+            "p90": null,
+            "p95": null,
+            "min": null,
+            "max": null
+          },
+          "activeObservedPlies": {
+            "n": 2,
+            "total": 40000,
+            "mean": 20000,
+            "median": 20000.0,
+            "p90": 20000,
+            "p95": 20000,
+            "min": 20000,
+            "max": 20000
+          },
+          "errorObservedPlies": {
+            "n": 0,
+            "total": 0,
+            "mean": null,
+            "median": null,
+            "p90": null,
+            "p95": null,
+            "min": null,
+            "max": null
+          }
+        },
+        {
+          "black": "F2B4",
+          "white": "D2",
+          "plannedGames": 2,
+          "completed": 1,
+          "wins": 1,
+          "losses": 0,
+          "draws": 0,
+          "unfinished": 1,
+          "truncated": 0,
+          "active": 1,
+          "error": 0,
+          "notStarted": 0,
+          "winRate": null,
+          "completedOnlyWinRate": 1.0,
+          "winRateBounds": [
+            0.5,
+            1.0
+          ],
+          "scoreRate": null,
+          "scoreRateBounds": [
+            0.5,
+            1.0
+          ],
+          "nominalWilson95WinRate": null,
+          "completedLengthPlies": {
+            "n": 1,
+            "total": 6826,
+            "mean": 6826,
+            "median": 6826,
+            "p90": 6826,
+            "p95": 6826,
+            "min": 6826,
+            "max": 6826
+          },
+          "truncatedObservedPlies": {
+            "n": 0,
+            "total": 0,
+            "mean": null,
+            "median": null,
+            "p90": null,
+            "p95": null,
+            "min": null,
+            "max": null
+          },
+          "activeObservedPlies": {
+            "n": 1,
+            "total": 20000,
+            "mean": 20000,
+            "median": 20000,
+            "p90": 20000,
+            "p95": 20000,
+            "min": 20000,
+            "max": 20000
+          },
+          "errorObservedPlies": {
+            "n": 0,
+            "total": 0,
+            "mean": null,
+            "median": null,
+            "p90": null,
+            "p95": null,
+            "min": null,
+            "max": null
+          }
+        },
+        {
+          "black": "D2",
+          "white": "F2B4",
+          "plannedGames": 2,
+          "completed": 2,
+          "wins": 0,
+          "losses": 2,
+          "draws": 0,
+          "unfinished": 0,
+          "truncated": 0,
+          "active": 0,
+          "error": 0,
+          "notStarted": 0,
+          "winRate": 0.0,
+          "completedOnlyWinRate": 0.0,
+          "winRateBounds": [
+            0.0,
+            0.0
+          ],
+          "scoreRate": 0.0,
+          "scoreRateBounds": [
+            0.0,
+            0.0
+          ],
+          "nominalWilson95WinRate": [
+            0,
+            0.6576197724933469
+          ],
+          "completedLengthPlies": {
+            "n": 2,
+            "total": 4853,
+            "mean": 2426.5,
+            "median": 2426.5,
+            "p90": 4836,
+            "p95": 4836,
+            "min": 17,
+            "max": 4836
+          },
+          "truncatedObservedPlies": {
+            "n": 0,
+            "total": 0,
+            "mean": null,
+            "median": null,
+            "p90": null,
+            "p95": null,
+            "min": null,
+            "max": null
+          },
+          "activeObservedPlies": {
+            "n": 0,
+            "total": 0,
+            "mean": null,
+            "median": null,
+            "p90": null,
+            "p95": null,
+            "min": null,
+            "max": null
+          },
+          "errorObservedPlies": {
+            "n": 0,
+            "total": 0,
+            "mean": null,
+            "median": null,
+            "p90": null,
+            "p95": null,
+            "min": null,
+            "max": null
+          }
+        },
+        {
+          "black": "F2B8",
+          "white": "D2",
+          "plannedGames": 2,
+          "completed": 2,
+          "wins": 2,
+          "losses": 0,
+          "draws": 0,
+          "unfinished": 0,
+          "truncated": 0,
+          "active": 0,
+          "error": 0,
+          "notStarted": 0,
+          "winRate": 1.0,
+          "completedOnlyWinRate": 1.0,
+          "winRateBounds": [
+            1.0,
+            1.0
+          ],
+          "scoreRate": 1.0,
+          "scoreRateBounds": [
+            1.0,
+            1.0
+          ],
+          "nominalWilson95WinRate": [
+            0.34238022750665303,
+            1
+          ],
+          "completedLengthPlies": {
+            "n": 2,
+            "total": 19921,
+            "mean": 9960.5,
+            "median": 9960.5,
+            "p90": 18310,
+            "p95": 18310,
+            "min": 1611,
+            "max": 18310
+          },
+          "truncatedObservedPlies": {
+            "n": 0,
+            "total": 0,
+            "mean": null,
+            "median": null,
+            "p90": null,
+            "p95": null,
+            "min": null,
+            "max": null
+          },
+          "activeObservedPlies": {
+            "n": 0,
+            "total": 0,
+            "mean": null,
+            "median": null,
+            "p90": null,
+            "p95": null,
+            "min": null,
+            "max": null
+          },
+          "errorObservedPlies": {
+            "n": 0,
+            "total": 0,
+            "mean": null,
+            "median": null,
+            "p90": null,
+            "p95": null,
+            "min": null,
+            "max": null
+          }
+        },
+        {
+          "black": "D2",
+          "white": "F2B8",
+          "plannedGames": 2,
+          "completed": 2,
+          "wins": 0,
+          "losses": 2,
+          "draws": 0,
+          "unfinished": 0,
+          "truncated": 0,
+          "active": 0,
+          "error": 0,
+          "notStarted": 0,
+          "winRate": 0.0,
+          "completedOnlyWinRate": 0.0,
+          "winRateBounds": [
+            0.0,
+            0.0
+          ],
+          "scoreRate": 0.0,
+          "scoreRateBounds": [
+            0.0,
+            0.0
+          ],
+          "nominalWilson95WinRate": [
+            0,
+            0.6576197724933469
+          ],
+          "completedLengthPlies": {
+            "n": 2,
+            "total": 27224,
+            "mean": 13612,
+            "median": 13612.0,
+            "p90": 14287,
+            "p95": 14287,
+            "min": 12937,
+            "max": 14287
+          },
+          "truncatedObservedPlies": {
+            "n": 0,
+            "total": 0,
+            "mean": null,
+            "median": null,
+            "p90": null,
+            "p95": null,
+            "min": null,
+            "max": null
+          },
+          "activeObservedPlies": {
+            "n": 0,
+            "total": 0,
+            "mean": null,
+            "median": null,
+            "p90": null,
+            "p95": null,
+            "min": null,
+            "max": null
+          },
+          "errorObservedPlies": {
+            "n": 0,
+            "total": 0,
+            "mean": null,
+            "median": null,
+            "p90": null,
+            "p95": null,
+            "min": null,
+            "max": null
+          }
+        }
+      ],
+      "profiles": [
+        {
+          "id": "D1",
+          "maxDepth": 1,
+          "fullWidthDepth": 64,
+          "beamWidth": 8,
+          "crossplay": {
+            "plannedGames": 4,
+            "completed": 4,
+            "wins": 0,
+            "losses": 4,
+            "draws": 0,
+            "unfinished": 0,
+            "truncated": 0,
+            "active": 0,
+            "error": 0,
+            "notStarted": 0,
+            "winRate": 0.0,
+            "completedOnlyWinRate": 0.0,
+            "winRateBounds": [
+              0.0,
+              0.0
+            ],
+            "scoreRate": 0.0,
+            "scoreRateBounds": [
+              0.0,
+              0.0
+            ],
+            "nominalWilson95WinRate": [
+              0,
+              0.4898908364545973
+            ],
+            "completedLengthPlies": {
+              "n": 4,
+              "total": 36,
+              "mean": 9,
+              "median": 7.5,
+              "p90": 15,
+              "p95": 15,
+              "min": 6,
+              "max": 15
+            },
+            "truncatedObservedPlies": {
+              "n": 0,
+              "total": 0,
+              "mean": null,
+              "median": null,
+              "p90": null,
+              "p95": null,
+              "min": null,
+              "max": null
+            },
+            "activeObservedPlies": {
+              "n": 0,
+              "total": 0,
+              "mean": null,
+              "median": null,
+              "p90": null,
+              "p95": null,
+              "min": null,
+              "max": null
+            },
+            "errorObservedPlies": {
+              "n": 0,
+              "total": 0,
+              "mean": null,
+              "median": null,
+              "p90": null,
+              "p95": null,
+              "min": null,
+              "max": null
+            }
+          },
+          "crossplayByColor": {
+            "black": {
+              "plannedGames": 2,
+              "completed": 2,
+              "wins": 0,
+              "losses": 2,
+              "draws": 0,
+              "unfinished": 0,
+              "truncated": 0,
+              "active": 0,
+              "error": 0,
+              "notStarted": 0,
+              "winRate": 0.0,
+              "completedOnlyWinRate": 0.0,
+              "winRateBounds": [
+                0.0,
+                0.0
+              ],
+              "scoreRate": 0.0,
+              "scoreRateBounds": [
+                0.0,
+                0.0
+              ],
+              "nominalWilson95WinRate": [
+                0,
+                0.6576197724933469
+              ],
+              "completedLengthPlies": {
+                "n": 2,
+                "total": 12,
+                "mean": 6,
+                "median": 6.0,
+                "p90": 6,
+                "p95": 6,
+                "min": 6,
+                "max": 6
+              },
+              "truncatedObservedPlies": {
+                "n": 0,
+                "total": 0,
+                "mean": null,
+                "median": null,
+                "p90": null,
+                "p95": null,
+                "min": null,
+                "max": null
+              },
+              "activeObservedPlies": {
+                "n": 0,
+                "total": 0,
+                "mean": null,
+                "median": null,
+                "p90": null,
+                "p95": null,
+                "min": null,
+                "max": null
+              },
+              "errorObservedPlies": {
+                "n": 0,
+                "total": 0,
+                "mean": null,
+                "median": null,
+                "p90": null,
+                "p95": null,
+                "min": null,
+                "max": null
+              }
+            },
+            "white": {
+              "plannedGames": 2,
+              "completed": 2,
+              "wins": 0,
+              "losses": 2,
+              "draws": 0,
+              "unfinished": 0,
+              "truncated": 0,
+              "active": 0,
+              "error": 0,
+              "notStarted": 0,
+              "winRate": 0.0,
+              "completedOnlyWinRate": 0.0,
+              "winRateBounds": [
+                0.0,
+                0.0
+              ],
+              "scoreRate": 0.0,
+              "scoreRateBounds": [
+                0.0,
+                0.0
+              ],
+              "nominalWilson95WinRate": [
+                0,
+                0.6576197724933469
+              ],
+              "completedLengthPlies": {
+                "n": 2,
+                "total": 24,
+                "mean": 12,
+                "median": 12.0,
+                "p90": 15,
+                "p95": 15,
+                "min": 9,
+                "max": 15
+              },
+              "truncatedObservedPlies": {
+                "n": 0,
+                "total": 0,
+                "mean": null,
+                "median": null,
+                "p90": null,
+                "p95": null,
+                "min": null,
+                "max": null
+              },
+              "activeObservedPlies": {
+                "n": 0,
+                "total": 0,
+                "mean": null,
+                "median": null,
+                "p90": null,
+                "p95": null,
+                "min": null,
+                "max": null
+              },
+              "errorObservedPlies": {
+                "n": 0,
+                "total": 0,
+                "mean": null,
+                "median": null,
+                "p90": null,
+                "p95": null,
+                "min": null,
+                "max": null
+              }
+            }
+          },
+          "versusD2": {
+            "plannedGames": 4,
+            "completed": 4,
+            "wins": 0,
+            "losses": 4,
+            "draws": 0,
+            "unfinished": 0,
+            "truncated": 0,
+            "active": 0,
+            "error": 0,
+            "notStarted": 0,
+            "winRate": 0.0,
+            "completedOnlyWinRate": 0.0,
+            "winRateBounds": [
+              0.0,
+              0.0
+            ],
+            "scoreRate": 0.0,
+            "scoreRateBounds": [
+              0.0,
+              0.0
+            ],
+            "nominalWilson95WinRate": [
+              0,
+              0.4898908364545973
+            ],
+            "completedLengthPlies": {
+              "n": 4,
+              "total": 36,
+              "mean": 9,
+              "median": 7.5,
+              "p90": 15,
+              "p95": 15,
+              "min": 6,
+              "max": 15
+            },
+            "truncatedObservedPlies": {
+              "n": 0,
+              "total": 0,
+              "mean": null,
+              "median": null,
+              "p90": null,
+              "p95": null,
+              "min": null,
+              "max": null
+            },
+            "activeObservedPlies": {
+              "n": 0,
+              "total": 0,
+              "mean": null,
+              "median": null,
+              "p90": null,
+              "p95": null,
+              "min": null,
+              "max": null
+            },
+            "errorObservedPlies": {
+              "n": 0,
+              "total": 0,
+              "mean": null,
+              "median": null,
+              "p90": null,
+              "p95": null,
+              "min": null,
+              "max": null
+            }
+          },
+          "search": {
+            "moves": 17,
+            "successorEvaluations": {
+              "n": 17,
+              "total": 667,
+              "mean": 39.23529411764706,
+              "median": 41,
+              "p90": 64,
+              "p95": 64,
+              "min": 21,
+              "max": 64
+            },
+            "meanBudgetFraction": 0.0003923529411764706,
+            "elapsedMilliseconds": {
+              "n": 17,
+              "total": 9.698,
+              "mean": 0.5704705882352942,
+              "median": 0.52,
+              "p90": 1.223,
+              "p95": 1.467,
+              "min": 0.244,
+              "max": 1.467
+            },
+            "completedDepthHistogram": {
+              "1": 17
+            },
+            "completedDepth": {
+              "n": 17,
+              "total": 17,
+              "mean": 1,
+              "median": 1,
+              "p90": 1,
+              "p95": 1,
+              "min": 1,
+              "max": 1
+            },
+            "maxVisitedPly": {
+              "n": 17,
+              "total": 17,
+              "mean": 1,
+              "median": 1,
+              "p90": 1,
+              "p95": 1,
+              "min": 1,
+              "max": 1
+            },
+            "shareDepthAtLeast4": 0.0,
+            "shareDepthAtLeast5": 0.0,
+            "budgetExhaustedMoves": 0,
+            "totalNodesVisited": 667,
+            "totalCacheHits": 0,
+            "totalCutoffs": 0
+          }
+        },
+        {
+          "id": "D2",
+          "maxDepth": 2,
+          "fullWidthDepth": 64,
+          "beamWidth": 8,
+          "crossplay": {
+            "plannedGames": 36,
+            "completed": 27,
+            "wins": 4,
+            "losses": 23,
+            "draws": 0,
+            "unfinished": 9,
+            "truncated": 0,
+            "active": 9,
+            "error": 0,
+            "notStarted": 0,
+            "winRate": null,
+            "completedOnlyWinRate": 0.14814814814814814,
+            "winRateBounds": [
+              0.1111111111111111,
+              0.3611111111111111
+            ],
+            "scoreRate": null,
+            "scoreRateBounds": [
+              0.1111111111111111,
+              0.3611111111111111
+            ],
+            "nominalWilson95WinRate": null,
+            "completedLengthPlies": {
+              "n": 27,
+              "total": 164619,
+              "mean": 6097,
+              "median": 3538,
+              "p90": 18195,
+              "p95": 18310,
+              "min": 6,
+              "max": 18508
+            },
+            "truncatedObservedPlies": {
+              "n": 0,
+              "total": 0,
+              "mean": null,
+              "median": null,
+              "p90": null,
+              "p95": null,
+              "min": null,
+              "max": null
+            },
+            "activeObservedPlies": {
+              "n": 9,
+              "total": 180000,
+              "mean": 20000,
+              "median": 20000,
+              "p90": 20000,
+              "p95": 20000,
+              "min": 20000,
+              "max": 20000
+            },
+            "errorObservedPlies": {
+              "n": 0,
+              "total": 0,
+              "mean": null,
+              "median": null,
+              "p90": null,
+              "p95": null,
+              "min": null,
+              "max": null
+            }
+          },
+          "crossplayByColor": {
+            "black": {
+              "plannedGames": 18,
+              "completed": 13,
+              "wins": 2,
+              "losses": 11,
+              "draws": 0,
+              "unfinished": 5,
+              "truncated": 0,
+              "active": 5,
+              "error": 0,
+              "notStarted": 0,
+              "winRate": null,
+              "completedOnlyWinRate": 0.15384615384615385,
+              "winRateBounds": [
+                0.1111111111111111,
+                0.3888888888888889
+              ],
+              "scoreRate": null,
+              "scoreRateBounds": [
+                0.1111111111111111,
+                0.3888888888888889
+              ],
+              "nominalWilson95WinRate": null,
+              "completedLengthPlies": {
+                "n": 13,
+                "total": 75928,
+                "mean": 5840.615384615385,
+                "median": 1525,
+                "p90": 14287,
+                "p95": 18195,
+                "min": 9,
+                "max": 18195
+              },
+              "truncatedObservedPlies": {
+                "n": 0,
+                "total": 0,
+                "mean": null,
+                "median": null,
+                "p90": null,
+                "p95": null,
+                "min": null,
+                "max": null
+              },
+              "activeObservedPlies": {
+                "n": 5,
+                "total": 100000,
+                "mean": 20000,
+                "median": 20000,
+                "p90": 20000,
+                "p95": 20000,
+                "min": 20000,
+                "max": 20000
+              },
+              "errorObservedPlies": {
+                "n": 0,
+                "total": 0,
+                "mean": null,
+                "median": null,
+                "p90": null,
+                "p95": null,
+                "min": null,
+                "max": null
+              }
+            },
+            "white": {
+              "plannedGames": 18,
+              "completed": 14,
+              "wins": 2,
+              "losses": 12,
+              "draws": 0,
+              "unfinished": 4,
+              "truncated": 0,
+              "active": 4,
+              "error": 0,
+              "notStarted": 0,
+              "winRate": null,
+              "completedOnlyWinRate": 0.14285714285714285,
+              "winRateBounds": [
+                0.1111111111111111,
+                0.3333333333333333
+              ],
+              "scoreRate": null,
+              "scoreRateBounds": [
+                0.1111111111111111,
+                0.3333333333333333
+              ],
+              "nominalWilson95WinRate": null,
+              "completedLengthPlies": {
+                "n": 14,
+                "total": 88691,
+                "mean": 6335.071428571428,
+                "median": 3848.0,
+                "p90": 18310,
+                "p95": 18508,
+                "min": 6,
+                "max": 18508
+              },
+              "truncatedObservedPlies": {
+                "n": 0,
+                "total": 0,
+                "mean": null,
+                "median": null,
+                "p90": null,
+                "p95": null,
+                "min": null,
+                "max": null
+              },
+              "activeObservedPlies": {
+                "n": 4,
+                "total": 80000,
+                "mean": 20000,
+                "median": 20000.0,
+                "p90": 20000,
+                "p95": 20000,
+                "min": 20000,
+                "max": 20000
+              },
+              "errorObservedPlies": {
+                "n": 0,
+                "total": 0,
+                "mean": null,
+                "median": null,
+                "p90": null,
+                "p95": null,
+                "min": null,
+                "max": null
+              }
+            }
+          },
+          "versusD2": null,
+          "search": {
+            "moves": 172313,
+            "successorEvaluations": {
+              "n": 172313,
+              "total": 3300762435,
+              "mean": 19155.620498743567,
+              "median": 17882,
+              "p90": 32663,
+              "p95": 37245,
+              "min": 79,
+              "max": 68948
+            },
+            "meanBudgetFraction": 0.19155620498743567,
+            "elapsedMilliseconds": {
+              "n": 172313,
+              "total": 50447780.134,
+              "mean": 292.7682771119997,
+              "median": 219.857,
+              "p90": 645.201,
+              "p95": 776.23,
+              "min": 0.722,
+              "max": 11657.285
+            },
+            "completedDepthHistogram": {
+              "2": 172313
+            },
+            "completedDepth": {
+              "n": 172313,
+              "total": 344626,
+              "mean": 2,
+              "median": 2,
+              "p90": 2,
+              "p95": 2,
+              "min": 2,
+              "max": 2
+            },
+            "maxVisitedPly": {
+              "n": 172313,
+              "total": 344626,
+              "mean": 2,
+              "median": 2,
+              "p90": 2,
+              "p95": 2,
+              "min": 2,
+              "max": 2
+            },
+            "shareDepthAtLeast4": 0.0,
+            "shareDepthAtLeast5": 0.0,
+            "budgetExhaustedMoves": 0,
+            "totalNodesVisited": 197609989,
+            "totalCacheHits": 0,
+            "totalCutoffs": 21914258
+          }
+        },
+        {
+          "id": "D3",
+          "maxDepth": 3,
+          "fullWidthDepth": 64,
+          "beamWidth": 8,
+          "crossplay": {
+            "plannedGames": 4,
+            "completed": 4,
+            "wins": 4,
+            "losses": 0,
+            "draws": 0,
+            "unfinished": 0,
+            "truncated": 0,
+            "active": 0,
+            "error": 0,
+            "notStarted": 0,
+            "winRate": 1.0,
+            "completedOnlyWinRate": 1.0,
+            "winRateBounds": [
+              1.0,
+              1.0
+            ],
+            "scoreRate": 1.0,
+            "scoreRateBounds": [
+              1.0,
+              1.0
+            ],
+            "nominalWilson95WinRate": [
+              0.5101091635454027,
+              1
+            ],
+            "completedLengthPlies": {
+              "n": 4,
+              "total": 58209,
+              "mean": 14552.25,
+              "median": 15584.0,
+              "p90": 18508,
+              "p95": 18508,
+              "min": 8533,
+              "max": 18508
+            },
+            "truncatedObservedPlies": {
+              "n": 0,
+              "total": 0,
+              "mean": null,
+              "median": null,
+              "p90": null,
+              "p95": null,
+              "min": null,
+              "max": null
+            },
+            "activeObservedPlies": {
+              "n": 0,
+              "total": 0,
+              "mean": null,
+              "median": null,
+              "p90": null,
+              "p95": null,
+              "min": null,
+              "max": null
+            },
+            "errorObservedPlies": {
+              "n": 0,
+              "total": 0,
+              "mean": null,
+              "median": null,
+              "p90": null,
+              "p95": null,
+              "min": null,
+              "max": null
+            }
+          },
+          "crossplayByColor": {
+            "black": {
+              "plannedGames": 2,
+              "completed": 2,
+              "wins": 2,
+              "losses": 0,
+              "draws": 0,
+              "unfinished": 0,
+              "truncated": 0,
+              "active": 0,
+              "error": 0,
+              "notStarted": 0,
+              "winRate": 1.0,
+              "completedOnlyWinRate": 1.0,
+              "winRateBounds": [
+                1.0,
+                1.0
+              ],
+              "scoreRate": 1.0,
+              "scoreRateBounds": [
+                1.0,
+                1.0
+              ],
+              "nominalWilson95WinRate": [
+                0.34238022750665303,
+                1
+              ],
+              "completedLengthPlies": {
+                "n": 2,
+                "total": 31481,
+                "mean": 15740.5,
+                "median": 15740.5,
+                "p90": 18508,
+                "p95": 18508,
+                "min": 12973,
+                "max": 18508
+              },
+              "truncatedObservedPlies": {
+                "n": 0,
+                "total": 0,
+                "mean": null,
+                "median": null,
+                "p90": null,
+                "p95": null,
+                "min": null,
+                "max": null
+              },
+              "activeObservedPlies": {
+                "n": 0,
+                "total": 0,
+                "mean": null,
+                "median": null,
+                "p90": null,
+                "p95": null,
+                "min": null,
+                "max": null
+              },
+              "errorObservedPlies": {
+                "n": 0,
+                "total": 0,
+                "mean": null,
+                "median": null,
+                "p90": null,
+                "p95": null,
+                "min": null,
+                "max": null
+              }
+            },
+            "white": {
+              "plannedGames": 2,
+              "completed": 2,
+              "wins": 2,
+              "losses": 0,
+              "draws": 0,
+              "unfinished": 0,
+              "truncated": 0,
+              "active": 0,
+              "error": 0,
+              "notStarted": 0,
+              "winRate": 1.0,
+              "completedOnlyWinRate": 1.0,
+              "winRateBounds": [
+                1.0,
+                1.0
+              ],
+              "scoreRate": 1.0,
+              "scoreRateBounds": [
+                1.0,
+                1.0
+              ],
+              "nominalWilson95WinRate": [
+                0.34238022750665303,
+                1
+              ],
+              "completedLengthPlies": {
+                "n": 2,
+                "total": 26728,
+                "mean": 13364,
+                "median": 13364.0,
+                "p90": 18195,
+                "p95": 18195,
+                "min": 8533,
+                "max": 18195
+              },
+              "truncatedObservedPlies": {
+                "n": 0,
+                "total": 0,
+                "mean": null,
+                "median": null,
+                "p90": null,
+                "p95": null,
+                "min": null,
+                "max": null
+              },
+              "activeObservedPlies": {
+                "n": 0,
+                "total": 0,
+                "mean": null,
+                "median": null,
+                "p90": null,
+                "p95": null,
+                "min": null,
+                "max": null
+              },
+              "errorObservedPlies": {
+                "n": 0,
+                "total": 0,
+                "mean": null,
+                "median": null,
+                "p90": null,
+                "p95": null,
+                "min": null,
+                "max": null
+              }
+            }
+          },
+          "versusD2": {
+            "plannedGames": 4,
+            "completed": 4,
+            "wins": 4,
+            "losses": 0,
+            "draws": 0,
+            "unfinished": 0,
+            "truncated": 0,
+            "active": 0,
+            "error": 0,
+            "notStarted": 0,
+            "winRate": 1.0,
+            "completedOnlyWinRate": 1.0,
+            "winRateBounds": [
+              1.0,
+              1.0
+            ],
+            "scoreRate": 1.0,
+            "scoreRateBounds": [
+              1.0,
+              1.0
+            ],
+            "nominalWilson95WinRate": [
+              0.5101091635454027,
+              1
+            ],
+            "completedLengthPlies": {
+              "n": 4,
+              "total": 58209,
+              "mean": 14552.25,
+              "median": 15584.0,
+              "p90": 18508,
+              "p95": 18508,
+              "min": 8533,
+              "max": 18508
+            },
+            "truncatedObservedPlies": {
+              "n": 0,
+              "total": 0,
+              "mean": null,
+              "median": null,
+              "p90": null,
+              "p95": null,
+              "min": null,
+              "max": null
+            },
+            "activeObservedPlies": {
+              "n": 0,
+              "total": 0,
+              "mean": null,
+              "median": null,
+              "p90": null,
+              "p95": null,
+              "min": null,
+              "max": null
+            },
+            "errorObservedPlies": {
+              "n": 0,
+              "total": 0,
+              "mean": null,
+              "median": null,
+              "p90": null,
+              "p95": null,
+              "min": null,
+              "max": null
+            }
+          },
+          "search": {
+            "moves": 29104,
+            "successorEvaluations": {
+              "n": 29104,
+              "total": 2557818742,
+              "mean": 87885.47079439252,
+              "median": 100000.0,
+              "p90": 100000,
+              "p95": 100000,
+              "min": 255,
+              "max": 100000
+            },
+            "meanBudgetFraction": 0.8788547079439252,
+            "elapsedMilliseconds": {
+              "n": 29104,
+              "total": 48138384.626,
+              "mean": 1654.0126658191314,
+              "median": 2004.789,
+              "p90": 2391.305,
+              "p95": 2501.722,
+              "min": 5.894,
+              "max": 246416.701
+            },
+            "completedDepthHistogram": {
+              "2": 19296,
+              "3": 9808
+            },
+            "completedDepth": {
+              "n": 29104,
+              "total": 68016,
+              "mean": 2.336998350742166,
+              "median": 2.0,
+              "p90": 3,
+              "p95": 3,
+              "min": 2,
+              "max": 3
+            },
+            "maxVisitedPly": {
+              "n": 29104,
+              "total": 87310,
+              "mean": 2.9999312809235845,
+              "median": 3.0,
+              "p90": 3,
+              "p95": 3,
+              "min": 1,
+              "max": 3
+            },
+            "shareDepthAtLeast4": 0.0,
+            "shareDepthAtLeast5": 0.0,
+            "budgetExhaustedMoves": 19296,
+            "totalNodesVisited": 372797206,
+            "totalCacheHits": 144087,
+            "totalCutoffs": 16278965
+          }
+        },
+        {
+          "id": "D4",
+          "maxDepth": 4,
+          "fullWidthDepth": 64,
+          "beamWidth": 8,
+          "crossplay": {
+            "plannedGames": 4,
+            "completed": 2,
+            "wins": 2,
+            "losses": 0,
+            "draws": 0,
+            "unfinished": 2,
+            "truncated": 0,
+            "active": 2,
+            "error": 0,
+            "notStarted": 0,
+            "winRate": null,
+            "completedOnlyWinRate": 1.0,
+            "winRateBounds": [
+              0.5,
+              1.0
+            ],
+            "scoreRate": null,
+            "scoreRateBounds": [
+              0.5,
+              1.0
+            ],
+            "nominalWilson95WinRate": null,
+            "completedLengthPlies": {
+              "n": 2,
+              "total": 4772,
+              "mean": 2386,
+              "median": 2386.0,
+              "p90": 3249,
+              "p95": 3249,
+              "min": 1523,
+              "max": 3249
+            },
+            "truncatedObservedPlies": {
+              "n": 0,
+              "total": 0,
+              "mean": null,
+              "median": null,
+              "p90": null,
+              "p95": null,
+              "min": null,
+              "max": null
+            },
+            "activeObservedPlies": {
+              "n": 2,
+              "total": 40000,
+              "mean": 20000,
+              "median": 20000.0,
+              "p90": 20000,
+              "p95": 20000,
+              "min": 20000,
+              "max": 20000
+            },
+            "errorObservedPlies": {
+              "n": 0,
+              "total": 0,
+              "mean": null,
+              "median": null,
+              "p90": null,
+              "p95": null,
+              "min": null,
+              "max": null
+            }
+          },
+          "crossplayByColor": {
+            "black": {
+              "plannedGames": 2,
+              "completed": 1,
+              "wins": 1,
+              "losses": 0,
+              "draws": 0,
+              "unfinished": 1,
+              "truncated": 0,
+              "active": 1,
+              "error": 0,
+              "notStarted": 0,
+              "winRate": null,
+              "completedOnlyWinRate": 1.0,
+              "winRateBounds": [
+                0.5,
+                1.0
+              ],
+              "scoreRate": null,
+              "scoreRateBounds": [
+                0.5,
+                1.0
+              ],
+              "nominalWilson95WinRate": null,
+              "completedLengthPlies": {
+                "n": 1,
+                "total": 3249,
+                "mean": 3249,
+                "median": 3249,
+                "p90": 3249,
+                "p95": 3249,
+                "min": 3249,
+                "max": 3249
+              },
+              "truncatedObservedPlies": {
+                "n": 0,
+                "total": 0,
+                "mean": null,
+                "median": null,
+                "p90": null,
+                "p95": null,
+                "min": null,
+                "max": null
+              },
+              "activeObservedPlies": {
+                "n": 1,
+                "total": 20000,
+                "mean": 20000,
+                "median": 20000,
+                "p90": 20000,
+                "p95": 20000,
+                "min": 20000,
+                "max": 20000
+              },
+              "errorObservedPlies": {
+                "n": 0,
+                "total": 0,
+                "mean": null,
+                "median": null,
+                "p90": null,
+                "p95": null,
+                "min": null,
+                "max": null
+              }
+            },
+            "white": {
+              "plannedGames": 2,
+              "completed": 1,
+              "wins": 1,
+              "losses": 0,
+              "draws": 0,
+              "unfinished": 1,
+              "truncated": 0,
+              "active": 1,
+              "error": 0,
+              "notStarted": 0,
+              "winRate": null,
+              "completedOnlyWinRate": 1.0,
+              "winRateBounds": [
+                0.5,
+                1.0
+              ],
+              "scoreRate": null,
+              "scoreRateBounds": [
+                0.5,
+                1.0
+              ],
+              "nominalWilson95WinRate": null,
+              "completedLengthPlies": {
+                "n": 1,
+                "total": 1523,
+                "mean": 1523,
+                "median": 1523,
+                "p90": 1523,
+                "p95": 1523,
+                "min": 1523,
+                "max": 1523
+              },
+              "truncatedObservedPlies": {
+                "n": 0,
+                "total": 0,
+                "mean": null,
+                "median": null,
+                "p90": null,
+                "p95": null,
+                "min": null,
+                "max": null
+              },
+              "activeObservedPlies": {
+                "n": 1,
+                "total": 20000,
+                "mean": 20000,
+                "median": 20000,
+                "p90": 20000,
+                "p95": 20000,
+                "min": 20000,
+                "max": 20000
+              },
+              "errorObservedPlies": {
+                "n": 0,
+                "total": 0,
+                "mean": null,
+                "median": null,
+                "p90": null,
+                "p95": null,
+                "min": null,
+                "max": null
+              }
+            }
+          },
+          "versusD2": {
+            "plannedGames": 4,
+            "completed": 2,
+            "wins": 2,
+            "losses": 0,
+            "draws": 0,
+            "unfinished": 2,
+            "truncated": 0,
+            "active": 2,
+            "error": 0,
+            "notStarted": 0,
+            "winRate": null,
+            "completedOnlyWinRate": 1.0,
+            "winRateBounds": [
+              0.5,
+              1.0
+            ],
+            "scoreRate": null,
+            "scoreRateBounds": [
+              0.5,
+              1.0
+            ],
+            "nominalWilson95WinRate": null,
+            "completedLengthPlies": {
+              "n": 2,
+              "total": 4772,
+              "mean": 2386,
+              "median": 2386.0,
+              "p90": 3249,
+              "p95": 3249,
+              "min": 1523,
+              "max": 3249
+            },
+            "truncatedObservedPlies": {
+              "n": 0,
+              "total": 0,
+              "mean": null,
+              "median": null,
+              "p90": null,
+              "p95": null,
+              "min": null,
+              "max": null
+            },
+            "activeObservedPlies": {
+              "n": 2,
+              "total": 40000,
+              "mean": 20000,
+              "median": 20000.0,
+              "p90": 20000,
+              "p95": 20000,
+              "min": 20000,
+              "max": 20000
+            },
+            "errorObservedPlies": {
+              "n": 0,
+              "total": 0,
+              "mean": null,
+              "median": null,
+              "p90": null,
+              "p95": null,
+              "min": null,
+              "max": null
+            }
+          },
+          "search": {
+            "moves": 22386,
+            "successorEvaluations": {
+              "n": 22386,
+              "total": 2237250435,
+              "mean": 99939.7138836773,
+              "median": 100000.0,
+              "p90": 100000,
+              "p95": 100000,
+              "min": 1891,
+              "max": 100000
+            },
+            "meanBudgetFraction": 0.999397138836773,
+            "elapsedMilliseconds": {
+              "n": 22386,
+              "total": 34497740.206,
+              "mean": 1541.0408382917894,
+              "median": 2036.4985,
+              "p90": 2394.306,
+              "p95": 2504.284,
+              "min": 39.846,
+              "max": 246451.996
+            },
+            "completedDepthHistogram": {
+              "2": 14508,
+              "3": 7843,
+              "4": 35
+            },
+            "completedDepth": {
+              "n": 22386,
+              "total": 52685,
+              "mean": 2.3534798534798536,
+              "median": 2.0,
+              "p90": 3,
+              "p95": 3,
+              "min": 2,
+              "max": 4
+            },
+            "maxVisitedPly": {
+              "n": 22386,
+              "total": 74982,
+              "mean": 3.349504154382203,
+              "median": 3.0,
+              "p90": 4,
+              "p95": 4,
+              "min": 3,
+              "max": 4
+            },
+            "shareDepthAtLeast4": 0.0015634771732332708,
+            "shareDepthAtLeast5": 0.0,
+            "budgetExhaustedMoves": 22351,
+            "totalNodesVisited": 332080475,
+            "totalCacheHits": 162081,
+            "totalCutoffs": 15338623
+          }
+        },
+        {
+          "id": "D5",
+          "maxDepth": 5,
+          "fullWidthDepth": 64,
+          "beamWidth": 8,
+          "crossplay": {
+            "plannedGames": 4,
+            "completed": 2,
+            "wins": 2,
+            "losses": 0,
+            "draws": 0,
+            "unfinished": 2,
+            "truncated": 0,
+            "active": 2,
+            "error": 0,
+            "notStarted": 0,
+            "winRate": null,
+            "completedOnlyWinRate": 1.0,
+            "winRateBounds": [
+              0.5,
+              1.0
+            ],
+            "scoreRate": null,
+            "scoreRateBounds": [
+              0.5,
+              1.0
+            ],
+            "nominalWilson95WinRate": null,
+            "completedLengthPlies": {
+              "n": 2,
+              "total": 4772,
+              "mean": 2386,
+              "median": 2386.0,
+              "p90": 3249,
+              "p95": 3249,
+              "min": 1523,
+              "max": 3249
+            },
+            "truncatedObservedPlies": {
+              "n": 0,
+              "total": 0,
+              "mean": null,
+              "median": null,
+              "p90": null,
+              "p95": null,
+              "min": null,
+              "max": null
+            },
+            "activeObservedPlies": {
+              "n": 2,
+              "total": 40000,
+              "mean": 20000,
+              "median": 20000.0,
+              "p90": 20000,
+              "p95": 20000,
+              "min": 20000,
+              "max": 20000
+            },
+            "errorObservedPlies": {
+              "n": 0,
+              "total": 0,
+              "mean": null,
+              "median": null,
+              "p90": null,
+              "p95": null,
+              "min": null,
+              "max": null
+            }
+          },
+          "crossplayByColor": {
+            "black": {
+              "plannedGames": 2,
+              "completed": 1,
+              "wins": 1,
+              "losses": 0,
+              "draws": 0,
+              "unfinished": 1,
+              "truncated": 0,
+              "active": 1,
+              "error": 0,
+              "notStarted": 0,
+              "winRate": null,
+              "completedOnlyWinRate": 1.0,
+              "winRateBounds": [
+                0.5,
+                1.0
+              ],
+              "scoreRate": null,
+              "scoreRateBounds": [
+                0.5,
+                1.0
+              ],
+              "nominalWilson95WinRate": null,
+              "completedLengthPlies": {
+                "n": 1,
+                "total": 3249,
+                "mean": 3249,
+                "median": 3249,
+                "p90": 3249,
+                "p95": 3249,
+                "min": 3249,
+                "max": 3249
+              },
+              "truncatedObservedPlies": {
+                "n": 0,
+                "total": 0,
+                "mean": null,
+                "median": null,
+                "p90": null,
+                "p95": null,
+                "min": null,
+                "max": null
+              },
+              "activeObservedPlies": {
+                "n": 1,
+                "total": 20000,
+                "mean": 20000,
+                "median": 20000,
+                "p90": 20000,
+                "p95": 20000,
+                "min": 20000,
+                "max": 20000
+              },
+              "errorObservedPlies": {
+                "n": 0,
+                "total": 0,
+                "mean": null,
+                "median": null,
+                "p90": null,
+                "p95": null,
+                "min": null,
+                "max": null
+              }
+            },
+            "white": {
+              "plannedGames": 2,
+              "completed": 1,
+              "wins": 1,
+              "losses": 0,
+              "draws": 0,
+              "unfinished": 1,
+              "truncated": 0,
+              "active": 1,
+              "error": 0,
+              "notStarted": 0,
+              "winRate": null,
+              "completedOnlyWinRate": 1.0,
+              "winRateBounds": [
+                0.5,
+                1.0
+              ],
+              "scoreRate": null,
+              "scoreRateBounds": [
+                0.5,
+                1.0
+              ],
+              "nominalWilson95WinRate": null,
+              "completedLengthPlies": {
+                "n": 1,
+                "total": 1523,
+                "mean": 1523,
+                "median": 1523,
+                "p90": 1523,
+                "p95": 1523,
+                "min": 1523,
+                "max": 1523
+              },
+              "truncatedObservedPlies": {
+                "n": 0,
+                "total": 0,
+                "mean": null,
+                "median": null,
+                "p90": null,
+                "p95": null,
+                "min": null,
+                "max": null
+              },
+              "activeObservedPlies": {
+                "n": 1,
+                "total": 20000,
+                "mean": 20000,
+                "median": 20000,
+                "p90": 20000,
+                "p95": 20000,
+                "min": 20000,
+                "max": 20000
+              },
+              "errorObservedPlies": {
+                "n": 0,
+                "total": 0,
+                "mean": null,
+                "median": null,
+                "p90": null,
+                "p95": null,
+                "min": null,
+                "max": null
+              }
+            }
+          },
+          "versusD2": {
+            "plannedGames": 4,
+            "completed": 2,
+            "wins": 2,
+            "losses": 0,
+            "draws": 0,
+            "unfinished": 2,
+            "truncated": 0,
+            "active": 2,
+            "error": 0,
+            "notStarted": 0,
+            "winRate": null,
+            "completedOnlyWinRate": 1.0,
+            "winRateBounds": [
+              0.5,
+              1.0
+            ],
+            "scoreRate": null,
+            "scoreRateBounds": [
+              0.5,
+              1.0
+            ],
+            "nominalWilson95WinRate": null,
+            "completedLengthPlies": {
+              "n": 2,
+              "total": 4772,
+              "mean": 2386,
+              "median": 2386.0,
+              "p90": 3249,
+              "p95": 3249,
+              "min": 1523,
+              "max": 3249
+            },
+            "truncatedObservedPlies": {
+              "n": 0,
+              "total": 0,
+              "mean": null,
+              "median": null,
+              "p90": null,
+              "p95": null,
+              "min": null,
+              "max": null
+            },
+            "activeObservedPlies": {
+              "n": 2,
+              "total": 40000,
+              "mean": 20000,
+              "median": 20000.0,
+              "p90": 20000,
+              "p95": 20000,
+              "min": 20000,
+              "max": 20000
+            },
+            "errorObservedPlies": {
+              "n": 0,
+              "total": 0,
+              "mean": null,
+              "median": null,
+              "p90": null,
+              "p95": null,
+              "min": null,
+              "max": null
+            }
+          },
+          "search": {
+            "moves": 22386,
+            "successorEvaluations": {
+              "n": 22386,
+              "total": 2238466832,
+              "mean": 99994.05128205128,
+              "median": 100000.0,
+              "p90": 100000,
+              "p95": 100000,
+              "min": 4657,
+              "max": 100000
+            },
+            "meanBudgetFraction": 0.9999405128205128,
+            "elapsedMilliseconds": {
+              "n": 22386,
+              "total": 30973183.825,
+              "mean": 1383.5961683641563,
+              "median": 1773.6280000000002,
+              "p90": 2382.173,
+              "p95": 2487.877,
+              "min": 94.686,
+              "max": 246444.615
+            },
+            "completedDepthHistogram": {
+              "2": 14508,
+              "3": 7843,
+              "4": 33,
+              "5": 2
+            },
+            "completedDepth": {
+              "n": 22386,
+              "total": 52687,
+              "mean": 2.35356919503261,
+              "median": 2.0,
+              "p90": 3,
+              "p95": 3,
+              "min": 2,
+              "max": 5
+            },
+            "maxVisitedPly": {
+              "n": 22386,
+              "total": 75017,
+              "mean": 3.3510676315554364,
+              "median": 3.0,
+              "p90": 4,
+              "p95": 4,
+              "min": 3,
+              "max": 5
+            },
+            "shareDepthAtLeast4": 0.0015634771732332708,
+            "shareDepthAtLeast5": 8.93415527561869e-05,
+            "budgetExhaustedMoves": 22384,
+            "totalNodesVisited": 332359256,
+            "totalCacheHits": 162709,
+            "totalCutoffs": 15360922
+          }
+        },
+        {
+          "id": "D8",
+          "maxDepth": 8,
+          "fullWidthDepth": 64,
+          "beamWidth": 8,
+          "crossplay": {
+            "plannedGames": 4,
+            "completed": 2,
+            "wins": 2,
+            "losses": 0,
+            "draws": 0,
+            "unfinished": 2,
+            "truncated": 0,
+            "active": 2,
+            "error": 0,
+            "notStarted": 0,
+            "winRate": null,
+            "completedOnlyWinRate": 1.0,
+            "winRateBounds": [
+              0.5,
+              1.0
+            ],
+            "scoreRate": null,
+            "scoreRateBounds": [
+              0.5,
+              1.0
+            ],
+            "nominalWilson95WinRate": null,
+            "completedLengthPlies": {
+              "n": 2,
+              "total": 4772,
+              "mean": 2386,
+              "median": 2386.0,
+              "p90": 3249,
+              "p95": 3249,
+              "min": 1523,
+              "max": 3249
+            },
+            "truncatedObservedPlies": {
+              "n": 0,
+              "total": 0,
+              "mean": null,
+              "median": null,
+              "p90": null,
+              "p95": null,
+              "min": null,
+              "max": null
+            },
+            "activeObservedPlies": {
+              "n": 2,
+              "total": 40000,
+              "mean": 20000,
+              "median": 20000.0,
+              "p90": 20000,
+              "p95": 20000,
+              "min": 20000,
+              "max": 20000
+            },
+            "errorObservedPlies": {
+              "n": 0,
+              "total": 0,
+              "mean": null,
+              "median": null,
+              "p90": null,
+              "p95": null,
+              "min": null,
+              "max": null
+            }
+          },
+          "crossplayByColor": {
+            "black": {
+              "plannedGames": 2,
+              "completed": 1,
+              "wins": 1,
+              "losses": 0,
+              "draws": 0,
+              "unfinished": 1,
+              "truncated": 0,
+              "active": 1,
+              "error": 0,
+              "notStarted": 0,
+              "winRate": null,
+              "completedOnlyWinRate": 1.0,
+              "winRateBounds": [
+                0.5,
+                1.0
+              ],
+              "scoreRate": null,
+              "scoreRateBounds": [
+                0.5,
+                1.0
+              ],
+              "nominalWilson95WinRate": null,
+              "completedLengthPlies": {
+                "n": 1,
+                "total": 3249,
+                "mean": 3249,
+                "median": 3249,
+                "p90": 3249,
+                "p95": 3249,
+                "min": 3249,
+                "max": 3249
+              },
+              "truncatedObservedPlies": {
+                "n": 0,
+                "total": 0,
+                "mean": null,
+                "median": null,
+                "p90": null,
+                "p95": null,
+                "min": null,
+                "max": null
+              },
+              "activeObservedPlies": {
+                "n": 1,
+                "total": 20000,
+                "mean": 20000,
+                "median": 20000,
+                "p90": 20000,
+                "p95": 20000,
+                "min": 20000,
+                "max": 20000
+              },
+              "errorObservedPlies": {
+                "n": 0,
+                "total": 0,
+                "mean": null,
+                "median": null,
+                "p90": null,
+                "p95": null,
+                "min": null,
+                "max": null
+              }
+            },
+            "white": {
+              "plannedGames": 2,
+              "completed": 1,
+              "wins": 1,
+              "losses": 0,
+              "draws": 0,
+              "unfinished": 1,
+              "truncated": 0,
+              "active": 1,
+              "error": 0,
+              "notStarted": 0,
+              "winRate": null,
+              "completedOnlyWinRate": 1.0,
+              "winRateBounds": [
+                0.5,
+                1.0
+              ],
+              "scoreRate": null,
+              "scoreRateBounds": [
+                0.5,
+                1.0
+              ],
+              "nominalWilson95WinRate": null,
+              "completedLengthPlies": {
+                "n": 1,
+                "total": 1523,
+                "mean": 1523,
+                "median": 1523,
+                "p90": 1523,
+                "p95": 1523,
+                "min": 1523,
+                "max": 1523
+              },
+              "truncatedObservedPlies": {
+                "n": 0,
+                "total": 0,
+                "mean": null,
+                "median": null,
+                "p90": null,
+                "p95": null,
+                "min": null,
+                "max": null
+              },
+              "activeObservedPlies": {
+                "n": 1,
+                "total": 20000,
+                "mean": 20000,
+                "median": 20000,
+                "p90": 20000,
+                "p95": 20000,
+                "min": 20000,
+                "max": 20000
+              },
+              "errorObservedPlies": {
+                "n": 0,
+                "total": 0,
+                "mean": null,
+                "median": null,
+                "p90": null,
+                "p95": null,
+                "min": null,
+                "max": null
+              }
+            }
+          },
+          "versusD2": {
+            "plannedGames": 4,
+            "completed": 2,
+            "wins": 2,
+            "losses": 0,
+            "draws": 0,
+            "unfinished": 2,
+            "truncated": 0,
+            "active": 2,
+            "error": 0,
+            "notStarted": 0,
+            "winRate": null,
+            "completedOnlyWinRate": 1.0,
+            "winRateBounds": [
+              0.5,
+              1.0
+            ],
+            "scoreRate": null,
+            "scoreRateBounds": [
+              0.5,
+              1.0
+            ],
+            "nominalWilson95WinRate": null,
+            "completedLengthPlies": {
+              "n": 2,
+              "total": 4772,
+              "mean": 2386,
+              "median": 2386.0,
+              "p90": 3249,
+              "p95": 3249,
+              "min": 1523,
+              "max": 3249
+            },
+            "truncatedObservedPlies": {
+              "n": 0,
+              "total": 0,
+              "mean": null,
+              "median": null,
+              "p90": null,
+              "p95": null,
+              "min": null,
+              "max": null
+            },
+            "activeObservedPlies": {
+              "n": 2,
+              "total": 40000,
+              "mean": 20000,
+              "median": 20000.0,
+              "p90": 20000,
+              "p95": 20000,
+              "min": 20000,
+              "max": 20000
+            },
+            "errorObservedPlies": {
+              "n": 0,
+              "total": 0,
+              "mean": null,
+              "median": null,
+              "p90": null,
+              "p95": null,
+              "min": null,
+              "max": null
+            }
+          },
+          "search": {
+            "moves": 22386,
+            "successorEvaluations": {
+              "n": 22386,
+              "total": 2238600000,
+              "mean": 100000,
+              "median": 100000.0,
+              "p90": 100000,
+              "p95": 100000,
+              "min": 100000,
+              "max": 100000
+            },
+            "meanBudgetFraction": 1.0,
+            "elapsedMilliseconds": {
+              "n": 22386,
+              "total": 32333352.374,
+              "mean": 1444.355953453051,
+              "median": 1999.658,
+              "p90": 2407.262,
+              "p95": 2516.502,
+              "min": 132.127,
+              "max": 246444.919
+            },
+            "completedDepthHistogram": {
+              "2": 14508,
+              "3": 7843,
+              "4": 33,
+              "5": 1,
+              "6": 1
+            },
+            "completedDepth": {
+              "n": 22386,
+              "total": 52688,
+              "mean": 2.353613865808988,
+              "median": 2.0,
+              "p90": 3,
+              "p95": 3,
+              "min": 2,
+              "max": 6
+            },
+            "maxVisitedPly": {
+              "n": 22386,
+              "total": 75020,
+              "mean": 3.3512016438845706,
+              "median": 3.0,
+              "p90": 4,
+              "p95": 4,
+              "min": 3,
+              "max": 7
+            },
+            "shareDepthAtLeast4": 0.0015634771732332708,
+            "shareDepthAtLeast5": 8.93415527561869e-05,
+            "budgetExhaustedMoves": 22386,
+            "totalNodesVisited": 332398338,
+            "totalCacheHits": 162719,
+            "totalCutoffs": 15363818
+          }
+        },
+        {
+          "id": "F1B4",
+          "maxDepth": 8,
+          "fullWidthDepth": 1,
+          "beamWidth": 4,
+          "crossplay": {
+            "plannedGames": 4,
+            "completed": 4,
+            "wins": 4,
+            "losses": 0,
+            "draws": 0,
+            "unfinished": 0,
+            "truncated": 0,
+            "active": 0,
+            "error": 0,
+            "notStarted": 0,
+            "winRate": 1.0,
+            "completedOnlyWinRate": 1.0,
+            "winRateBounds": [
+              1.0,
+              1.0
+            ],
+            "scoreRate": 1.0,
+            "scoreRateBounds": [
+              1.0,
+              1.0
+            ],
+            "nominalWilson95WinRate": [
+              0.5101091635454027,
+              1
+            ],
+            "completedLengthPlies": {
+              "n": 4,
+              "total": 21230,
+              "mean": 5307.5,
+              "median": 4350.0,
+              "p90": 11005,
+              "p95": 11005,
+              "min": 1525,
+              "max": 11005
+            },
+            "truncatedObservedPlies": {
+              "n": 0,
+              "total": 0,
+              "mean": null,
+              "median": null,
+              "p90": null,
+              "p95": null,
+              "min": null,
+              "max": null
+            },
+            "activeObservedPlies": {
+              "n": 0,
+              "total": 0,
+              "mean": null,
+              "median": null,
+              "p90": null,
+              "p95": null,
+              "min": null,
+              "max": null
+            },
+            "errorObservedPlies": {
+              "n": 0,
+              "total": 0,
+              "mean": null,
+              "median": null,
+              "p90": null,
+              "p95": null,
+              "min": null,
+              "max": null
+            }
+          },
+          "crossplayByColor": {
+            "black": {
+              "plannedGames": 2,
+              "completed": 2,
+              "wins": 2,
+              "losses": 0,
+              "draws": 0,
+              "unfinished": 0,
+              "truncated": 0,
+              "active": 0,
+              "error": 0,
+              "notStarted": 0,
+              "winRate": 1.0,
+              "completedOnlyWinRate": 1.0,
+              "winRateBounds": [
+                1.0,
+                1.0
+              ],
+              "scoreRate": 1.0,
+              "scoreRateBounds": [
+                1.0,
+                1.0
+              ],
+              "nominalWilson95WinRate": [
+                0.34238022750665303,
+                1
+              ],
+              "completedLengthPlies": {
+                "n": 2,
+                "total": 8700,
+                "mean": 4350,
+                "median": 4350.0,
+                "p90": 5162,
+                "p95": 5162,
+                "min": 3538,
+                "max": 5162
+              },
+              "truncatedObservedPlies": {
+                "n": 0,
+                "total": 0,
+                "mean": null,
+                "median": null,
+                "p90": null,
+                "p95": null,
+                "min": null,
+                "max": null
+              },
+              "activeObservedPlies": {
+                "n": 0,
+                "total": 0,
+                "mean": null,
+                "median": null,
+                "p90": null,
+                "p95": null,
+                "min": null,
+                "max": null
+              },
+              "errorObservedPlies": {
+                "n": 0,
+                "total": 0,
+                "mean": null,
+                "median": null,
+                "p90": null,
+                "p95": null,
+                "min": null,
+                "max": null
+              }
+            },
+            "white": {
+              "plannedGames": 2,
+              "completed": 2,
+              "wins": 2,
+              "losses": 0,
+              "draws": 0,
+              "unfinished": 0,
+              "truncated": 0,
+              "active": 0,
+              "error": 0,
+              "notStarted": 0,
+              "winRate": 1.0,
+              "completedOnlyWinRate": 1.0,
+              "winRateBounds": [
+                1.0,
+                1.0
+              ],
+              "scoreRate": 1.0,
+              "scoreRateBounds": [
+                1.0,
+                1.0
+              ],
+              "nominalWilson95WinRate": [
+                0.34238022750665303,
+                1
+              ],
+              "completedLengthPlies": {
+                "n": 2,
+                "total": 12530,
+                "mean": 6265,
+                "median": 6265.0,
+                "p90": 11005,
+                "p95": 11005,
+                "min": 1525,
+                "max": 11005
+              },
+              "truncatedObservedPlies": {
+                "n": 0,
+                "total": 0,
+                "mean": null,
+                "median": null,
+                "p90": null,
+                "p95": null,
+                "min": null,
+                "max": null
+              },
+              "activeObservedPlies": {
+                "n": 0,
+                "total": 0,
+                "mean": null,
+                "median": null,
+                "p90": null,
+                "p95": null,
+                "min": null,
+                "max": null
+              },
+              "errorObservedPlies": {
+                "n": 0,
+                "total": 0,
+                "mean": null,
+                "median": null,
+                "p90": null,
+                "p95": null,
+                "min": null,
+                "max": null
+              }
+            }
+          },
+          "versusD2": {
+            "plannedGames": 4,
+            "completed": 4,
+            "wins": 4,
+            "losses": 0,
+            "draws": 0,
+            "unfinished": 0,
+            "truncated": 0,
+            "active": 0,
+            "error": 0,
+            "notStarted": 0,
+            "winRate": 1.0,
+            "completedOnlyWinRate": 1.0,
+            "winRateBounds": [
+              1.0,
+              1.0
+            ],
+            "scoreRate": 1.0,
+            "scoreRateBounds": [
+              1.0,
+              1.0
+            ],
+            "nominalWilson95WinRate": [
+              0.5101091635454027,
+              1
+            ],
+            "completedLengthPlies": {
+              "n": 4,
+              "total": 21230,
+              "mean": 5307.5,
+              "median": 4350.0,
+              "p90": 11005,
+              "p95": 11005,
+              "min": 1525,
+              "max": 11005
+            },
+            "truncatedObservedPlies": {
+              "n": 0,
+              "total": 0,
+              "mean": null,
+              "median": null,
+              "p90": null,
+              "p95": null,
+              "min": null,
+              "max": null
+            },
+            "activeObservedPlies": {
+              "n": 0,
+              "total": 0,
+              "mean": null,
+              "median": null,
+              "p90": null,
+              "p95": null,
+              "min": null,
+              "max": null
+            },
+            "errorObservedPlies": {
+              "n": 0,
+              "total": 0,
+              "mean": null,
+              "median": null,
+              "p90": null,
+              "p95": null,
+              "min": null,
+              "max": null
+            }
+          },
+          "search": {
+            "moves": 10614,
+            "successorEvaluations": {
+              "n": 10614,
+              "total": 1061386348,
+              "mean": 99998.71377426041,
+              "median": 100000.0,
+              "p90": 100000,
+              "p95": 100000,
+              "min": 87744,
+              "max": 100000
+            },
+            "meanBudgetFraction": 0.9999871377426041,
+            "elapsedMilliseconds": {
+              "n": 10614,
+              "total": 22291765.049,
+              "mean": 2100.222823534954,
+              "median": 2160.109,
+              "p90": 2423.788,
+              "p95": 2515.652,
+              "min": 245.179,
+              "max": 15988.837
+            },
+            "completedDepthHistogram": {
+              "2": 981,
+              "3": 7240,
+              "4": 1954,
+              "5": 381,
+              "6": 48,
+              "7": 8,
+              "8": 2
+            },
+            "completedDepth": {
+              "n": 10614,
+              "total": 33763,
+              "mean": 3.1809873751648765,
+              "median": 3.0,
+              "p90": 4,
+              "p95": 4,
+              "min": 2,
+              "max": 8
+            },
+            "maxVisitedPly": {
+              "n": 10614,
+              "total": 44308,
+              "mean": 4.174486527228189,
+              "median": 4.0,
+              "p90": 5,
+              "p95": 5,
+              "min": 3,
+              "max": 8
+            },
+            "shareDepthAtLeast4": 0.22545694365931787,
+            "shareDepthAtLeast5": 0.041360467307329944,
+            "budgetExhaustedMoves": 10612,
+            "totalNodesVisited": 23453957,
+            "totalCacheHits": 145949,
+            "totalCutoffs": 5730815
+          }
+        },
+        {
+          "id": "F1B8",
+          "maxDepth": 8,
+          "fullWidthDepth": 1,
+          "beamWidth": 8,
+          "crossplay": {
+            "plannedGames": 4,
+            "completed": 2,
+            "wins": 2,
+            "losses": 0,
+            "draws": 0,
+            "unfinished": 2,
+            "truncated": 0,
+            "active": 2,
+            "error": 0,
+            "notStarted": 0,
+            "winRate": null,
+            "completedOnlyWinRate": 1.0,
+            "winRateBounds": [
+              0.5,
+              1.0
+            ],
+            "scoreRate": null,
+            "scoreRateBounds": [
+              0.5,
+              1.0
+            ],
+            "nominalWilson95WinRate": null,
+            "completedLengthPlies": {
+              "n": 2,
+              "total": 12004,
+              "mean": 6002,
+              "median": 6002.0,
+              "p90": 7846,
+              "p95": 7846,
+              "min": 4158,
+              "max": 7846
+            },
+            "truncatedObservedPlies": {
+              "n": 0,
+              "total": 0,
+              "mean": null,
+              "median": null,
+              "p90": null,
+              "p95": null,
+              "min": null,
+              "max": null
+            },
+            "activeObservedPlies": {
+              "n": 2,
+              "total": 40000,
+              "mean": 20000,
+              "median": 20000.0,
+              "p90": 20000,
+              "p95": 20000,
+              "min": 20000,
+              "max": 20000
+            },
+            "errorObservedPlies": {
+              "n": 0,
+              "total": 0,
+              "mean": null,
+              "median": null,
+              "p90": null,
+              "p95": null,
+              "min": null,
+              "max": null
+            }
+          },
+          "crossplayByColor": {
+            "black": {
+              "plannedGames": 2,
+              "completed": 2,
+              "wins": 2,
+              "losses": 0,
+              "draws": 0,
+              "unfinished": 0,
+              "truncated": 0,
+              "active": 0,
+              "error": 0,
+              "notStarted": 0,
+              "winRate": 1.0,
+              "completedOnlyWinRate": 1.0,
+              "winRateBounds": [
+                1.0,
+                1.0
+              ],
+              "scoreRate": 1.0,
+              "scoreRateBounds": [
+                1.0,
+                1.0
+              ],
+              "nominalWilson95WinRate": [
+                0.34238022750665303,
+                1
+              ],
+              "completedLengthPlies": {
+                "n": 2,
+                "total": 12004,
+                "mean": 6002,
+                "median": 6002.0,
+                "p90": 7846,
+                "p95": 7846,
+                "min": 4158,
+                "max": 7846
+              },
+              "truncatedObservedPlies": {
+                "n": 0,
+                "total": 0,
+                "mean": null,
+                "median": null,
+                "p90": null,
+                "p95": null,
+                "min": null,
+                "max": null
+              },
+              "activeObservedPlies": {
+                "n": 0,
+                "total": 0,
+                "mean": null,
+                "median": null,
+                "p90": null,
+                "p95": null,
+                "min": null,
+                "max": null
+              },
+              "errorObservedPlies": {
+                "n": 0,
+                "total": 0,
+                "mean": null,
+                "median": null,
+                "p90": null,
+                "p95": null,
+                "min": null,
+                "max": null
+              }
+            },
+            "white": {
+              "plannedGames": 2,
+              "completed": 0,
+              "wins": 0,
+              "losses": 0,
+              "draws": 0,
+              "unfinished": 2,
+              "truncated": 0,
+              "active": 2,
+              "error": 0,
+              "notStarted": 0,
+              "winRate": null,
+              "completedOnlyWinRate": null,
+              "winRateBounds": [
+                0.0,
+                1.0
+              ],
+              "scoreRate": null,
+              "scoreRateBounds": [
+                0.0,
+                1.0
+              ],
+              "nominalWilson95WinRate": null,
+              "completedLengthPlies": {
+                "n": 0,
+                "total": 0,
+                "mean": null,
+                "median": null,
+                "p90": null,
+                "p95": null,
+                "min": null,
+                "max": null
+              },
+              "truncatedObservedPlies": {
+                "n": 0,
+                "total": 0,
+                "mean": null,
+                "median": null,
+                "p90": null,
+                "p95": null,
+                "min": null,
+                "max": null
+              },
+              "activeObservedPlies": {
+                "n": 2,
+                "total": 40000,
+                "mean": 20000,
+                "median": 20000.0,
+                "p90": 20000,
+                "p95": 20000,
+                "min": 20000,
+                "max": 20000
+              },
+              "errorObservedPlies": {
+                "n": 0,
+                "total": 0,
+                "mean": null,
+                "median": null,
+                "p90": null,
+                "p95": null,
+                "min": null,
+                "max": null
+              }
+            }
+          },
+          "versusD2": {
+            "plannedGames": 4,
+            "completed": 2,
+            "wins": 2,
+            "losses": 0,
+            "draws": 0,
+            "unfinished": 2,
+            "truncated": 0,
+            "active": 2,
+            "error": 0,
+            "notStarted": 0,
+            "winRate": null,
+            "completedOnlyWinRate": 1.0,
+            "winRateBounds": [
+              0.5,
+              1.0
+            ],
+            "scoreRate": null,
+            "scoreRateBounds": [
+              0.5,
+              1.0
+            ],
+            "nominalWilson95WinRate": null,
+            "completedLengthPlies": {
+              "n": 2,
+              "total": 12004,
+              "mean": 6002,
+              "median": 6002.0,
+              "p90": 7846,
+              "p95": 7846,
+              "min": 4158,
+              "max": 7846
+            },
+            "truncatedObservedPlies": {
+              "n": 0,
+              "total": 0,
+              "mean": null,
+              "median": null,
+              "p90": null,
+              "p95": null,
+              "min": null,
+              "max": null
+            },
+            "activeObservedPlies": {
+              "n": 2,
+              "total": 40000,
+              "mean": 20000,
+              "median": 20000.0,
+              "p90": 20000,
+              "p95": 20000,
+              "min": 20000,
+              "max": 20000
+            },
+            "errorObservedPlies": {
+              "n": 0,
+              "total": 0,
+              "mean": null,
+              "median": null,
+              "p90": null,
+              "p95": null,
+              "min": null,
+              "max": null
+            }
+          },
+          "search": {
+            "moves": 26002,
+            "successorEvaluations": {
+              "n": 26002,
+              "total": 2600200000,
+              "mean": 100000,
+              "median": 100000.0,
+              "p90": 100000,
+              "p95": 100000,
+              "min": 100000,
+              "max": 100000
+            },
+            "meanBudgetFraction": 1.0,
+            "elapsedMilliseconds": {
+              "n": 26002,
+              "total": 37419775.856,
+              "mean": 1439.111447427121,
+              "median": 1981.5695,
+              "p90": 2325.655,
+              "p95": 2439.645,
+              "min": 104.496,
+              "max": 246433.265
+            },
+            "completedDepthHistogram": {
+              "2": 5235,
+              "3": 20077,
+              "4": 654,
+              "5": 36
+            },
+            "completedDepth": {
+              "n": 26002,
+              "total": 73497,
+              "mean": 2.8265902622875165,
+              "median": 3.0,
+              "p90": 3,
+              "p95": 3,
+              "min": 2,
+              "max": 5
+            },
+            "maxVisitedPly": {
+              "n": 26002,
+              "total": 99331,
+              "mean": 3.820129220829167,
+              "median": 4.0,
+              "p90": 4,
+              "p95": 4,
+              "min": 3,
+              "max": 6
+            },
+            "shareDepthAtLeast4": 0.026536420275363435,
+            "shareDepthAtLeast5": 0.0013845088839320053,
+            "budgetExhaustedMoves": 26002,
+            "totalNodesVisited": 79380911,
+            "totalCacheHits": 280763,
+            "totalCutoffs": 12610141
+          }
+        },
+        {
+          "id": "F2B4",
+          "maxDepth": 8,
+          "fullWidthDepth": 2,
+          "beamWidth": 4,
+          "crossplay": {
+            "plannedGames": 4,
+            "completed": 3,
+            "wins": 3,
+            "losses": 0,
+            "draws": 0,
+            "unfinished": 1,
+            "truncated": 0,
+            "active": 1,
+            "error": 0,
+            "notStarted": 0,
+            "winRate": null,
+            "completedOnlyWinRate": 1.0,
+            "winRateBounds": [
+              0.75,
+              1.0
+            ],
+            "scoreRate": null,
+            "scoreRateBounds": [
+              0.75,
+              1.0
+            ],
+            "nominalWilson95WinRate": null,
+            "completedLengthPlies": {
+              "n": 3,
+              "total": 11679,
+              "mean": 3893,
+              "median": 4836,
+              "p90": 6826,
+              "p95": 6826,
+              "min": 17,
+              "max": 6826
+            },
+            "truncatedObservedPlies": {
+              "n": 0,
+              "total": 0,
+              "mean": null,
+              "median": null,
+              "p90": null,
+              "p95": null,
+              "min": null,
+              "max": null
+            },
+            "activeObservedPlies": {
+              "n": 1,
+              "total": 20000,
+              "mean": 20000,
+              "median": 20000,
+              "p90": 20000,
+              "p95": 20000,
+              "min": 20000,
+              "max": 20000
+            },
+            "errorObservedPlies": {
+              "n": 0,
+              "total": 0,
+              "mean": null,
+              "median": null,
+              "p90": null,
+              "p95": null,
+              "min": null,
+              "max": null
+            }
+          },
+          "crossplayByColor": {
+            "black": {
+              "plannedGames": 2,
+              "completed": 1,
+              "wins": 1,
+              "losses": 0,
+              "draws": 0,
+              "unfinished": 1,
+              "truncated": 0,
+              "active": 1,
+              "error": 0,
+              "notStarted": 0,
+              "winRate": null,
+              "completedOnlyWinRate": 1.0,
+              "winRateBounds": [
+                0.5,
+                1.0
+              ],
+              "scoreRate": null,
+              "scoreRateBounds": [
+                0.5,
+                1.0
+              ],
+              "nominalWilson95WinRate": null,
+              "completedLengthPlies": {
+                "n": 1,
+                "total": 6826,
+                "mean": 6826,
+                "median": 6826,
+                "p90": 6826,
+                "p95": 6826,
+                "min": 6826,
+                "max": 6826
+              },
+              "truncatedObservedPlies": {
+                "n": 0,
+                "total": 0,
+                "mean": null,
+                "median": null,
+                "p90": null,
+                "p95": null,
+                "min": null,
+                "max": null
+              },
+              "activeObservedPlies": {
+                "n": 1,
+                "total": 20000,
+                "mean": 20000,
+                "median": 20000,
+                "p90": 20000,
+                "p95": 20000,
+                "min": 20000,
+                "max": 20000
+              },
+              "errorObservedPlies": {
+                "n": 0,
+                "total": 0,
+                "mean": null,
+                "median": null,
+                "p90": null,
+                "p95": null,
+                "min": null,
+                "max": null
+              }
+            },
+            "white": {
+              "plannedGames": 2,
+              "completed": 2,
+              "wins": 2,
+              "losses": 0,
+              "draws": 0,
+              "unfinished": 0,
+              "truncated": 0,
+              "active": 0,
+              "error": 0,
+              "notStarted": 0,
+              "winRate": 1.0,
+              "completedOnlyWinRate": 1.0,
+              "winRateBounds": [
+                1.0,
+                1.0
+              ],
+              "scoreRate": 1.0,
+              "scoreRateBounds": [
+                1.0,
+                1.0
+              ],
+              "nominalWilson95WinRate": [
+                0.34238022750665303,
+                1
+              ],
+              "completedLengthPlies": {
+                "n": 2,
+                "total": 4853,
+                "mean": 2426.5,
+                "median": 2426.5,
+                "p90": 4836,
+                "p95": 4836,
+                "min": 17,
+                "max": 4836
+              },
+              "truncatedObservedPlies": {
+                "n": 0,
+                "total": 0,
+                "mean": null,
+                "median": null,
+                "p90": null,
+                "p95": null,
+                "min": null,
+                "max": null
+              },
+              "activeObservedPlies": {
+                "n": 0,
+                "total": 0,
+                "mean": null,
+                "median": null,
+                "p90": null,
+                "p95": null,
+                "min": null,
+                "max": null
+              },
+              "errorObservedPlies": {
+                "n": 0,
+                "total": 0,
+                "mean": null,
+                "median": null,
+                "p90": null,
+                "p95": null,
+                "min": null,
+                "max": null
+              }
+            }
+          },
+          "versusD2": {
+            "plannedGames": 4,
+            "completed": 3,
+            "wins": 3,
+            "losses": 0,
+            "draws": 0,
+            "unfinished": 1,
+            "truncated": 0,
+            "active": 1,
+            "error": 0,
+            "notStarted": 0,
+            "winRate": null,
+            "completedOnlyWinRate": 1.0,
+            "winRateBounds": [
+              0.75,
+              1.0
+            ],
+            "scoreRate": null,
+            "scoreRateBounds": [
+              0.75,
+              1.0
+            ],
+            "nominalWilson95WinRate": null,
+            "completedLengthPlies": {
+              "n": 3,
+              "total": 11679,
+              "mean": 3893,
+              "median": 4836,
+              "p90": 6826,
+              "p95": 6826,
+              "min": 17,
+              "max": 6826
+            },
+            "truncatedObservedPlies": {
+              "n": 0,
+              "total": 0,
+              "mean": null,
+              "median": null,
+              "p90": null,
+              "p95": null,
+              "min": null,
+              "max": null
+            },
+            "activeObservedPlies": {
+              "n": 1,
+              "total": 20000,
+              "mean": 20000,
+              "median": 20000,
+              "p90": 20000,
+              "p95": 20000,
+              "min": 20000,
+              "max": 20000
+            },
+            "errorObservedPlies": {
+              "n": 0,
+              "total": 0,
+              "mean": null,
+              "median": null,
+              "p90": null,
+              "p95": null,
+              "min": null,
+              "max": null
+            }
+          },
+          "search": {
+            "moves": 15839,
+            "successorEvaluations": {
+              "n": 15839,
+              "total": 1583900000,
+              "mean": 100000,
+              "median": 100000,
+              "p90": 100000,
+              "p95": 100000,
+              "min": 100000,
+              "max": 100000
+            },
+            "meanBudgetFraction": 1.0,
+            "elapsedMilliseconds": {
+              "n": 15839,
+              "total": 26168164.097,
+              "mean": 1652.134863122672,
+              "median": 2065.328,
+              "p90": 2353.79,
+              "p95": 2463.209,
+              "min": 140.665,
+              "max": 246482.901
+            },
+            "completedDepthHistogram": {
+              "2": 10300,
+              "3": 5092,
+              "4": 399,
+              "5": 38,
+              "6": 10
+            },
+            "completedDepth": {
+              "n": 15839,
+              "total": 37722,
+              "mean": 2.3815897468274514,
+              "median": 2,
+              "p90": 3,
+              "p95": 3,
+              "min": 2,
+              "max": 6
+            },
+            "maxVisitedPly": {
+              "n": 15839,
+              "total": 53510,
+              "mean": 3.3783698465812235,
+              "median": 3,
+              "p90": 4,
+              "p95": 4,
+              "min": 3,
+              "max": 7
+            },
+            "shareDepthAtLeast4": 0.028221478628701308,
+            "shareDepthAtLeast5": 0.0030304943493907445,
+            "budgetExhaustedMoves": 15839,
+            "totalNodesVisited": 44195421,
+            "totalCacheHits": 134361,
+            "totalCutoffs": 10201666
+          }
+        },
+        {
+          "id": "F2B8",
+          "maxDepth": 8,
+          "fullWidthDepth": 2,
+          "beamWidth": 8,
+          "crossplay": {
+            "plannedGames": 4,
+            "completed": 4,
+            "wins": 4,
+            "losses": 0,
+            "draws": 0,
+            "unfinished": 0,
+            "truncated": 0,
+            "active": 0,
+            "error": 0,
+            "notStarted": 0,
+            "winRate": 1.0,
+            "completedOnlyWinRate": 1.0,
+            "winRateBounds": [
+              1.0,
+              1.0
+            ],
+            "scoreRate": 1.0,
+            "scoreRateBounds": [
+              1.0,
+              1.0
+            ],
+            "nominalWilson95WinRate": [
+              0.5101091635454027,
+              1
+            ],
+            "completedLengthPlies": {
+              "n": 4,
+              "total": 47145,
+              "mean": 11786.25,
+              "median": 13612.0,
+              "p90": 18310,
+              "p95": 18310,
+              "min": 1611,
+              "max": 18310
+            },
+            "truncatedObservedPlies": {
+              "n": 0,
+              "total": 0,
+              "mean": null,
+              "median": null,
+              "p90": null,
+              "p95": null,
+              "min": null,
+              "max": null
+            },
+            "activeObservedPlies": {
+              "n": 0,
+              "total": 0,
+              "mean": null,
+              "median": null,
+              "p90": null,
+              "p95": null,
+              "min": null,
+              "max": null
+            },
+            "errorObservedPlies": {
+              "n": 0,
+              "total": 0,
+              "mean": null,
+              "median": null,
+              "p90": null,
+              "p95": null,
+              "min": null,
+              "max": null
+            }
+          },
+          "crossplayByColor": {
+            "black": {
+              "plannedGames": 2,
+              "completed": 2,
+              "wins": 2,
+              "losses": 0,
+              "draws": 0,
+              "unfinished": 0,
+              "truncated": 0,
+              "active": 0,
+              "error": 0,
+              "notStarted": 0,
+              "winRate": 1.0,
+              "completedOnlyWinRate": 1.0,
+              "winRateBounds": [
+                1.0,
+                1.0
+              ],
+              "scoreRate": 1.0,
+              "scoreRateBounds": [
+                1.0,
+                1.0
+              ],
+              "nominalWilson95WinRate": [
+                0.34238022750665303,
+                1
+              ],
+              "completedLengthPlies": {
+                "n": 2,
+                "total": 19921,
+                "mean": 9960.5,
+                "median": 9960.5,
+                "p90": 18310,
+                "p95": 18310,
+                "min": 1611,
+                "max": 18310
+              },
+              "truncatedObservedPlies": {
+                "n": 0,
+                "total": 0,
+                "mean": null,
+                "median": null,
+                "p90": null,
+                "p95": null,
+                "min": null,
+                "max": null
+              },
+              "activeObservedPlies": {
+                "n": 0,
+                "total": 0,
+                "mean": null,
+                "median": null,
+                "p90": null,
+                "p95": null,
+                "min": null,
+                "max": null
+              },
+              "errorObservedPlies": {
+                "n": 0,
+                "total": 0,
+                "mean": null,
+                "median": null,
+                "p90": null,
+                "p95": null,
+                "min": null,
+                "max": null
+              }
+            },
+            "white": {
+              "plannedGames": 2,
+              "completed": 2,
+              "wins": 2,
+              "losses": 0,
+              "draws": 0,
+              "unfinished": 0,
+              "truncated": 0,
+              "active": 0,
+              "error": 0,
+              "notStarted": 0,
+              "winRate": 1.0,
+              "completedOnlyWinRate": 1.0,
+              "winRateBounds": [
+                1.0,
+                1.0
+              ],
+              "scoreRate": 1.0,
+              "scoreRateBounds": [
+                1.0,
+                1.0
+              ],
+              "nominalWilson95WinRate": [
+                0.34238022750665303,
+                1
+              ],
+              "completedLengthPlies": {
+                "n": 2,
+                "total": 27224,
+                "mean": 13612,
+                "median": 13612.0,
+                "p90": 14287,
+                "p95": 14287,
+                "min": 12937,
+                "max": 14287
+              },
+              "truncatedObservedPlies": {
+                "n": 0,
+                "total": 0,
+                "mean": null,
+                "median": null,
+                "p90": null,
+                "p95": null,
+                "min": null,
+                "max": null
+              },
+              "activeObservedPlies": {
+                "n": 0,
+                "total": 0,
+                "mean": null,
+                "median": null,
+                "p90": null,
+                "p95": null,
+                "min": null,
+                "max": null
+              },
+              "errorObservedPlies": {
+                "n": 0,
+                "total": 0,
+                "mean": null,
+                "median": null,
+                "p90": null,
+                "p95": null,
+                "min": null,
+                "max": null
+              }
+            }
+          },
+          "versusD2": {
+            "plannedGames": 4,
+            "completed": 4,
+            "wins": 4,
+            "losses": 0,
+            "draws": 0,
+            "unfinished": 0,
+            "truncated": 0,
+            "active": 0,
+            "error": 0,
+            "notStarted": 0,
+            "winRate": 1.0,
+            "completedOnlyWinRate": 1.0,
+            "winRateBounds": [
+              1.0,
+              1.0
+            ],
+            "scoreRate": 1.0,
+            "scoreRateBounds": [
+              1.0,
+              1.0
+            ],
+            "nominalWilson95WinRate": [
+              0.5101091635454027,
+              1
+            ],
+            "completedLengthPlies": {
+              "n": 4,
+              "total": 47145,
+              "mean": 11786.25,
+              "median": 13612.0,
+              "p90": 18310,
+              "p95": 18310,
+              "min": 1611,
+              "max": 18310
+            },
+            "truncatedObservedPlies": {
+              "n": 0,
+              "total": 0,
+              "mean": null,
+              "median": null,
+              "p90": null,
+              "p95": null,
+              "min": null,
+              "max": null
+            },
+            "activeObservedPlies": {
+              "n": 0,
+              "total": 0,
+              "mean": null,
+              "median": null,
+              "p90": null,
+              "p95": null,
+              "min": null,
+              "max": null
+            },
+            "errorObservedPlies": {
+              "n": 0,
+              "total": 0,
+              "mean": null,
+              "median": null,
+              "p90": null,
+              "p95": null,
+              "min": null,
+              "max": null
+            }
+          },
+          "search": {
+            "moves": 23572,
+            "successorEvaluations": {
+              "n": 23572,
+              "total": 2357200000,
+              "mean": 100000,
+              "median": 100000.0,
+              "p90": 100000,
+              "p95": 100000,
+              "min": 100000,
+              "max": 100000
+            },
+            "meanBudgetFraction": 1.0,
+            "elapsedMilliseconds": {
+              "n": 23572,
+              "total": 30522677.716,
+              "mean": 1294.8700880705921,
+              "median": 624.0899999999999,
+              "p90": 2284.714,
+              "p95": 2397.994,
+              "min": 117.789,
+              "max": 246475.317
+            },
+            "completedDepthHistogram": {
+              "2": 14892,
+              "3": 8196,
+              "4": 456,
+              "5": 28
+            },
+            "completedDepth": {
+              "n": 23572,
+              "total": 56336,
+              "mean": 2.3899541829288986,
+              "median": 2.0,
+              "p90": 3,
+              "p95": 3,
+              "min": 2,
+              "max": 5
+            },
+            "maxVisitedPly": {
+              "n": 23572,
+              "total": 79837,
+              "mean": 3.3869421347361275,
+              "median": 3.0,
+              "p90": 4,
+              "p95": 4,
+              "min": 3,
+              "max": 6
+            },
+            "shareDepthAtLeast4": 0.020532835567622604,
+            "shareDepthAtLeast5": 0.0011878499915153572,
+            "budgetExhaustedMoves": 23572,
+            "totalNodesVisited": 80323590,
+            "totalCacheHits": 203366,
+            "totalCutoffs": 15518571
+          }
+        }
+      ],
+      "longestGames": {
+        "complete": [
+          {
+            "blackProfile": "D3",
+            "whiteProfile": "D2",
+            "trial": 0,
+            "plies": 18508,
+            "blackTieBreakSeed": 6000000,
+            "whiteTieBreakSeed": 6000001,
+            "winner": "black",
+            "outcomeReason": "elimination"
+          }
+        ],
+        "truncated": [],
+        "active": [
+          {
+            "blackProfile": "D4",
+            "whiteProfile": "D2",
+            "trial": 1,
+            "plies": 20000,
+            "blackTieBreakSeed": 6000002,
+            "whiteTieBreakSeed": 6000003,
+            "winner": null,
+            "outcomeReason": null
+          },
+          {
+            "blackProfile": "D2",
+            "whiteProfile": "D4",
+            "trial": 1,
+            "plies": 20000,
+            "blackTieBreakSeed": 6000002,
+            "whiteTieBreakSeed": 6000003,
+            "winner": null,
+            "outcomeReason": null
+          },
+          {
+            "blackProfile": "D5",
+            "whiteProfile": "D2",
+            "trial": 1,
+            "plies": 20000,
+            "blackTieBreakSeed": 6000002,
+            "whiteTieBreakSeed": 6000003,
+            "winner": null,
+            "outcomeReason": null
+          },
+          {
+            "blackProfile": "D2",
+            "whiteProfile": "D5",
+            "trial": 1,
+            "plies": 20000,
+            "blackTieBreakSeed": 6000002,
+            "whiteTieBreakSeed": 6000003,
+            "winner": null,
+            "outcomeReason": null
+          },
+          {
+            "blackProfile": "D8",
+            "whiteProfile": "D2",
+            "trial": 1,
+            "plies": 20000,
+            "blackTieBreakSeed": 6000002,
+            "whiteTieBreakSeed": 6000003,
+            "winner": null,
+            "outcomeReason": null
+          },
+          {
+            "blackProfile": "D2",
+            "whiteProfile": "D8",
+            "trial": 1,
+            "plies": 20000,
+            "blackTieBreakSeed": 6000002,
+            "whiteTieBreakSeed": 6000003,
+            "winner": null,
+            "outcomeReason": null
+          },
+          {
+            "blackProfile": "D2",
+            "whiteProfile": "F1B8",
+            "trial": 0,
+            "plies": 20000,
+            "blackTieBreakSeed": 6000000,
+            "whiteTieBreakSeed": 6000001,
+            "winner": null,
+            "outcomeReason": null
+          },
+          {
+            "blackProfile": "D2",
+            "whiteProfile": "F1B8",
+            "trial": 1,
+            "plies": 20000,
+            "blackTieBreakSeed": 6000002,
+            "whiteTieBreakSeed": 6000003,
+            "winner": null,
+            "outcomeReason": null
+          },
+          {
+            "blackProfile": "F2B4",
+            "whiteProfile": "D2",
+            "trial": 0,
+            "plies": 20000,
+            "blackTieBreakSeed": 6000000,
+            "whiteTieBreakSeed": 6000001,
+            "winner": null,
+            "outcomeReason": null
+          }
+        ],
+        "error": []
+      }
+    }
+  ],
+  "caveats": [
+    "All games use the same centered 2x2 diagonal opening and elimination rules. Only tie-breaking seeds vary; this does not establish strength across varied openings.",
+    "The budget is a per-move ceiling on generated unique successors, not equal actual work or equal time. Shallow searches can stop early. Runtime also depends on machine load; transitions exclude some hashing and duplicate-generation overhead.",
+    "Full-width early plies followed by a beam are selective search. A winning score from that search is not a full-game proof. Completed horizon is the completed requested horizon, not actual search reach: terminal branches stop earlier. Max visited ply includes work from any partially completed deeper iteration.",
+    "Truncated games are right-censored at the safety cap, not draws. Active, error, and not-started games are separate. Win/score bounds allow every unresolved game to become a loss or win; completed-only rates can be biased by game length.",
+    "Lengths use plies (one player's move). Completed-game lengths exclude unfinished games. Percentiles use nearest rank; medians use the usual middle-value average.",
+    "Per-profile win records exclude self-play and depend on the opponent schedule. Per-turn diagnostics include every recorded move, including self-play and unfinished games.",
+    "Seeds are reused across pairings and colors have distinct seeds. Shared seed trials can correlate outcomes; nominal Wilson intervals are descriptive, not paired or cluster-adjusted inference. Small screening samples and selecting a winner require fresh-seed confirmation.",
+    "D1/D2 denote experiment profiles, not guaranteed identical app behavior: hard-budget fallback and tie-breaking can differ. Multiple input studies are shown separately, not pooled.",
+    "During a live run, each game is read from its latest atomic checkpoint, not a single synchronized tournament instant. Checkpoints are saved every 25 plies and can lag the live positions."
+  ]
+}
