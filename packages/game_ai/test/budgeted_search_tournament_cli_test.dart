@@ -18,13 +18,17 @@ void main() {
   });
   tearDown(() => directory.delete(recursive: true));
 
-  Future<ProcessResult> run({bool resume = false, int concurrency = 2}) =>
-      _runCli([
-        '--config=${config.path}',
-        '--output-dir=$output',
-        '--concurrency=$concurrency',
-        if (resume) '--resume',
-      ]);
+  Future<ProcessResult> run({
+    bool resume = false,
+    int concurrency = 2,
+    int? pauseAtPlies,
+  }) => _runCli([
+    '--config=${config.path}',
+    '--output-dir=$output',
+    '--concurrency=$concurrency',
+    if (pauseAtPlies != null) '--pause-at-plies=$pauseAtPlies',
+    if (resume) '--resume',
+  ]);
 
   test(
     'runs tiny-budget ordered games and censors without awarding draws',
@@ -58,6 +62,67 @@ void main() {
           expect(move['completedDepth'], 1);
         }
       }
+    },
+  );
+
+  test(
+    'operational pause preserves the experiment and resumes its exact prefix',
+    () async {
+      await config.writeAsString(jsonEncode(_config(safetyMaxPlies: 8)));
+      final paused = await run(pauseAtPlies: 3);
+      expect(paused.exitCode, 0, reason: '${paused.stderr}');
+      expect(paused.stderr, contains('Paused:'));
+      final savedConfig = File('$output/config.json').readAsStringSync();
+      final summary = _read(File('$output/summary.json'));
+      expect(summary['runComplete'], isFalse);
+      expect(summary['pendingGames'], 2);
+      expect(summary['completedGames'], 0);
+      expect(summary['truncatedGames'], 0);
+      expect(summary['draws'], 0);
+      final gameFile = File('$output/games/D1__D2__0.json');
+      final prefix = _read(gameFile);
+      expect(prefix['status'], 'active');
+      expect(prefix['plies'], 3);
+      expect(prefix['winner'], isNull);
+      expect(prefix['outcomeReason'], isNull);
+
+      // A same or lower operational limit must not rewrite existing results.
+      final before = _snapshot(Directory(output));
+      for (final limit in [3, 2]) {
+        final unchanged = await run(resume: true, pauseAtPlies: limit);
+        expect(unchanged.exitCode, 0, reason: '${unchanged.stderr}');
+        expect(unchanged.stderr, isEmpty);
+        expect(_snapshot(Directory(output)), before);
+      }
+
+      final continued = await run(resume: true, pauseAtPlies: 5);
+      expect(continued.exitCode, 0, reason: '${continued.stderr}');
+      final later = _read(gameFile);
+      expect(later['plies'], 5);
+      expect(later['status'], 'active');
+      expect((later['moves']! as List).take(3).toList(), prefix['moves']);
+      expect(File('$output/config.json').readAsStringSync(), savedConfig);
+
+      final completed = await run(resume: true);
+      expect(completed.exitCode, 0, reason: '${completed.stderr}');
+      expect(_read(File('$output/summary.json'))['runComplete'], isTrue);
+      final finalGame = _read(gameFile);
+      expect((finalGame['moves']! as List).take(5).toList(), later['moves']);
+      expect(File('$output/config.json').readAsStringSync(), savedConfig);
+
+      // Check that pausing cannot alter the deterministic move sequence.
+      final uninterruptedOutput = '${directory.path}/uninterrupted';
+      final uninterrupted = await _runCli([
+        '--config=${config.path}',
+        '--output-dir=$uninterruptedOutput',
+      ]);
+      expect(uninterrupted.exitCode, 0, reason: '${uninterrupted.stderr}');
+      final expected = _read(File('$uninterruptedOutput/games/D1__D2__0.json'));
+      expect(finalGame['state'], expected['state']);
+      expect(
+        (finalGame['moves']! as List).cast<Map>().map(_withoutTime).toList(),
+        (expected['moves']! as List).cast<Map>().map(_withoutTime).toList(),
+      );
     },
   );
 
@@ -166,6 +231,20 @@ void main() {
   );
 
   test('invalid inputs fail without creating output', () async {
+    await config.writeAsString(jsonEncode(_config()));
+    for (final limit in ['0', '-1', 'garbage', '']) {
+      final invalidLimit = await _runCli([
+        '--config=${config.path}',
+        '--output-dir=$output',
+        '--pause-at-plies=$limit',
+      ]);
+      expect(invalidLimit.exitCode, 64);
+      expect(
+        invalidLimit.stderr,
+        contains('--pause-at-plies must be positive'),
+      );
+      expect(Directory(output).existsSync(), isFalse);
+    }
     for (final invalid in [
       {..._config(), 'transitionBudget': 399},
       {..._config(), 'evaluationVersion': 'missing-fix'},

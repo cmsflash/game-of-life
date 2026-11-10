@@ -34,7 +34,12 @@ Future<void> main(List<String> arguments) async {
     for (final spec in specs) {
       final document = _readGame(config, options.outputDir!, spec);
       if (document != null) results[spec.key] = _compact(document);
-      if (document == null || !_finished(document)) pending.add(spec);
+      if ((document == null || !_finished(document)) &&
+          (document == null ||
+              options.pauseAtPlies == null ||
+              (document['plies']! as int) < options.pauseAtPlies!)) {
+        pending.add(spec);
+      }
     }
     void writeSummary() => _atomicWrite(
       File('${options.outputDir}/summary.json'),
@@ -48,12 +53,20 @@ Future<void> main(List<String> arguments) async {
         final spec = pending[next++];
         try {
           results[spec.key] = await Isolate.run(
-            _Invocation(config, options.outputDir!, spec).call,
+            _Invocation(
+              config,
+              options.outputDir!,
+              spec,
+              options.pauseAtPlies,
+            ).call,
           );
           final game = results[spec.key]!;
           final finishedCount = results.values.where(_finished).length;
+          final progress = _finished(game)
+              ? 'Finished $finishedCount/${specs.length}'
+              : 'Paused';
           stderr.writeln(
-            'Finished $finishedCount/${specs.length}: ${spec.black} vs '
+            '$progress: ${spec.black} vs '
             '${spec.white}, trial ${spec.trial}, ${game['status']} '
             'at ${game['plies']} plies (${game['winner'] ?? 'no winner'}).',
           );
@@ -123,18 +136,21 @@ void _prepareOutput(_Config config, _Options options) {
 }
 
 final class _Invocation {
-  const _Invocation(this.config, this.outputDir, this.spec);
+  const _Invocation(this.config, this.outputDir, this.spec, this.pauseAtPlies);
   final _Config config;
   final String outputDir;
   final _GameSpec spec;
+  final int? pauseAtPlies;
 
-  Map<String, Object?> call() => _runGame(config, outputDir, spec);
+  Map<String, Object?> call() =>
+      _runGame(config, outputDir, spec, pauseAtPlies);
 }
 
 Map<String, Object?> _runGame(
   _Config config,
   String outputDir,
   _GameSpec spec,
+  int? pauseAtPlies,
 ) {
   const engine = GameEngine();
   final saved = _readGame(config, outputDir, spec);
@@ -185,7 +201,9 @@ Map<String, Object?> _runGame(
 
   try {
     checkpoint();
-    while (state.isActive && state.ply < config.safetyMaxPlies) {
+    while (state.isActive &&
+        state.ply < config.safetyMaxPlies &&
+        (pauseAtPlies == null || state.ply < pauseAtPlies)) {
       final decision = (state.toMove == Player.black ? black : white)
           .chooseMove(state);
       final move = decision.move;
@@ -714,12 +732,14 @@ final class _Options {
     this.configPath,
     this.outputDir,
     this.concurrency,
+    this.pauseAtPlies,
     this.resume,
     this.help,
   );
   final String? configPath;
   final String? outputDir;
   final int concurrency;
+  final int? pauseAtPlies;
   final bool resume;
   final bool help;
 
@@ -727,6 +747,7 @@ final class _Options {
     String? config;
     String? output;
     var concurrency = 6;
+    int? pauseAtPlies;
     var resume = false;
     var help = false;
     for (final argument in arguments) {
@@ -737,6 +758,9 @@ final class _Options {
       } else if (argument.startsWith('--concurrency=')) {
         concurrency =
             int.tryParse(argument.substring('--concurrency='.length)) ?? 0;
+      } else if (argument.startsWith('--pause-at-plies=')) {
+        pauseAtPlies =
+            int.tryParse(argument.substring('--pause-at-plies='.length)) ?? 0;
       } else if (argument == '--resume') {
         resume = true;
       } else if (argument == '--help' || argument == '-h') {
@@ -755,7 +779,10 @@ final class _Options {
     if (concurrency < 1) {
       throw const FormatException('--concurrency must be positive');
     }
-    return _Options(config, output, concurrency, resume, help);
+    if (pauseAtPlies != null && pauseAtPlies < 1) {
+      throw const FormatException('--pause-at-plies must be positive');
+    }
+    return _Options(config, output, concurrency, pauseAtPlies, resume, help);
   }
 }
 
@@ -767,6 +794,8 @@ Usage:
 
 Options:
   --concurrency=N  Simultaneous games (default: 6).
+  --pause-at-plies=N  Save unfinished games at N plies without adjudicating them.
+                      Resume with a higher limit or omit to continue normally.
   --resume         Continue saved states with identical configuration.
   -h, --help       Show this help.
 ''';

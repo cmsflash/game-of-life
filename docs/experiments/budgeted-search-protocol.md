@@ -75,6 +75,23 @@ Save resumable states and per-move diagnostics every 25 plies and on completion.
 Games still running or failing are separate from safety-cap truncations.
 The source revision and normalized configuration hash identify each run.
 
+## Operational pause amendment — 2026-11-10
+
+On resuming the saved screen, the user requested a review at **20,000 plies per
+unfinished game**, before deciding whether to continue. This is an operational
+pause, not a new victory rule or a replacement of the one-million-ply safety
+cap. Run with `--resume --pause-at-plies=20000`; retain the original normalized
+configuration, source identity, seeds, and checkpoint histories. A game that
+reaches this review threshold while still active remains **unfinished**, never
+a draw or a population-adjudicated win. Its checkpoint can be resumed later
+with the same configuration and a higher (or omitted) pause threshold.
+
+Report this round when every scheduled game has either ended naturally or
+reached the review threshold. Use score bounds for all survivors. Do not start
+the confirmation tournament before discussing these results with the user.
+The November resume uses 18 local workers; latency measurements include the
+changed machine/load conditions and are not controlled speed comparisons.
+
 ## Predeclared stages
 
 1. **Screen:** every challenger against D2, both colors, 2 games per ordered
