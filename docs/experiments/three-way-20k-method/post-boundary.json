@@ -1,0 +1,546 @@
+{
+  "verifiedAt": "2026-11-11T00:58:41.490188Z",
+  "reference": "Unoptimized game_ai and game_engine libraries compiled from original local project",
+  "sourceRevision": "5347c9bc6307899a3617be04beee2dd6bd7bde27+deferred-boards-94a37a5b5eca",
+  "metrics": [
+    "score",
+    "completedDepth",
+    "attemptedDepth",
+    "maxVisitedPly",
+    "successorEvaluations",
+    "nodesVisited",
+    "cacheHits",
+    "cutoffs",
+    "budgetExhausted"
+  ],
+  "games": [
+    {
+      "game": "D3__F1B4__0.json",
+      "boundaryPly": 1300,
+      "matchedBoundaryStateHash": true,
+      "decisions": [
+        {
+          "moveNumber": 1301,
+          "player": "black",
+          "profile": "D3",
+          "seed": 6100000,
+          "row": 7,
+          "column": 18,
+          "matchedSearchDiagnostics": true,
+          "resultingPositionHash": "f81f72cb07c96ed11f5c3a4c1e38b9beba7e74445cb6ceeb8e6e22ccdfcde925"
+        },
+        {
+          "moveNumber": 1302,
+          "player": "white",
+          "profile": "F1B4",
+          "seed": 6100001,
+          "row": 9,
+          "column": 17,
+          "matchedSearchDiagnostics": true,
+          "resultingPositionHash": "ed56511cd73da120b9151a5c5e8dcc6e879f26a177ea76bbbade6bc7cc96c0e7"
+        }
+      ],
+      "canonicalReplayThroughPly": 1394,
+      "matchedCheckpointStateHash": "f25ef51bd0c299b6a33df4dae577ced73737997a1864fcf292cce413bf051760"
+    },
+    {
+      "game": "D3__F1B4__1.json",
+      "boundaryPly": 1100,
+      "matchedBoundaryStateHash": true,
+      "decisions": [
+        {
+          "moveNumber": 1101,
+          "player": "black",
+          "profile": "D3",
+          "seed": 6100002,
+          "row": 6,
+          "column": 14,
+          "matchedSearchDiagnostics": true,
+          "resultingPositionHash": "745c08ce9201483631baa8ee1ab5453e3a2cc8198f12758d411dc5e8dd25d4be"
+        },
+        {
+          "moveNumber": 1102,
+          "player": "white",
+          "profile": "F1B4",
+          "seed": 6100003,
+          "row": 4,
+          "column": 10,
+          "matchedSearchDiagnostics": true,
+          "resultingPositionHash": "34d2190a22f28ed230673534d02981fb16087ad3b1e54f69c8b8943bd888a1f2"
+        }
+      ],
+      "canonicalReplayThroughPly": 2603,
+      "matchedCheckpointStateHash": "4471900202de7952344e865aac1e48429f1f034b1c8c876dd28ea23fe5caea2c"
+    },
+    {
+      "game": "D3__F1B4__2.json",
+      "boundaryPly": 1250,
+      "matchedBoundaryStateHash": true,
+      "decisions": [
+        {
+          "moveNumber": 1251,
+          "player": "black",
+          "profile": "D3",
+          "seed": 6100004,
+          "row": 11,
+          "column": 5,
+          "matchedSearchDiagnostics": true,
+          "resultingPositionHash": "9b75cb71eab97bb38b723b95974a54c70f921ee8c632e5317779af3a8e04666e"
+        },
+        {
+          "moveNumber": 1252,
+          "player": "white",
+          "profile": "F1B4",
+          "seed": 6100005,
+          "row": 8,
+          "column": 4,
+          "matchedSearchDiagnostics": true,
+          "resultingPositionHash": "1798b16c7bc9f14fd24d09438b2ab3e89ec4aa04f7ddd005eec3f0370d592e40"
+        }
+      ],
+      "canonicalReplayThroughPly": 3548,
+      "matchedCheckpointStateHash": "58956b96d2ea780dbaaab284a3b521ed2c350455051f8d75178199eae5b7e3e6"
+    },
+    {
+      "game": "D3__F1B4__3.json",
+      "boundaryPly": 1200,
+      "matchedBoundaryStateHash": true,
+      "decisions": [
+        {
+          "moveNumber": 1201,
+          "player": "black",
+          "profile": "D3",
+          "seed": 6100006,
+          "row": 6,
+          "column": 3,
+          "matchedSearchDiagnostics": true,
+          "resultingPositionHash": "a0423814078e2b8bb4230e1293170290ffafe77295ae49c1600ceb431cc23fe0"
+        },
+        {
+          "moveNumber": 1202,
+          "player": "white",
+          "profile": "F1B4",
+          "seed": 6100007,
+          "row": 3,
+          "column": 1,
+          "matchedSearchDiagnostics": true,
+          "resultingPositionHash": "54b94ac0fc6a3c5eb6b205bb7aa3ba6f2393ed8a7af607c1c15435959a487d3b"
+        }
+      ],
+      "canonicalReplayThroughPly": 1732,
+      "matchedCheckpointStateHash": "4d07a2e99ce9dc2ca4a2e6af937356cf9a31ea3fdfad7d4761652000fc223585"
+    },
+    {
+      "game": "D3__F2B8__0.json",
+      "boundaryPly": 1225,
+      "matchedBoundaryStateHash": true,
+      "decisions": [
+        {
+          "moveNumber": 1226,
+          "player": "white",
+          "profile": "F2B8",
+          "seed": 6100001,
+          "row": 15,
+          "column": 8,
+          "matchedSearchDiagnostics": true,
+          "resultingPositionHash": "7bcb71c388ebb8f8a219ea0107687983b9c316107be757a12c7574609e1284b7"
+        },
+        {
+          "moveNumber": 1227,
+          "player": "black",
+          "profile": "D3",
+          "seed": 6100000,
+          "row": 4,
+          "column": 5,
+          "matchedSearchDiagnostics": true,
+          "resultingPositionHash": "275026f0f0de71d079531b5222bafd14fe04e9f4dcb9903d4fb9fc59d86bc697"
+        }
+      ],
+      "canonicalReplayThroughPly": 5200,
+      "matchedCheckpointStateHash": "b0dec13968366b4d2a1fcb26c94b974a9b235418fe5f58045161a05310d76f93"
+    },
+    {
+      "game": "D3__F2B8__1.json",
+      "boundaryPly": 275,
+      "matchedBoundaryStateHash": true,
+      "decisions": [
+        {
+          "moveNumber": 276,
+          "player": "white",
+          "profile": "F2B8",
+          "seed": 6100003,
+          "row": 4,
+          "column": 5,
+          "matchedSearchDiagnostics": true,
+          "resultingPositionHash": "484837b97f042d344249e20a8c77213910e06d677f4c9e1b59d47d79cb8b0c69"
+        },
+        {
+          "moveNumber": 277,
+          "player": "black",
+          "profile": "D3",
+          "seed": 6100002,
+          "row": 4,
+          "column": 8,
+          "matchedSearchDiagnostics": true,
+          "resultingPositionHash": "306726ff0f70b85da3ecbe6e1553e2973d87a27ba1f0ef38aaa64411c431687e"
+        }
+      ],
+      "canonicalReplayThroughPly": 4850,
+      "matchedCheckpointStateHash": "a2f05c13a2ed31c670146a279d9867dc95c7a6bab4c5699e48c6a79206422e48"
+    },
+    {
+      "game": "D3__F2B8__2.json",
+      "boundaryPly": 1275,
+      "matchedBoundaryStateHash": true,
+      "decisions": [
+        {
+          "moveNumber": 1276,
+          "player": "white",
+          "profile": "F2B8",
+          "seed": 6100005,
+          "row": 6,
+          "column": 15,
+          "matchedSearchDiagnostics": true,
+          "resultingPositionHash": "132a3f87756c174512705543ddb8496e4743671c76165f507d2e09e8746308ee"
+        },
+        {
+          "moveNumber": 1277,
+          "player": "black",
+          "profile": "D3",
+          "seed": 6100004,
+          "row": 11,
+          "column": 7,
+          "matchedSearchDiagnostics": true,
+          "resultingPositionHash": "6030f52d2beb713b9a818cb48de661153d5a6e390a1a5b66dcacf738871a145c"
+        }
+      ],
+      "canonicalReplayThroughPly": 6100,
+      "matchedCheckpointStateHash": "12f49155493ea02896e848d754f8e8fe270031df319b126cdfa495af2c8926ee"
+    },
+    {
+      "game": "F1B4__D3__0.json",
+      "boundaryPly": 1275,
+      "matchedBoundaryStateHash": true,
+      "decisions": [
+        {
+          "moveNumber": 1276,
+          "player": "white",
+          "profile": "D3",
+          "seed": 6100001,
+          "row": 2,
+          "column": 16,
+          "matchedSearchDiagnostics": true,
+          "resultingPositionHash": "e9fd1b284f3eaf9836c188063812fa8e160a6124cc4a2e80d6a36973ea6f4420"
+        },
+        {
+          "moveNumber": 1277,
+          "player": "black",
+          "profile": "F1B4",
+          "seed": 6100000,
+          "row": 9,
+          "column": 14,
+          "matchedSearchDiagnostics": true,
+          "resultingPositionHash": "53f181946d4b810d01691a14c839535fa67e24fc2c8121bedbd932b412391a3e"
+        }
+      ],
+      "canonicalReplayThroughPly": 6100,
+      "matchedCheckpointStateHash": "01a4be070d7fc33eec3b0897b0f14bb5f8a5c86cd34d5ca057883d0d5d90e398"
+    },
+    {
+      "game": "F1B4__D3__3.json",
+      "boundaryPly": 800,
+      "matchedBoundaryStateHash": true,
+      "decisions": [
+        {
+          "moveNumber": 801,
+          "player": "black",
+          "profile": "F1B4",
+          "seed": 6100006,
+          "row": 5,
+          "column": 9,
+          "matchedSearchDiagnostics": true,
+          "resultingPositionHash": "2e8ab8b30c3cbf9f3889398539fbc9f94f056ce72bf810a0ce24a0e9b490f7be"
+        },
+        {
+          "moveNumber": 802,
+          "player": "white",
+          "profile": "D3",
+          "seed": 6100007,
+          "row": 6,
+          "column": 9,
+          "matchedSearchDiagnostics": true,
+          "resultingPositionHash": "e9d16c1cab26869695b2a757ac86279db359e2d59a47ca196963da754fb055c8"
+        }
+      ],
+      "canonicalReplayThroughPly": 1078,
+      "matchedCheckpointStateHash": "50479a974f871a7220054814e77f3c606e4ab446f6705ee358dcb7eaca492e2c"
+    },
+    {
+      "game": "F1B4__F2B8__0.json",
+      "boundaryPly": 975,
+      "matchedBoundaryStateHash": true,
+      "decisions": [
+        {
+          "moveNumber": 976,
+          "player": "white",
+          "profile": "F2B8",
+          "seed": 6100001,
+          "row": 4,
+          "column": 14,
+          "matchedSearchDiagnostics": true,
+          "resultingPositionHash": "3bf40461c182a54c9589deae03a7e8622aa001a83ae20c9d826b3e88230e6525"
+        },
+        {
+          "moveNumber": 977,
+          "player": "black",
+          "profile": "F1B4",
+          "seed": 6100000,
+          "row": 16,
+          "column": 3,
+          "matchedSearchDiagnostics": true,
+          "resultingPositionHash": "e6d896a13c21a3ae33dacb03679dce0548677f54fa8ea0992baa9339f777b103"
+        }
+      ],
+      "canonicalReplayThroughPly": 5925,
+      "matchedCheckpointStateHash": "da3377284b04dd8ff7ec91e0f2776a5fb09c1e03968b079e7ee3e131bc5afd62"
+    },
+    {
+      "game": "F1B4__F2B8__1.json",
+      "boundaryPly": 800,
+      "matchedBoundaryStateHash": true,
+      "decisions": [
+        {
+          "moveNumber": 801,
+          "player": "black",
+          "profile": "F1B4",
+          "seed": 6100002,
+          "row": 2,
+          "column": 4,
+          "matchedSearchDiagnostics": true,
+          "resultingPositionHash": "5cdd0bbe9c156d4089ba3f327e8c342bee5814050422839e8406c969f7949ef4"
+        },
+        {
+          "moveNumber": 802,
+          "player": "white",
+          "profile": "F2B8",
+          "seed": 6100003,
+          "row": 14,
+          "column": 18,
+          "matchedSearchDiagnostics": true,
+          "resultingPositionHash": "d3bbc47f62343880990bc021c17135e502bdbaab571a7ad437c0ca3ef2a7595b"
+        }
+      ],
+      "canonicalReplayThroughPly": 5475,
+      "matchedCheckpointStateHash": "ffa23e409e2f0fb0d4c74db0fb0fb6634aeac4b03909640557307f9221255368"
+    },
+    {
+      "game": "F1B4__F2B8__2.json",
+      "boundaryPly": 1125,
+      "matchedBoundaryStateHash": true,
+      "decisions": [
+        {
+          "moveNumber": 1126,
+          "player": "white",
+          "profile": "F2B8",
+          "seed": 6100005,
+          "row": 8,
+          "column": 6,
+          "matchedSearchDiagnostics": true,
+          "resultingPositionHash": "7b71222aef16f9776e2af78b1202d9497129ad184f971a334c722db0ee5322d0"
+        },
+        {
+          "moveNumber": 1127,
+          "player": "black",
+          "profile": "F1B4",
+          "seed": 6100004,
+          "row": 7,
+          "column": 8,
+          "matchedSearchDiagnostics": true,
+          "resultingPositionHash": "b541207fe6c13145851934ed3d907a6c622522d42c944cfbda0e7a8db36e3aae"
+        }
+      ],
+      "canonicalReplayThroughPly": 5650,
+      "matchedCheckpointStateHash": "90ff6bd9d6c4df612ce747acf7ac9626b85ed5b07e7798ea38c6fac694c0a4e4"
+    },
+    {
+      "game": "F2B8__D3__0.json",
+      "boundaryPly": 1200,
+      "matchedBoundaryStateHash": true,
+      "decisions": [
+        {
+          "moveNumber": 1201,
+          "player": "black",
+          "profile": "F2B8",
+          "seed": 6100000,
+          "row": 4,
+          "column": 3,
+          "matchedSearchDiagnostics": true,
+          "resultingPositionHash": "bde96c3feca0972c1fb1ba619681ad04bfb5f59964d99772df9a114349d8e2e3"
+        },
+        {
+          "moveNumber": 1202,
+          "player": "white",
+          "profile": "D3",
+          "seed": 6100001,
+          "row": 9,
+          "column": 1,
+          "matchedSearchDiagnostics": true,
+          "resultingPositionHash": "8eda2371e1ac9b68a862dfa9fbc33b1ca86c18aba78c12f9735c753b7266e1f6"
+        }
+      ],
+      "canonicalReplayThroughPly": 7225,
+      "matchedCheckpointStateHash": "2de765bf627e035c7cc501274dc3efec9b37838d5ed301af22fbd6a2cf402404"
+    },
+    {
+      "game": "F2B8__D3__1.json",
+      "boundaryPly": 1250,
+      "matchedBoundaryStateHash": true,
+      "decisions": [
+        {
+          "moveNumber": 1251,
+          "player": "black",
+          "profile": "F2B8",
+          "seed": 6100002,
+          "row": 1,
+          "column": 2,
+          "matchedSearchDiagnostics": true,
+          "resultingPositionHash": "90767872a9f2b4eb25a584451a8f3aa8f30baed4151f1406b8904e060927107b"
+        },
+        {
+          "moveNumber": 1252,
+          "player": "white",
+          "profile": "D3",
+          "seed": 6100003,
+          "row": 15,
+          "column": 7,
+          "matchedSearchDiagnostics": true,
+          "resultingPositionHash": "1d682b852e85329ec8f21f3b226d944297e9d62e9acb740619fa46b527e52b02"
+        }
+      ],
+      "canonicalReplayThroughPly": 7550,
+      "matchedCheckpointStateHash": "70d3dd63fa0395fce362f8d7d03c1b70d21c6c717f0b045a7387b034c845eb08"
+    },
+    {
+      "game": "F2B8__D3__2.json",
+      "boundaryPly": 1250,
+      "matchedBoundaryStateHash": true,
+      "decisions": [
+        {
+          "moveNumber": 1251,
+          "player": "black",
+          "profile": "F2B8",
+          "seed": 6100004,
+          "row": 4,
+          "column": 6,
+          "matchedSearchDiagnostics": true,
+          "resultingPositionHash": "9e509fbccfe0197eb89bf28b91e7d796b817bd49f10f62320d3e50bf2dab2eda"
+        },
+        {
+          "moveNumber": 1252,
+          "player": "white",
+          "profile": "D3",
+          "seed": 6100005,
+          "row": 6,
+          "column": 3,
+          "matchedSearchDiagnostics": true,
+          "resultingPositionHash": "b2911c834890c09469a679097dc9ac160fe46603caf2a604b3391485f1d5a8fc"
+        }
+      ],
+      "canonicalReplayThroughPly": 7650,
+      "matchedCheckpointStateHash": "e29be224b0db444cc4a67b9f416d56e8a9a32425aad851f3c87a169c923b2ed3"
+    },
+    {
+      "game": "F2B8__F1B4__0.json",
+      "boundaryPly": 675,
+      "matchedBoundaryStateHash": true,
+      "decisions": [
+        {
+          "moveNumber": 676,
+          "player": "white",
+          "profile": "F1B4",
+          "seed": 6100001,
+          "row": 11,
+          "column": 8,
+          "matchedSearchDiagnostics": true,
+          "resultingPositionHash": "e12a8bb7ceb6849bd4358672b34b8ec7573251688171263508c508f1a8001933"
+        },
+        {
+          "moveNumber": 677,
+          "player": "black",
+          "profile": "F2B8",
+          "seed": 6100000,
+          "row": 15,
+          "column": 8,
+          "matchedSearchDiagnostics": true,
+          "resultingPositionHash": "7bbc376bfb129ccb11f9dcf787e4847146d337b93c4a51eb7d572c5850760fb4"
+        }
+      ],
+      "canonicalReplayThroughPly": 6800,
+      "matchedCheckpointStateHash": "02d6222732b674d63e645d2bab0ae82b54ff0e509ec3d603307ba488db03e24f"
+    },
+    {
+      "game": "F2B8__F1B4__1.json",
+      "boundaryPly": 925,
+      "matchedBoundaryStateHash": true,
+      "decisions": [
+        {
+          "moveNumber": 926,
+          "player": "white",
+          "profile": "F1B4",
+          "seed": 6100003,
+          "row": 12,
+          "column": 6,
+          "matchedSearchDiagnostics": true,
+          "resultingPositionHash": "39583f19ac38ee6f1c8da63830b516d6a7fcd8847cb27e2fcb0e0a6ae0db6c26"
+        },
+        {
+          "moveNumber": 927,
+          "player": "black",
+          "profile": "F2B8",
+          "seed": 6100002,
+          "row": 12,
+          "column": 9,
+          "matchedSearchDiagnostics": true,
+          "resultingPositionHash": "d7749567ae35f4cf1270c0763048e4038864a4fd36ef9c07d147cb25957d803c"
+        }
+      ],
+      "canonicalReplayThroughPly": 5623,
+      "matchedCheckpointStateHash": "86fabe627b558d54551e29585a29d3f0fc75ff16961262d07b414a401ad5bab6"
+    },
+    {
+      "game": "F2B8__F1B4__2.json",
+      "boundaryPly": 1150,
+      "matchedBoundaryStateHash": true,
+      "decisions": [
+        {
+          "moveNumber": 1151,
+          "player": "black",
+          "profile": "F2B8",
+          "seed": 6100004,
+          "row": 9,
+          "column": 5,
+          "matchedSearchDiagnostics": true,
+          "resultingPositionHash": "f4326ff3bb72d0c979e9ab7e264dea7b485eff6c315360c97731f701b99f23a8"
+        },
+        {
+          "moveNumber": 1152,
+          "player": "white",
+          "profile": "F1B4",
+          "seed": 6100005,
+          "row": 8,
+          "column": 5,
+          "matchedSearchDiagnostics": true,
+          "resultingPositionHash": "264fc6779c5e78ec062930ec43438325df4780660e01517515a47291ddf659dd"
+        }
+      ],
+      "canonicalReplayThroughPly": 7750,
+      "matchedCheckpointStateHash": "a2d324bde7342a6ecf950f9bb6a57399e610c7be30dd9d6bc9852bbfc823db6e"
+    }
+  ],
+  "matchedGames": 18,
+  "matchedPostBoundaryMoves": 36,
+  "matchedPostBoundaryColorCounts": {
+    "black": 18,
+    "white": 18
+  }
+}

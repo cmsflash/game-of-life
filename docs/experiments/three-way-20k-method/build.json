@@ -1,0 +1,14 @@
+{
+  "startRevision": "730171a1cd01a8ddefaf98bd5a164971dd8983a3",
+  "originalRunnerSha256": "94a37a5b5eca3391ddb4b331351a87cf3a51a166d225af62cf0c06c6f570eb0b",
+  "nativeStartedUTC": "2026-11-11T00:57:58.062076+00:00",
+  "nativeBinaryHashes": {
+    "exact_search.cc": "ca2cdd3b436c97a875079f8ea0e1addea89327c4cc6e8e0cd2dac0c8efd6a083",
+    "libexactsearch.dylib": "6a63992e20b4cade4079d1848be23204988eb0dae6496d2fde98dc8f4ceefd5b",
+    "native-runner": "b96c9e7ed8b24f973bcf376e154b1ba685efe3a102231848ac133884b89fd4b4"
+  },
+  "formattedCppSha256": "ebe3ad372f50002c21e042143fb4399b01324bda49642c60f1d38a9183505613",
+  "formattedBuildByteIdentical": true,
+  "preSwitchSavedPlies": 19549,
+  "configHash": "63ee83c2cdc40614d6529e32d40820c702e49e70224e34b51d403d8514a12abc"
+}

@@ -1,0 +1,14 @@
+{
+  "matchedCasesPerPass": 36,
+  "seconds": {
+    "native": [
+      0.146857,
+      0.208387
+    ],
+    "previous": [
+      3.410467,
+      3.740204
+    ]
+  },
+  "speedup": 20.128900136244383
+}

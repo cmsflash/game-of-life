@@ -1,0 +1,122 @@
+{
+  "D3__F1B4__0.json": {
+    "plies": 1300,
+    "status": "active",
+    "stateHash": "f04f6d4fb53cb0644411ac459b35e578110c6874c18f6af054a097d1b42ecbef",
+    "sha256": "6168cdf95b4484245beafd29b4dbea1bca75ee464d4396267f05f745df88013e"
+  },
+  "D3__F1B4__1.json": {
+    "plies": 1100,
+    "status": "active",
+    "stateHash": "df16ee4ddfaccb76d6939df4bdd20c134075f6850ed3822c2156af1b26984844",
+    "sha256": "4a6c1f179ff85af2dd9a5d51d18e0a2ef08a09a40409c8d1066ff407cfbd8625"
+  },
+  "D3__F1B4__2.json": {
+    "plies": 1250,
+    "status": "active",
+    "stateHash": "3b0d239c1d507784e6656e0d5be5650e92a7f28c44f25193fd159c07fc83a89e",
+    "sha256": "38ccff7b3fcebbd5474031eab5d72fbd902b37e35579cdfd7e9f3260f5e79478"
+  },
+  "D3__F1B4__3.json": {
+    "plies": 1200,
+    "status": "active",
+    "stateHash": "f87a684767d9d89f7f886e759b8a3aa5f8251a40b4caf622e31690c1ed58ee2f",
+    "sha256": "3b4f404ca22dcb80e1895df94addadec6f74124fc8ba3e1ab5e4686f45bb0e81"
+  },
+  "D3__F2B8__0.json": {
+    "plies": 1225,
+    "status": "active",
+    "stateHash": "1bac886145dfccacd95995e5c58a795ff42b921fdc4ed2635dc47683b16ff7cc",
+    "sha256": "89916d1c023a2ce84f0e3e977a2f82b57f914663871f9e87bc1191a6ddc5597f"
+  },
+  "D3__F2B8__1.json": {
+    "plies": 275,
+    "status": "active",
+    "stateHash": "e1a2cc3b1fadb7ce8ebc34cf593f8a108ed2d82886f18fdfd5ba26a1ceb28252",
+    "sha256": "3e17d5e881b8764e4c830004af53bf58c43b204f7a3e5b276762454366eb569a"
+  },
+  "D3__F2B8__2.json": {
+    "plies": 1275,
+    "status": "active",
+    "stateHash": "6699f955bcdac5e4e1397bb61425bcb8ef4c987310280fca28634271b4741ddb",
+    "sha256": "959b6b1c609c518d8cbc231e3420be4da7a9fedfa342bd238819a23f29326328"
+  },
+  "F1B4__D3__0.json": {
+    "plies": 1275,
+    "status": "active",
+    "stateHash": "50c7bf47a4dc90859fa8eeab3312c8852293d3d59204f47a2c433453cd0351a4",
+    "sha256": "c3581e629d916f340d8144a73551785cb8e4d8befb0b0de55e75cd9b11d52b95"
+  },
+  "F1B4__D3__1.json": {
+    "plies": 22,
+    "status": "complete",
+    "stateHash": "6a48afe226b54d96367ee1c4f8fdde7d61357f1712469a3b29c90466d5ec38ed",
+    "sha256": "403910bfead2091921681bc6d181f2387c03bff64652284a2ff7eff445f14988"
+  },
+  "F1B4__D3__2.json": {
+    "plies": 477,
+    "status": "complete",
+    "stateHash": "31e4a2b2e27fdfb2fd3f69bdeae66988d16768951d7daa6ea36c22aa31f1dba1",
+    "sha256": "890a5c0f0b51f2b7c9a4b84e7943ceb8d5b69b1a6f20a7e0b5ae799f087fafac"
+  },
+  "F1B4__D3__3.json": {
+    "plies": 800,
+    "status": "active",
+    "stateHash": "ce04346ea6f0352ef2e19d69d9a8adc0b0083d486833a139361dd883e2588ae7",
+    "sha256": "6c1761f1e5fd53426915205a9503cb67061c7011c5bac06e02a82c9ec4dd8fa7"
+  },
+  "F1B4__F2B8__0.json": {
+    "plies": 975,
+    "status": "active",
+    "stateHash": "65371e2fae11312dbe9f7a57f6091ad9fa4b95948460edc10646fda881c38340",
+    "sha256": "50408d85e7beb6f8a62f6da8b3047774262204f13aac082bea4b2abe60dac5e5"
+  },
+  "F1B4__F2B8__1.json": {
+    "plies": 800,
+    "status": "active",
+    "stateHash": "b1dff8eecf41b151289ddb17b1ab4871d58e798ead829dcfafd21244ad5a64b5",
+    "sha256": "f35a3fa74546b94a41ca79f57f4f5db1c2db05e69dd1fecf1d3215dc3aa1b19c"
+  },
+  "F1B4__F2B8__2.json": {
+    "plies": 1125,
+    "status": "active",
+    "stateHash": "6b874a954146f5499e939b4d11883eb9e0e9b80ac6aacf165079e67f6a9b4ca8",
+    "sha256": "ebbd2b0b9d879681db8abd8c55e5204c5f5ad220e409ae16b577d07a503acc58"
+  },
+  "F2B8__D3__0.json": {
+    "plies": 1200,
+    "status": "active",
+    "stateHash": "9627d833ba18e7d6f3a9b35e9bebe8ca99ba79a7d613b50fe22a530393acc306",
+    "sha256": "1562af9c81b4f7f3ae0fda286d12a67df63570d2d283d3d7a53501135725c208"
+  },
+  "F2B8__D3__1.json": {
+    "plies": 1250,
+    "status": "active",
+    "stateHash": "5ce822da91d430e706452bc1730613d4a75b5991dedea80192405951cbf80207",
+    "sha256": "112e6d28b479724b061dfda65f0f6b7159adba65fbb25423b876088acd7def48"
+  },
+  "F2B8__D3__2.json": {
+    "plies": 1250,
+    "status": "active",
+    "stateHash": "f398da1c7ceeb637ec2b87f24c8e4d7c5d6c680a1513116d568f8ebd56c18841",
+    "sha256": "e017edfbc180e488917696351125d6c061fe4f91e242e30d2cd9ba111cb141d3"
+  },
+  "F2B8__F1B4__0.json": {
+    "plies": 675,
+    "status": "active",
+    "stateHash": "e8ce5f511b1a8966b4cc56842fcfdd8e9ae658452f22775cd494a8b24ba34f1d",
+    "sha256": "09330f6c8aaedf51ab6f18d4fab6aac49a9001716a962eda27d0146241ef97bd"
+  },
+  "F2B8__F1B4__1.json": {
+    "plies": 925,
+    "status": "active",
+    "stateHash": "572351dda716450d73f62f34d7bd99c27e4b371f7d1b3344cff457c12d261598",
+    "sha256": "64c4255ad33fd9abb18c810558ecbf6c6b5f0e8b7c368fe9715761b38fd7da57"
+  },
+  "F2B8__F1B4__2.json": {
+    "plies": 1150,
+    "status": "active",
+    "stateHash": "dea34ae808e5c0d954cb1cedcf615ded461cc269a2ad1b6eacf70d56efad0780",
+    "sha256": "33817f27419c84401c74ee58f172ee059520ba4d908999f172298e470f467ee6"
+  }
+}

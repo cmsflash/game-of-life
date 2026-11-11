@@ -1,0 +1,970 @@
+{
+  "studyId": "three-way-20k-2026-11-10",
+  "configHash": "63ee83c2cdc40614d6529e32d40820c702e49e70224e34b51d403d8514a12abc",
+  "baseSeed": 6100000,
+  "cap": 20000,
+  "plies": 506196,
+  "blackWins": 23,
+  "whiteWins": 24,
+  "naturalDraws": 1,
+  "capped": 12,
+  "policies": {
+    "D3": {
+      "overall": {
+        "W": 13,
+        "L": 17,
+        "D": 0,
+        "U": 10,
+        "games": 40,
+        "scoreBounds": [
+          13.0,
+          23.0
+        ]
+      },
+      "search": {
+        "moves": 181225,
+        "meanSuccessors": 77421.39791971307,
+        "meanMilliseconds": 15.92452655538695
+      },
+      "black": {
+        "W": 7,
+        "L": 9,
+        "D": 0,
+        "U": 4,
+        "games": 20,
+        "scoreBounds": [
+          7.0,
+          11.0
+        ]
+      },
+      "white": {
+        "W": 6,
+        "L": 8,
+        "D": 0,
+        "U": 6,
+        "games": 20,
+        "scoreBounds": [
+          6.0,
+          12.0
+        ]
+      }
+    },
+    "F1B4": {
+      "overall": {
+        "W": 14,
+        "L": 20,
+        "D": 1,
+        "U": 5,
+        "games": 40,
+        "scoreBounds": [
+          14.5,
+          19.5
+        ]
+      },
+      "search": {
+        "moves": 126517,
+        "meanSuccessors": 99995.36186441348,
+        "meanMilliseconds": 26.1195112751646
+      },
+      "black": {
+        "W": 5,
+        "L": 10,
+        "D": 1,
+        "U": 4,
+        "games": 20,
+        "scoreBounds": [
+          5.5,
+          9.5
+        ]
+      },
+      "white": {
+        "W": 9,
+        "L": 10,
+        "D": 0,
+        "U": 1,
+        "games": 20,
+        "scoreBounds": [
+          9.0,
+          10.0
+        ]
+      }
+    },
+    "F2B8": {
+      "overall": {
+        "W": 20,
+        "L": 10,
+        "D": 1,
+        "U": 9,
+        "games": 40,
+        "scoreBounds": [
+          20.5,
+          29.5
+        ]
+      },
+      "search": {
+        "moves": 198454,
+        "meanSuccessors": 99997.99921392363,
+        "meanMilliseconds": 17.499868150805728
+      },
+      "black": {
+        "W": 11,
+        "L": 5,
+        "D": 0,
+        "U": 4,
+        "games": 20,
+        "scoreBounds": [
+          11.0,
+          15.0
+        ]
+      },
+      "white": {
+        "W": 9,
+        "L": 5,
+        "D": 1,
+        "U": 5,
+        "games": 20,
+        "scoreBounds": [
+          9.5,
+          14.5
+        ]
+      }
+    }
+  },
+  "matchups": {
+    "D3 / F1B4": {
+      "first": "D3",
+      "second": "F1B4",
+      "record": {
+        "W": 10,
+        "L": 7,
+        "D": 0,
+        "U": 3,
+        "games": 20,
+        "scoreBounds": [
+          10.0,
+          13.0
+        ]
+      },
+      "asBlack": {
+        "W": 5,
+        "L": 5,
+        "D": 0,
+        "U": 0,
+        "games": 10,
+        "scoreBounds": [
+          5.0,
+          5.0
+        ]
+      },
+      "asWhite": {
+        "W": 5,
+        "L": 2,
+        "D": 0,
+        "U": 3,
+        "games": 10,
+        "scoreBounds": [
+          5.0,
+          8.0
+        ]
+      },
+      "bySeed": [
+        "LU",
+        "LW",
+        "WW",
+        "LW",
+        "WL",
+        "WW",
+        "LW",
+        "LL",
+        "WU",
+        "WU"
+      ],
+      "patternCounts": {
+        "LU": 1,
+        "LW": 3,
+        "WW": 2,
+        "WL": 1,
+        "LL": 1,
+        "WU": 2
+      }
+    },
+    "D3 / F2B8": {
+      "first": "D3",
+      "second": "F2B8",
+      "record": {
+        "W": 3,
+        "L": 10,
+        "D": 0,
+        "U": 7,
+        "games": 20,
+        "scoreBounds": [
+          3.0,
+          10.0
+        ]
+      },
+      "asBlack": {
+        "W": 2,
+        "L": 4,
+        "D": 0,
+        "U": 4,
+        "games": 10,
+        "scoreBounds": [
+          2.0,
+          6.0
+        ]
+      },
+      "asWhite": {
+        "W": 1,
+        "L": 6,
+        "D": 0,
+        "U": 3,
+        "games": 10,
+        "scoreBounds": [
+          1.0,
+          4.0
+        ]
+      },
+      "bySeed": [
+        "LL",
+        "WL",
+        "LW",
+        "WU",
+        "LU",
+        "LL",
+        "UL",
+        "UL",
+        "UU",
+        "UL"
+      ],
+      "patternCounts": {
+        "LL": 2,
+        "WL": 1,
+        "LW": 1,
+        "WU": 1,
+        "LU": 1,
+        "UL": 3,
+        "UU": 1
+      }
+    },
+    "F1B4 / F2B8": {
+      "first": "F1B4",
+      "second": "F2B8",
+      "record": {
+        "W": 7,
+        "L": 10,
+        "D": 1,
+        "U": 2,
+        "games": 20,
+        "scoreBounds": [
+          7.5,
+          9.5
+        ]
+      },
+      "asBlack": {
+        "W": 3,
+        "L": 5,
+        "D": 1,
+        "U": 1,
+        "games": 10,
+        "scoreBounds": [
+          3.5,
+          4.5
+        ]
+      },
+      "asWhite": {
+        "W": 4,
+        "L": 5,
+        "D": 0,
+        "U": 1,
+        "games": 10,
+        "scoreBounds": [
+          4.0,
+          5.0
+        ]
+      },
+      "bySeed": [
+        "LU",
+        "LL",
+        "UW",
+        "LL",
+        "LL",
+        "WW",
+        "WL",
+        "WL",
+        "LW",
+        "DW"
+      ],
+      "patternCounts": {
+        "LU": 1,
+        "LL": 3,
+        "UW": 1,
+        "WW": 1,
+        "WL": 2,
+        "LW": 1,
+        "DW": 1
+      }
+    }
+  },
+  "games": [
+    {
+      "blackProfile": "D3",
+      "whiteProfile": "F1B4",
+      "trial": 0,
+      "blackTieBreakSeed": 6100000,
+      "whiteTieBreakSeed": 6100001,
+      "status": "complete",
+      "winner": "white",
+      "outcomeReason": "elimination",
+      "plies": 1394
+    },
+    {
+      "blackProfile": "D3",
+      "whiteProfile": "F1B4",
+      "trial": 1,
+      "blackTieBreakSeed": 6100002,
+      "whiteTieBreakSeed": 6100003,
+      "status": "complete",
+      "winner": "white",
+      "outcomeReason": "elimination",
+      "plies": 2603
+    },
+    {
+      "blackProfile": "D3",
+      "whiteProfile": "F1B4",
+      "trial": 2,
+      "blackTieBreakSeed": 6100004,
+      "whiteTieBreakSeed": 6100005,
+      "status": "complete",
+      "winner": "black",
+      "outcomeReason": "elimination",
+      "plies": 3548
+    },
+    {
+      "blackProfile": "D3",
+      "whiteProfile": "F1B4",
+      "trial": 3,
+      "blackTieBreakSeed": 6100006,
+      "whiteTieBreakSeed": 6100007,
+      "status": "complete",
+      "winner": "white",
+      "outcomeReason": "elimination",
+      "plies": 1732
+    },
+    {
+      "blackProfile": "D3",
+      "whiteProfile": "F1B4",
+      "trial": 4,
+      "blackTieBreakSeed": 6100008,
+      "whiteTieBreakSeed": 6100009,
+      "status": "complete",
+      "winner": "black",
+      "outcomeReason": "elimination",
+      "plies": 1867
+    },
+    {
+      "blackProfile": "D3",
+      "whiteProfile": "F1B4",
+      "trial": 5,
+      "blackTieBreakSeed": 6100010,
+      "whiteTieBreakSeed": 6100011,
+      "status": "complete",
+      "winner": "black",
+      "outcomeReason": "elimination",
+      "plies": 16819
+    },
+    {
+      "blackProfile": "D3",
+      "whiteProfile": "F1B4",
+      "trial": 6,
+      "blackTieBreakSeed": 6100012,
+      "whiteTieBreakSeed": 6100013,
+      "status": "complete",
+      "winner": "white",
+      "outcomeReason": "elimination",
+      "plies": 390
+    },
+    {
+      "blackProfile": "D3",
+      "whiteProfile": "F1B4",
+      "trial": 7,
+      "blackTieBreakSeed": 6100014,
+      "whiteTieBreakSeed": 6100015,
+      "status": "complete",
+      "winner": "white",
+      "outcomeReason": "elimination",
+      "plies": 1483
+    },
+    {
+      "blackProfile": "D3",
+      "whiteProfile": "F1B4",
+      "trial": 8,
+      "blackTieBreakSeed": 6100016,
+      "whiteTieBreakSeed": 6100017,
+      "status": "complete",
+      "winner": "black",
+      "outcomeReason": "elimination",
+      "plies": 70
+    },
+    {
+      "blackProfile": "D3",
+      "whiteProfile": "F1B4",
+      "trial": 9,
+      "blackTieBreakSeed": 6100018,
+      "whiteTieBreakSeed": 6100019,
+      "status": "complete",
+      "winner": "black",
+      "outcomeReason": "elimination",
+      "plies": 32
+    },
+    {
+      "blackProfile": "D3",
+      "whiteProfile": "F2B8",
+      "trial": 0,
+      "blackTieBreakSeed": 6100000,
+      "whiteTieBreakSeed": 6100001,
+      "status": "complete",
+      "winner": "white",
+      "outcomeReason": "elimination",
+      "plies": 6666
+    },
+    {
+      "blackProfile": "D3",
+      "whiteProfile": "F2B8",
+      "trial": 1,
+      "blackTieBreakSeed": 6100002,
+      "whiteTieBreakSeed": 6100003,
+      "status": "complete",
+      "winner": "black",
+      "outcomeReason": "elimination",
+      "plies": 10504
+    },
+    {
+      "blackProfile": "D3",
+      "whiteProfile": "F2B8",
+      "trial": 2,
+      "blackTieBreakSeed": 6100004,
+      "whiteTieBreakSeed": 6100005,
+      "status": "complete",
+      "winner": "white",
+      "outcomeReason": "elimination",
+      "plies": 9287
+    },
+    {
+      "blackProfile": "D3",
+      "whiteProfile": "F2B8",
+      "trial": 3,
+      "blackTieBreakSeed": 6100006,
+      "whiteTieBreakSeed": 6100007,
+      "status": "complete",
+      "winner": "black",
+      "outcomeReason": "elimination",
+      "plies": 354
+    },
+    {
+      "blackProfile": "D3",
+      "whiteProfile": "F2B8",
+      "trial": 4,
+      "blackTieBreakSeed": 6100008,
+      "whiteTieBreakSeed": 6100009,
+      "status": "complete",
+      "winner": "white",
+      "outcomeReason": "elimination",
+      "plies": 6103
+    },
+    {
+      "blackProfile": "D3",
+      "whiteProfile": "F2B8",
+      "trial": 5,
+      "blackTieBreakSeed": 6100010,
+      "whiteTieBreakSeed": 6100011,
+      "status": "complete",
+      "winner": "white",
+      "outcomeReason": "elimination",
+      "plies": 8851
+    },
+    {
+      "blackProfile": "D3",
+      "whiteProfile": "F2B8",
+      "trial": 6,
+      "blackTieBreakSeed": 6100012,
+      "whiteTieBreakSeed": 6100013,
+      "status": "truncated",
+      "winner": null,
+      "outcomeReason": null,
+      "plies": 20000
+    },
+    {
+      "blackProfile": "D3",
+      "whiteProfile": "F2B8",
+      "trial": 7,
+      "blackTieBreakSeed": 6100014,
+      "whiteTieBreakSeed": 6100015,
+      "status": "truncated",
+      "winner": null,
+      "outcomeReason": null,
+      "plies": 20000
+    },
+    {
+      "blackProfile": "D3",
+      "whiteProfile": "F2B8",
+      "trial": 8,
+      "blackTieBreakSeed": 6100016,
+      "whiteTieBreakSeed": 6100017,
+      "status": "truncated",
+      "winner": null,
+      "outcomeReason": null,
+      "plies": 20000
+    },
+    {
+      "blackProfile": "D3",
+      "whiteProfile": "F2B8",
+      "trial": 9,
+      "blackTieBreakSeed": 6100018,
+      "whiteTieBreakSeed": 6100019,
+      "status": "truncated",
+      "winner": null,
+      "outcomeReason": null,
+      "plies": 20000
+    },
+    {
+      "blackProfile": "F1B4",
+      "whiteProfile": "D3",
+      "trial": 0,
+      "blackTieBreakSeed": 6100000,
+      "whiteTieBreakSeed": 6100001,
+      "status": "truncated",
+      "winner": null,
+      "outcomeReason": null,
+      "plies": 20000
+    },
+    {
+      "blackProfile": "F1B4",
+      "whiteProfile": "D3",
+      "trial": 1,
+      "blackTieBreakSeed": 6100002,
+      "whiteTieBreakSeed": 6100003,
+      "status": "complete",
+      "winner": "white",
+      "outcomeReason": "elimination",
+      "plies": 22
+    },
+    {
+      "blackProfile": "F1B4",
+      "whiteProfile": "D3",
+      "trial": 2,
+      "blackTieBreakSeed": 6100004,
+      "whiteTieBreakSeed": 6100005,
+      "status": "complete",
+      "winner": "white",
+      "outcomeReason": "elimination",
+      "plies": 477
+    },
+    {
+      "blackProfile": "F1B4",
+      "whiteProfile": "D3",
+      "trial": 3,
+      "blackTieBreakSeed": 6100006,
+      "whiteTieBreakSeed": 6100007,
+      "status": "complete",
+      "winner": "white",
+      "outcomeReason": "elimination",
+      "plies": 1078
+    },
+    {
+      "blackProfile": "F1B4",
+      "whiteProfile": "D3",
+      "trial": 4,
+      "blackTieBreakSeed": 6100008,
+      "whiteTieBreakSeed": 6100009,
+      "status": "complete",
+      "winner": "black",
+      "outcomeReason": "elimination",
+      "plies": 118
+    },
+    {
+      "blackProfile": "F1B4",
+      "whiteProfile": "D3",
+      "trial": 5,
+      "blackTieBreakSeed": 6100010,
+      "whiteTieBreakSeed": 6100011,
+      "status": "complete",
+      "winner": "white",
+      "outcomeReason": "elimination",
+      "plies": 1380
+    },
+    {
+      "blackProfile": "F1B4",
+      "whiteProfile": "D3",
+      "trial": 6,
+      "blackTieBreakSeed": 6100012,
+      "whiteTieBreakSeed": 6100013,
+      "status": "complete",
+      "winner": "white",
+      "outcomeReason": "elimination",
+      "plies": 6876
+    },
+    {
+      "blackProfile": "F1B4",
+      "whiteProfile": "D3",
+      "trial": 7,
+      "blackTieBreakSeed": 6100014,
+      "whiteTieBreakSeed": 6100015,
+      "status": "complete",
+      "winner": "black",
+      "outcomeReason": "elimination",
+      "plies": 9401
+    },
+    {
+      "blackProfile": "F1B4",
+      "whiteProfile": "D3",
+      "trial": 8,
+      "blackTieBreakSeed": 6100016,
+      "whiteTieBreakSeed": 6100017,
+      "status": "truncated",
+      "winner": null,
+      "outcomeReason": null,
+      "plies": 20000
+    },
+    {
+      "blackProfile": "F1B4",
+      "whiteProfile": "D3",
+      "trial": 9,
+      "blackTieBreakSeed": 6100018,
+      "whiteTieBreakSeed": 6100019,
+      "status": "truncated",
+      "winner": null,
+      "outcomeReason": null,
+      "plies": 20000
+    },
+    {
+      "blackProfile": "F1B4",
+      "whiteProfile": "F2B8",
+      "trial": 0,
+      "blackTieBreakSeed": 6100000,
+      "whiteTieBreakSeed": 6100001,
+      "status": "complete",
+      "winner": "white",
+      "outcomeReason": "elimination",
+      "plies": 14606
+    },
+    {
+      "blackProfile": "F1B4",
+      "whiteProfile": "F2B8",
+      "trial": 1,
+      "blackTieBreakSeed": 6100002,
+      "whiteTieBreakSeed": 6100003,
+      "status": "complete",
+      "winner": "white",
+      "outcomeReason": "elimination",
+      "plies": 6463
+    },
+    {
+      "blackProfile": "F1B4",
+      "whiteProfile": "F2B8",
+      "trial": 2,
+      "blackTieBreakSeed": 6100004,
+      "whiteTieBreakSeed": 6100005,
+      "status": "truncated",
+      "winner": null,
+      "outcomeReason": null,
+      "plies": 20000
+    },
+    {
+      "blackProfile": "F1B4",
+      "whiteProfile": "F2B8",
+      "trial": 3,
+      "blackTieBreakSeed": 6100006,
+      "whiteTieBreakSeed": 6100007,
+      "status": "complete",
+      "winner": "white",
+      "outcomeReason": "elimination",
+      "plies": 1796
+    },
+    {
+      "blackProfile": "F1B4",
+      "whiteProfile": "F2B8",
+      "trial": 4,
+      "blackTieBreakSeed": 6100008,
+      "whiteTieBreakSeed": 6100009,
+      "status": "complete",
+      "winner": "white",
+      "outcomeReason": "elimination",
+      "plies": 3617
+    },
+    {
+      "blackProfile": "F1B4",
+      "whiteProfile": "F2B8",
+      "trial": 5,
+      "blackTieBreakSeed": 6100010,
+      "whiteTieBreakSeed": 6100011,
+      "status": "complete",
+      "winner": "black",
+      "outcomeReason": "elimination",
+      "plies": 18
+    },
+    {
+      "blackProfile": "F1B4",
+      "whiteProfile": "F2B8",
+      "trial": 6,
+      "blackTieBreakSeed": 6100012,
+      "whiteTieBreakSeed": 6100013,
+      "status": "complete",
+      "winner": "black",
+      "outcomeReason": "elimination",
+      "plies": 3217
+    },
+    {
+      "blackProfile": "F1B4",
+      "whiteProfile": "F2B8",
+      "trial": 7,
+      "blackTieBreakSeed": 6100014,
+      "whiteTieBreakSeed": 6100015,
+      "status": "complete",
+      "winner": "black",
+      "outcomeReason": "elimination",
+      "plies": 968
+    },
+    {
+      "blackProfile": "F1B4",
+      "whiteProfile": "F2B8",
+      "trial": 8,
+      "blackTieBreakSeed": 6100016,
+      "whiteTieBreakSeed": 6100017,
+      "status": "complete",
+      "winner": "white",
+      "outcomeReason": "elimination",
+      "plies": 18322
+    },
+    {
+      "blackProfile": "F1B4",
+      "whiteProfile": "F2B8",
+      "trial": 9,
+      "blackTieBreakSeed": 6100018,
+      "whiteTieBreakSeed": 6100019,
+      "status": "complete",
+      "winner": null,
+      "outcomeReason": "mutualExtinction",
+      "plies": 1080
+    },
+    {
+      "blackProfile": "F2B8",
+      "whiteProfile": "D3",
+      "trial": 0,
+      "blackTieBreakSeed": 6100000,
+      "whiteTieBreakSeed": 6100001,
+      "status": "complete",
+      "winner": "black",
+      "outcomeReason": "elimination",
+      "plies": 13838
+    },
+    {
+      "blackProfile": "F2B8",
+      "whiteProfile": "D3",
+      "trial": 1,
+      "blackTieBreakSeed": 6100002,
+      "whiteTieBreakSeed": 6100003,
+      "status": "complete",
+      "winner": "black",
+      "outcomeReason": "elimination",
+      "plies": 10526
+    },
+    {
+      "blackProfile": "F2B8",
+      "whiteProfile": "D3",
+      "trial": 2,
+      "blackTieBreakSeed": 6100004,
+      "whiteTieBreakSeed": 6100005,
+      "status": "complete",
+      "winner": "white",
+      "outcomeReason": "elimination",
+      "plies": 10768
+    },
+    {
+      "blackProfile": "F2B8",
+      "whiteProfile": "D3",
+      "trial": 3,
+      "blackTieBreakSeed": 6100006,
+      "whiteTieBreakSeed": 6100007,
+      "status": "truncated",
+      "winner": null,
+      "outcomeReason": null,
+      "plies": 20000
+    },
+    {
+      "blackProfile": "F2B8",
+      "whiteProfile": "D3",
+      "trial": 4,
+      "blackTieBreakSeed": 6100008,
+      "whiteTieBreakSeed": 6100009,
+      "status": "truncated",
+      "winner": null,
+      "outcomeReason": null,
+      "plies": 20000
+    },
+    {
+      "blackProfile": "F2B8",
+      "whiteProfile": "D3",
+      "trial": 5,
+      "blackTieBreakSeed": 6100010,
+      "whiteTieBreakSeed": 6100011,
+      "status": "complete",
+      "winner": "black",
+      "outcomeReason": "elimination",
+      "plies": 19615
+    },
+    {
+      "blackProfile": "F2B8",
+      "whiteProfile": "D3",
+      "trial": 6,
+      "blackTieBreakSeed": 6100012,
+      "whiteTieBreakSeed": 6100013,
+      "status": "complete",
+      "winner": "black",
+      "outcomeReason": "elimination",
+      "plies": 118
+    },
+    {
+      "blackProfile": "F2B8",
+      "whiteProfile": "D3",
+      "trial": 7,
+      "blackTieBreakSeed": 6100014,
+      "whiteTieBreakSeed": 6100015,
+      "status": "complete",
+      "winner": "black",
+      "outcomeReason": "elimination",
+      "plies": 11963
+    },
+    {
+      "blackProfile": "F2B8",
+      "whiteProfile": "D3",
+      "trial": 8,
+      "blackTieBreakSeed": 6100016,
+      "whiteTieBreakSeed": 6100017,
+      "status": "truncated",
+      "winner": null,
+      "outcomeReason": null,
+      "plies": 20000
+    },
+    {
+      "blackProfile": "F2B8",
+      "whiteProfile": "D3",
+      "trial": 9,
+      "blackTieBreakSeed": 6100018,
+      "whiteTieBreakSeed": 6100019,
+      "status": "complete",
+      "winner": "black",
+      "outcomeReason": "elimination",
+      "plies": 4564
+    },
+    {
+      "blackProfile": "F2B8",
+      "whiteProfile": "F1B4",
+      "trial": 0,
+      "blackTieBreakSeed": 6100000,
+      "whiteTieBreakSeed": 6100001,
+      "status": "truncated",
+      "winner": null,
+      "outcomeReason": null,
+      "plies": 20000
+    },
+    {
+      "blackProfile": "F2B8",
+      "whiteProfile": "F1B4",
+      "trial": 1,
+      "blackTieBreakSeed": 6100002,
+      "whiteTieBreakSeed": 6100003,
+      "status": "complete",
+      "winner": "black",
+      "outcomeReason": "elimination",
+      "plies": 5623
+    },
+    {
+      "blackProfile": "F2B8",
+      "whiteProfile": "F1B4",
+      "trial": 2,
+      "blackTieBreakSeed": 6100004,
+      "whiteTieBreakSeed": 6100005,
+      "status": "complete",
+      "winner": "white",
+      "outcomeReason": "elimination",
+      "plies": 17857
+    },
+    {
+      "blackProfile": "F2B8",
+      "whiteProfile": "F1B4",
+      "trial": 3,
+      "blackTieBreakSeed": 6100006,
+      "whiteTieBreakSeed": 6100007,
+      "status": "complete",
+      "winner": "black",
+      "outcomeReason": "elimination",
+      "plies": 18
+    },
+    {
+      "blackProfile": "F2B8",
+      "whiteProfile": "F1B4",
+      "trial": 4,
+      "blackTieBreakSeed": 6100008,
+      "whiteTieBreakSeed": 6100009,
+      "status": "complete",
+      "winner": "black",
+      "outcomeReason": "elimination",
+      "plies": 2457
+    },
+    {
+      "blackProfile": "F2B8",
+      "whiteProfile": "F1B4",
+      "trial": 5,
+      "blackTieBreakSeed": 6100010,
+      "whiteTieBreakSeed": 6100011,
+      "status": "complete",
+      "winner": "white",
+      "outcomeReason": "elimination",
+      "plies": 3221
+    },
+    {
+      "blackProfile": "F2B8",
+      "whiteProfile": "F1B4",
+      "trial": 6,
+      "blackTieBreakSeed": 6100012,
+      "whiteTieBreakSeed": 6100013,
+      "status": "complete",
+      "winner": "black",
+      "outcomeReason": "elimination",
+      "plies": 7019
+    },
+    {
+      "blackProfile": "F2B8",
+      "whiteProfile": "F1B4",
+      "trial": 7,
+      "blackTieBreakSeed": 6100014,
+      "whiteTieBreakSeed": 6100015,
+      "status": "complete",
+      "winner": "black",
+      "outcomeReason": "elimination",
+      "plies": 3272
+    },
+    {
+      "blackProfile": "F2B8",
+      "whiteProfile": "F1B4",
+      "trial": 8,
+      "blackTieBreakSeed": 6100016,
+      "whiteTieBreakSeed": 6100017,
+      "status": "complete",
+      "winner": "white",
+      "outcomeReason": "elimination",
+      "plies": 2434
+    },
+    {
+      "blackProfile": "F2B8",
+      "whiteProfile": "F1B4",
+      "trial": 9,
+      "blackTieBreakSeed": 6100018,
+      "whiteTieBreakSeed": 6100019,
+      "status": "complete",
+      "winner": "white",
+      "outcomeReason": "elimination",
+      "plies": 11761
+    }
+  ]
+}

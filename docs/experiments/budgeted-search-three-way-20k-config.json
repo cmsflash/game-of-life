@@ -1,0 +1,55 @@
+{
+  "studyId": "three-way-20k-2026-11-10",
+  "sourceRevision": "5347c9bc6307899a3617be04beee2dd6bd7bde27+deferred-boards-94a37a5b5eca",
+  "evaluationVersion": "terminalUtilityV1",
+  "baseSeed": 6100000,
+  "gamesPerCell": 10,
+  "safetyMaxPlies": 20000,
+  "transitionBudget": 100000,
+  "profiles": [
+    {
+      "id": "D3",
+      "maxDepth": 3,
+      "fullWidthDepth": 64,
+      "beamWidth": 8
+    },
+    {
+      "id": "F1B4",
+      "maxDepth": 8,
+      "fullWidthDepth": 1,
+      "beamWidth": 4
+    },
+    {
+      "id": "F2B8",
+      "maxDepth": 8,
+      "fullWidthDepth": 2,
+      "beamWidth": 8
+    }
+  ],
+  "pairings": [
+    {
+      "black": "D3",
+      "white": "F1B4"
+    },
+    {
+      "black": "F1B4",
+      "white": "D3"
+    },
+    {
+      "black": "D3",
+      "white": "F2B8"
+    },
+    {
+      "black": "F2B8",
+      "white": "D3"
+    },
+    {
+      "black": "F1B4",
+      "white": "F2B8"
+    },
+    {
+      "black": "F2B8",
+      "white": "F1B4"
+    }
+  ]
+}

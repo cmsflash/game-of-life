@@ -1,0 +1,124 @@
+--- a/packages/game_ai/lib/src/experimental/budgeted_search_agent.dart
++++ b/packages/game_ai/lib/src/experimental/budgeted_search_agent.dart
+@@ -1,4 +1,6 @@
+ import 'dart:convert';
++import 'dart:ffi' as ffi;
++import 'dart:io';
+ 
+ import 'package:crypto/crypto.dart';
+ import 'package:game_engine/game_engine.dart';
+@@ -115,6 +117,11 @@
+     }
+     if (tieBreakSeed != null && tieBreakSeed! < 0) {
+       throw ArgumentError('tieBreakSeed must be non-negative');
++    }
++    if (state.rules.victory is EliminationVictory &&
++        state.board.rows == 20 &&
++        state.board.columns == 20) {
++      return _nativeDecision(this, state);
+     }
+     return _BudgetedSearch(this, state).run();
+   }
+@@ -325,3 +332,102 @@
+     return prefix % count;
+   }
+ }
++
++final _kernel = ffi.DynamicLibrary.open(
++  Platform.environment['LIFE_SEARCH_LIBRARY']!,
++);
++final _allocate = ffi.DynamicLibrary.process()
++    .lookupFunction<
++      ffi.Pointer<ffi.Uint8> Function(ffi.IntPtr),
++      ffi.Pointer<ffi.Uint8> Function(int)
++    >('malloc');
++final _free = ffi.DynamicLibrary.process()
++    .lookupFunction<
++      ffi.Void Function(ffi.Pointer<ffi.Uint8>),
++      void Function(ffi.Pointer<ffi.Uint8>)
++    >('free');
++final _chooseNative = _kernel
++    .lookupFunction<
++      ffi.Void Function(
++        ffi.Pointer<ffi.Uint8>,
++        ffi.Pointer<ffi.Uint32>,
++        ffi.Pointer<ffi.Int32>,
++        ffi.Int32,
++        ffi.Int32,
++        ffi.Int32,
++        ffi.Int32,
++        ffi.Int32,
++      ),
++      void Function(
++        ffi.Pointer<ffi.Uint8>,
++        ffi.Pointer<ffi.Uint32>,
++        ffi.Pointer<ffi.Int32>,
++        int,
++        int,
++        int,
++        int,
++        int,
++      )
++    >('choose');
++BudgetedSearchDecision _nativeDecision(
++  BudgetedSearchAgent agent,
++  GameState state,
++) {
++  final watch = Stopwatch()..start();
++  final memory = _allocate(1024);
++  if (memory.address == 0) throw StateError('allocation failed');
++  try {
++    final ties = (memory + 400).cast<ffi.Uint32>();
++    final out = (memory + 700).cast<ffi.Int32>();
++    final cells = state.board.cells;
++    for (var i = 0; i < 400; i++) {
++      memory[i] = cells[i].wireValue;
++    }
++    final hash = state.stateHash;
++    for (var depth = 1; depth <= agent.maxDepth; depth++) {
++      ties[depth - 1] = agent.tieBreakSeed == null
++          ? 0
++          : sha256
++                .convert(
++                  utf8.encode('${agent.tieBreakSeed}:$hash:budgeted:$depth'),
++                )
++                .bytes
++                .take(4)
++                .fold<int>(0, (a, b) => (a << 8) + b);
++    }
++    _chooseNative(
++      memory,
++      ties,
++      out,
++      state.toMove == Player.black ? 1 : 2,
++      agent.maxDepth,
++      agent.fullWidthDepth,
++      agent.beamWidth,
++      agent.transitionBudget,
++    );
++    watch.stop();
++    if (out[0] < 0 || out[0] >= 400 || out[2] < 1)
++      throw StateError('incomplete native decision');
++    return BudgetedSearchDecision(
++      move: GameMove(
++        player: state.toMove!,
++        row: out[0] ~/ 20,
++        column: out[0] % 20,
++        expectedRevision: state.revision,
++      ),
++      score: out[1],
++      completedDepth: out[2],
++      attemptedDepth: out[3],
++      maxVisitedPly: out[4],
++      successorEvaluations: out[5],
++      nodesVisited: out[6],
++      cacheHits: out[7],
++      cutoffs: out[8],
++      budgetExhausted: out[9] != 0,
++      elapsed: watch.elapsed,
++      agent: agent,
++    );
++  } finally {
++    _free(memory);
++  }
++}
