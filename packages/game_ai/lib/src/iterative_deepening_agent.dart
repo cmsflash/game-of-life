@@ -4,15 +4,8 @@ import 'package:crypto/crypto.dart';
 import 'package:game_engine/game_engine.dart';
 
 import 'agent.dart';
+import 'cooperative_search.dart';
 import 'position_evaluation.dart';
-
-/// A cancelled search must never commit a partially computed move.
-final class SearchCancelledException implements Exception {
-  const SearchCancelledException();
-
-  @override
-  String toString() => 'AI search cancelled';
-}
 
 final class IterativeDeepeningDecision implements AgentDecision {
   const IterativeDeepeningDecision({
@@ -100,22 +93,12 @@ final class IterativeDeepeningAgent implements GameAgent {
     GameState state, {
     bool Function()? isCancelled,
   }) async {
-    final search = _start(state, isCancelled: isCancelled);
-    // Give the UI a chance to paint its thinking state before any search work.
-    await Future<void>.delayed(Duration.zero);
-    final iterator = search.run().iterator;
-    final slice = Stopwatch()..start();
-    while (iterator.moveNext()) {
-      if (slice.elapsedMilliseconds >= 8) {
-        await Future<void>.delayed(Duration.zero);
-        slice.reset();
-      }
-    }
-    search.checkCancellation();
+    final search = _start(state);
+    await runSearchInSlices(search.run(), isCancelled: isCancelled);
     return search.decision();
   }
 
-  _Search _start(GameState state, {bool Function()? isCancelled}) {
+  _Search _start(GameState state) {
     if (!state.isActive) {
       throw StateError('cannot search a completed game');
     }
@@ -130,7 +113,7 @@ final class IterativeDeepeningAgent implements GameAgent {
     if (tieBreakSeed != null && tieBreakSeed! < 0) {
       throw ArgumentError('tieBreakSeed must be non-negative');
     }
-    return _Search(this, state, isCancelled);
+    return _Search(this, state);
   }
 }
 
@@ -156,7 +139,7 @@ final class _Node {
 final class _BudgetExpired implements Exception {}
 
 final class _Search {
-  _Search(this.agent, this.root, this.isCancelled)
+  _Search(this.agent, this.root)
     : player = root.toMove!,
       watch = Stopwatch()..start();
 
@@ -165,7 +148,6 @@ final class _Search {
   final IterativeDeepeningAgent agent;
   final GameState root;
   final Player player;
-  final bool Function()? isCancelled;
   final Stopwatch watch;
   final table = <_Key, _Entry>{};
   int nodes = 0;
@@ -177,18 +159,11 @@ final class _Search {
   GameMove? bestMove;
   bool budgetExhausted = false;
 
-  void checkCancellation() {
-    if (isCancelled?.call() ?? false) {
-      throw const SearchCancelledException();
-    }
-  }
-
   bool get overBudget =>
       watch.elapsed >= agent.timeBudget ||
       (agent.maxNodes != null && nodes >= agent.maxNodes!);
 
   void checkpoint() {
-    checkCancellation();
     if (completedDepth >= agent.minDepth && overBudget) {
       budgetExhausted = true;
       throw _BudgetExpired();

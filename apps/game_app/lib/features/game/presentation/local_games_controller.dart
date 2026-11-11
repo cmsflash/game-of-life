@@ -389,6 +389,11 @@ class LocalGamesController extends StateNotifier<LocalGamesState> {
         session.game,
         isCancelled: isCancelled,
       ),
+      LocalParticipantType.aiLevel3 =>
+        (await const BudgetedSearchAgent.level3().chooseMoveAsync(
+          session.game,
+          isCancelled: isCancelled,
+        )).move,
     };
     if (isCancelled()) throw const _LocalGameOperationCancelled();
     final turn = _engine.applyMove(session.game, move);

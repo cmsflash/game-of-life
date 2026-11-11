@@ -19,13 +19,15 @@ enum LocalParticipantType {
   human,
   aiLevel1,
   aiLevel2,
-  aiLevel29;
+  aiLevel29,
+  aiLevel3;
 
   static LocalParticipantType fromJson(Object? value) => switch (value) {
     'human' => LocalParticipantType.human,
     'ai' || 'aiLevel1' => LocalParticipantType.aiLevel1,
     'aiLevel2' => LocalParticipantType.aiLevel2,
     'aiLevel29' => LocalParticipantType.aiLevel29,
+    'aiLevel3' => LocalParticipantType.aiLevel3,
     _ => throw FormatException('Unsupported local participant type: $value'),
   };
 
@@ -36,6 +38,7 @@ enum LocalParticipantType {
     LocalParticipantType.aiLevel1 => 'AI level 1',
     LocalParticipantType.aiLevel2 => 'AI level 2',
     LocalParticipantType.aiLevel29 => 'AI level 2.9',
+    LocalParticipantType.aiLevel3 => 'AI level 3',
   };
 }
 

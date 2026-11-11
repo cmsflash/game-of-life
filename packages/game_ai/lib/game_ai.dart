@@ -2,6 +2,7 @@
 library;
 
 export 'src/agent.dart';
+export 'src/budgeted_search_agent.dart';
 export 'src/iterative_deepening_agent.dart';
 export 'src/match_runner.dart';
 export 'src/one_step_max_difference_agent.dart';

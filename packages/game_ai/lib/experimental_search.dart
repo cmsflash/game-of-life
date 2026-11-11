@@ -1,4 +1,4 @@
-/// Offline search experiments; these agents are not app AI levels.
+/// Configurable budgeted search for offline experiments.
 library;
 
-export 'src/experimental/budgeted_search_agent.dart';
+export 'src/budgeted_search_agent.dart';

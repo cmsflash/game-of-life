@@ -1,4 +1,5 @@
-import 'package:game_ai/experimental_search.dart';
+import 'dart:async';
+
 import 'package:game_ai/game_ai.dart';
 import 'package:game_engine/game_engine.dart';
 import 'package:test/test.dart';
@@ -6,6 +7,47 @@ import 'package:test/test.dart';
 const _engine = GameEngine();
 
 void main() {
+  test('Level 3 reproduces an F2B8 tournament decision in both APIs', () async {
+    const agent = BudgetedSearchAgent.level3(tieBreakSeed: 6100000);
+    final opening = _engine.initialState();
+    final sync = agent.chooseMove(opening);
+    final async = await agent.chooseMoveAsync(opening);
+    expect(
+      async.toJson()..remove('elapsedMicroseconds'),
+      sync.toJson()..remove('elapsedMicroseconds'),
+    );
+
+    // F2B8 as Black, fresh-seed round robin, trial 0, first placement.
+    expect(sync.move.coordinate, const Coordinate(7, 11));
+    expect(sync.score, 0);
+    expect(sync.completedDepth, 4);
+    expect(sync.attemptedDepth, 5);
+    expect(sync.successorEvaluations, 100000);
+    expect(sync.nodesVisited, 10761);
+    expect(sync.cacheHits, 38);
+    expect(sync.cutoffs, 2093);
+    expect(sync.budgetExhausted, isTrue);
+    expect(const BudgetedSearchAgent.level3().tieBreakSeed, isNull);
+  });
+
+  test('Level 3 yields during the search and accepts cancellation', () async {
+    var cancelled = false;
+    var started = false;
+    await expectLater(
+      const BudgetedSearchAgent.level3().chooseMoveAsync(
+        _engine.initialState(),
+        isCancelled: () {
+          if (!started) {
+            started = true;
+            Timer.run(() => cancelled = true);
+          }
+          return cancelled;
+        },
+      ),
+      throwsA(isA<SearchCancelledException>()),
+    );
+  });
+
   test('validates strict-budget configuration and terminal input', () {
     final state = _engine.initialState();
     for (final agent in [

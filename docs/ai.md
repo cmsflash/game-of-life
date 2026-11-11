@@ -2,7 +2,7 @@
 
 ## Scope
 
-The product supports two established local AI levels and one experimental level:
+The product supports three established local AI levels and one experimental level:
 
 1. **AI level 1** maximizes its own cells minus the opponent's cells after its
    move and the resulting evolution.
@@ -11,8 +11,9 @@ The product supports two established local AI levels and one experimental level:
 3. **AI level 2.9** completes at least three plies, then iteratively deepens while
    its soft thinking budget permits. It remains experimental; reaching a deeper
    search does not automatically promote it to level 3.
+4. **AI level 3** uses the F2B8 policy from the head-to-head tournament.
 
-All three prioritize terminal outcomes: wins score +401, losses -401, and draws
+All four prioritize terminal outcomes: wins score +401, losses -401, and draws
 0 from the searching player's perspective. Active positions use own-minus-
 opponent population (bounded by the 400-cell board). These outcome scores apply
 to every supported victory rule, not only elimination. Population diagnostics
@@ -84,11 +85,26 @@ restart, deletion and controller disposal cancel pending work. A stale result
 cannot overwrite a replacement game. The synchronous `chooseMove` API remains
 available for offline experiments.
 
+## AI level 3
+
+`BudgetedSearchAgent.level3()` searches up to eight plies. It considers all
+unique successors for the first move and the opponent’s reply. At each
+subsequent node it searches the eight best candidates for the player to move,
+using the terminal-aware evaluation to order them. Each decision has a hard
+ceiling of 100,000 generated successors across all depth iterations. Only a
+completed iteration can supply the chosen move. The app uses the usual
+row-major tie break and runs the search in cancellable slices.
+
+F2B8 led D3 by 10 wins to 3 and F1B4 by 10 wins to 7 in the
+[three-way round robin](experiments/budgeted-search-three-way-20k-results.md).
+The tournament used seeded tie breaks, elimination rules and a 20,000-ply
+reporting cap. Local games use the victory condition chosen at setup.
+
 ## Product configuration
 
 Local setup supports human vs human, player vs AI with either human color, and
 AI vs AI. Player vs AI has one level selector. AI vs AI has independent Black
-and White selectors for all three levels in either color order. The UI displays
+and White selectors for all four levels in either color order. The UI displays
 only opaque level names, never strategy or search-depth explanations.
 
 - In player vs AI, the AI responds exactly once after a confirmed human move.
@@ -99,8 +115,8 @@ only opaque level names, never strategy or search-depth explanations.
 
 ## Persistence and compatibility
 
-Each color's persisted participant type is `human`, `aiLevel1`, `aiLevel2`, or
-`aiLevel29`.
+Each color's persisted participant type is `human`, `aiLevel1`, `aiLevel2`,
+`aiLevel29`, or `aiLevel3`.
 Saved participant type `ai` from the previous release maps to `aiLevel1`.
 Obsolete strategy percentages in an old save are ignored and are not written
 back. Saves that predate participant fields still load as human vs human.
@@ -132,5 +148,4 @@ from deepest actually visited ply, including unfinished search iterations.
 
 The [study protocol](experiments/budgeted-search-protocol.md) specifies the
 candidate profiles, common work ceiling, screening and fresh-seed confirmation.
-This research does not change the app's level names or automatically graduate
-an experimental policy to AI level 3.
+The three-way round robin informed the choice of F2B8 for level 3.

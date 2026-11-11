@@ -26,7 +26,8 @@
   and AI vs AI. AI level 1 maximizes cell advantage after one move; AI level 2
   maximizes the worst-case cell advantage after every legal opponent reply.
 - Player vs AI has one level selector. AI vs AI supports independent levels
-  for Black and White.
+  for Black and White. Either color can use AI level 3 (F2B8), and saved
+  games retain the selected level when reopened.
 - A single AI opponent responds exactly once after a human move. An AI playing
   Black makes exactly one opening move when a match starts or restarts.
 - AI-vs-AI games never advance automatically. The board is read-only and each

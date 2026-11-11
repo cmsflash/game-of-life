@@ -89,6 +89,48 @@ void main() {
       expect(fixture.current.game.toMove, engine.Player.black);
     });
 
+    test('Level 3 plays the F2B8 opening and reply across a reload', () async {
+      final fixture = await _Fixture.create(
+        config: const LocalGameConfig(
+          blackParticipant: LocalParticipantType.aiLevel3,
+          whiteParticipant: LocalParticipantType.aiLevel3,
+        ),
+      );
+      expect(fixture.current.game.ply, 0);
+      expect(await fixture.controller.advanceAi(fixture.id), isTrue);
+      expect(fixture.current.lastMove, const engine.Coordinate(7, 11));
+
+      final restored = LocalGamesController(fixture.store);
+      await restored.load();
+      final reopened = restored.state.gameById(fixture.id)!;
+      expect(reopened.config.blackParticipant, LocalParticipantType.aiLevel3);
+      expect(reopened.config.whiteParticipant, LocalParticipantType.aiLevel3);
+      expect(reopened.game.stateHash, fixture.current.game.stateHash);
+      expect(await restored.advanceAi(fixture.id), isTrue);
+      expect(
+        fixture.store.games.single.lastMove,
+        const engine.Coordinate(8, 9),
+      );
+      expect(fixture.store.games.single.game.ply, 2);
+    });
+
+    test('restarting during a Level 3 search discards its move', () async {
+      final fixture = await _Fixture.create(
+        config: const LocalGameConfig(
+          blackParticipant: LocalParticipantType.aiLevel3,
+          whiteParticipant: LocalParticipantType.aiLevel1,
+        ),
+      );
+      final writesBefore = fixture.store.writeCount;
+      final step = fixture.controller.advanceAi(fixture.id);
+      await Future<void>.delayed(Duration.zero);
+      final restart = fixture.controller.restart(fixture.id);
+      expect(await step, isFalse);
+      expect(await restart, isTrue);
+      expect(fixture.store.games.single.game.ply, 0);
+      expect(fixture.store.writeCount, writesBefore + 1);
+    });
+
     test('player vs AI automatically answers a committed human move', () async {
       final fixture = await _Fixture.create(
         config: const LocalGameConfig(

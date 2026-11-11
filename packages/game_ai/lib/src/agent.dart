@@ -13,3 +13,11 @@ abstract interface class AgentDecision {
 
   Map<String, Object?> toJson();
 }
+
+/// A cancelled search must never commit a partially computed move.
+final class SearchCancelledException implements Exception {
+  const SearchCancelledException();
+
+  @override
+  String toString() => 'AI search cancelled';
+}

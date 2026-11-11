@@ -498,24 +498,35 @@ class _AiLevelPicker extends StatelessWidget {
         const SizedBox(width: 12),
       ],
       Expanded(
-        child: SegmentedButton<LocalParticipantType>(
-          key: pickerKey,
-          segments: const [
-            ButtonSegment(
-              value: LocalParticipantType.aiLevel1,
-              label: Text('AI level 1'),
-            ),
-            ButtonSegment(
-              value: LocalParticipantType.aiLevel2,
-              label: Text('AI level 2'),
-            ),
-            ButtonSegment(
-              value: LocalParticipantType.aiLevel29,
-              label: Text('AI level 2.9'),
-            ),
-          ],
-          selected: {selected},
-          onSelectionChanged: (selection) => onChanged(selection.first),
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final levels = LocalParticipantType.values.where(
+              (type) => type.isAi,
+            );
+            if (constraints.maxWidth < 480) {
+              return DropdownButton<LocalParticipantType>(
+                key: pickerKey,
+                isExpanded: true,
+                value: selected,
+                items: [
+                  for (final level in levels)
+                    DropdownMenuItem(value: level, child: Text(level.label)),
+                ],
+                onChanged: (value) {
+                  if (value != null) onChanged(value);
+                },
+              );
+            }
+            return SegmentedButton<LocalParticipantType>(
+              key: pickerKey,
+              segments: [
+                for (final level in levels)
+                  ButtonSegment(value: level, label: Text(level.label)),
+              ],
+              selected: {selected},
+              onSelectionChanged: (selection) => onChanged(selection.first),
+            );
+          },
         ),
       ),
     ],

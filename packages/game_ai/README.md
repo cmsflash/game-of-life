@@ -1,6 +1,6 @@
 # game_ai
 
-Local AI levels 1, 2 and experimental 2.9 for Life Duel. This package imports
+Local AI levels 1, 2, 3 and experimental 2.9 for Life Duel. This package imports
 `game_engine` directly and has no Flutter, network or persistence dependency,
 so it can also be used for headless offline experiments.
 
@@ -44,13 +44,21 @@ Use synchronous `chooseMove` in headless runners, or
 `await agent.chooseMoveAsync(state, isCancelled: () => cancelled)` for a
 responsive UI including web. Cancellation throws `SearchCancelledException`.
 Decisions expose completed/attempted depth, utility, work and latency counters.
-The product name stays **AI level 2.9** until separately evaluated and promoted.
+The app exposes this policy as **AI level 2.9**.
 
 ```bash
 dart run bin/search_benchmark.dart
 ```
 
 This runs a bounded move benchmark on four positions, not a tournament.
+
+## AI level 3
+
+`const BudgetedSearchAgent.level3()` selects the F2B8 policy. It searches the
+first two plies at full width, then retains eight candidates per node. The
+maximum depth is eight plies and the budget is 100,000 generated successors
+per move. Use `chooseMove` for headless play or `chooseMoveAsync` for a
+cancellable UI search. An optional `tieBreakSeed` reproduces seeded trials.
 
 ## Headless matches
 
